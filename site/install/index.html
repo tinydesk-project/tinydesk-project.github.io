@@ -86,8 +86,8 @@
       <h1>Install TinyDesk</h1>
       <p>A mouse-operated ESP32 desktop, displayed in a compatible terminal. Flash a board from Chrome or Edge,
         or download it for your PC. <a href="../#/">Documentation</a> ·
-        <a href="https://github.com/schikani/tinydesk">Source on GitHub</a> ·
-        <a href="https://github.com/schikani/tinydesk/releases">Releases</a></p>
+        <a href="https://github.com/tinydesk-project/tinydesk">Source on GitHub</a> ·
+        <a href="https://github.com/tinydesk-project/tinydesk/releases">Releases</a></p>
     </div>
   </header>
   <main>
@@ -329,7 +329,7 @@ Hello root, from TinyDesk Shell on esp32.</pre>
             '<p>Its files live in <code>%LOCALAPPDATA%\\tdsh\\rootfs</code>, apart from your real files; you are your Windows user. ' +
             'TinyDesk Desktop for Windows has the same shell in its Terminal window.</p>',
           other: '<p>Build the shell’s POSIX port from source (CMake and a C11 compiler):</p>' +
-            code(['git clone https://github.com/schikani/tinydesk-shell.git', 'cd tinydesk-shell',
+            code(['git clone https://github.com/tinydesk-project/tinydesk-shell.git', 'cd tinydesk-shell',
                   'cmake -S . -B build -DTDSH_BUILD_HOST=ON && cmake --build build', './build/tdsh_host'])
         }
       };

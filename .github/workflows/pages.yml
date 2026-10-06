@@ -23,7 +23,7 @@ on:
         required: false
         default: ""
   # Sent by the tinydesk repository after a release, if you set that up:
-  # POST /repos/<owner>/tinydesk-docs/dispatches {"event_type": "tinydesk-release", "client_payload": {"tag": "v0.1.0"}}
+  # POST /repos/tinydesk-project/tinydesk-project.github.io/dispatches {"event_type": "tinydesk-release", "client_payload": {"tag": "v0.1.0"}}
   repository_dispatch:
     types: [tinydesk-release]
 
@@ -37,7 +37,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  RELEASE_REPO: schikani/tinydesk
+  RELEASE_REPO: tinydesk-project/tinydesk
 
 jobs:
   build:

@@ -36,7 +36,7 @@ boards.
 Links that leave the Docsify pages (the installer, the web terminal, media
 files) are plain HTML links relative to the site root, such as
 `<a href="install/index.html">`, so the site works both at a domain root
-and under a GitHub project path (`/tinydesk-docs/`).
+and under a GitHub project path (`/<repository>/`).
 
 ## 1. Preview on your PC
 
@@ -59,8 +59,8 @@ From a GitHub release (the `tinydesk` repository's release workflow makes
 a draft prerelease for every `v*` tag, after CI succeeds):
 
 ```bash
-python tools/fetch_release.py --repo schikani/tinydesk            # the newest published release
-python tools/fetch_release.py --repo schikani/tinydesk --tag v0.1.0
+python tools/fetch_release.py --repo tinydesk-project/tinydesk            # the newest published release
+python tools/fetch_release.py --repo tinydesk-project/tinydesk --tag v0.1.0
 ```
 
 Or from a release built on your PC (in the `tinydesk` repository, after
@@ -85,7 +85,10 @@ images.
 2. Push to `main`, or run Actions → *GitHub Pages* → **Run workflow**. The
    workflow checks the links, copies the latest published TinyDesk release
    into `site/install/` (with `fetch_release.py`) and deploys `site/`.
-3. The site is at `https://<owner>.github.io/tinydesk-docs/`.
+3. The site is at `https://tinydesk-project.github.io/`: an organization
+   site, so the repository is named `tinydesk-project.github.io`. (In a
+   repository with another name it would be at
+   `https://<owner>.github.io/<repository>/`.)
 
 After publishing a TinyDesk release, run the workflow again. It takes the
 newest published release, pre-releases included; to pin one (for example
@@ -157,7 +160,7 @@ mirrors the folder (files removed locally are removed on the server);
 
 * `tinydesk.example.com` in `deploy/` is an example domain for your own
   server, not a running service.
-* The installer points to `schikani/tinydesk` for release assets
+* The installer points to `tinydesk-project/tinydesk` for release assets
   (`site/release-config.js`; the Pages workflow's `RELEASE_REPO`).
 * Release firmware and PC archives stay out of git. The Pages workflow and
   `tools/fetch_release.py` check them against the release's

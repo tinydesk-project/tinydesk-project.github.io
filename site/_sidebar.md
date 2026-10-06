@@ -34,9 +34,9 @@
 - [Tools](/tools.md)
 - [Changelog](/changelog.md)
 - Source code
-  - [tinydesk: desktop and firmware](https://github.com/schikani/tinydesk)
-  - [tinydesk-shell: TinyDesk Shell](https://github.com/schikani/tinydesk-shell)
-  - [tinydesk-docs: this site](https://github.com/schikani/tinydesk-docs)
-  - [Releases (downloads)](https://github.com/schikani/tinydesk/releases)
+  - [tinydesk: desktop and firmware](https://github.com/tinydesk-project/tinydesk)
+  - [tinydesk-shell: TinyDesk Shell](https://github.com/tinydesk-project/tinydesk-shell)
+  - [tinydesk-project.github.io: this site](https://github.com/tinydesk-project/tinydesk-project.github.io)
+  - [Releases (downloads)](https://github.com/tinydesk-project/tinydesk/releases)
 - [Contributing and repositories](/contributing.md)
 - [Maintaining these docs](/maintaining.md)

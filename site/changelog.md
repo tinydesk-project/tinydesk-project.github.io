@@ -38,14 +38,14 @@ TinyDesk 0.1.4, with TinyDesk Shell 0.1.4.
   `pre-commit install`), and tinydesk-shell has a `CONTRIBUTING.md`.
 * **Editor:** a file keeps its name when it is saved. On Linux the
   name was lost after the first Ctrl+S, so the next one asked for a
-  name again ([#2](https://github.com/schikani/tinydesk/pull/2)).
+  name again ([#2](https://github.com/tinydesk-project/tinydesk/pull/2)).
 * **`mqtt status`** says `TLS handshake` while a TLS connection is being
   set up; it said `not connected`
-  ([#1](https://github.com/schikani/tinydesk/pull/1)).
+  ([#1](https://github.com/tinydesk-project/tinydesk/pull/1)).
 * **Tests:** `test_widgets` (text boxes, lists, scrollbars, checkboxes,
   buttons, focus, message and input boxes) and `test_editor` (undo and
   redo, cut, copy and paste, closing with unsaved changes)
-  ([#2](https://github.com/schikani/tinydesk/pull/2)).
+  ([#2](https://github.com/tinydesk-project/tinydesk/pull/2)).
 * **Source layout:** the ESP code shared by the three ESP-IDF projects
   moved out of `ports/esp32c6` into `ports/esp_idf` (the application in
   `app/`, the TinyDesk component in `components/tinydesk/`); the board

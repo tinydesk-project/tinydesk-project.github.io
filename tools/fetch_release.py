@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """fetch_release.py - put a TinyDesk release into the site's web installer.
 
-    python tools/fetch_release.py --repo schikani/tinydesk            # the newest published release
-    python tools/fetch_release.py --repo schikani/tinydesk --tag v0.1.0
+    python tools/fetch_release.py --repo tinydesk-project/tinydesk            # the newest published release
+    python tools/fetch_release.py --repo tinydesk-project/tinydesk --tag v0.1.0
     python tools/fetch_release.py --from ../tinydesk/dist/tinydesk-0.1.0   # a local make_release.py output
 
 It downloads (or copies) the release files, checks them against
@@ -220,7 +220,7 @@ def stamp_versions(folder, site):
 def main():
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     src = ap.add_mutually_exclusive_group(required=True)
-    src.add_argument("--repo", help="GitHub repository, e.g. schikani/tinydesk")
+    src.add_argument("--repo", help="GitHub repository, e.g. tinydesk-project/tinydesk")
     src.add_argument("--from", dest="local", help="a folder made by make_release.py (dist/tinydesk-<version>)")
     ap.add_argument("--tag", help="release tag (default: the newest published release, pre-releases included)")
     ap.add_argument("--site", default=SITE, help="the site folder (default: ../site)")

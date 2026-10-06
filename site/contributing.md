@@ -4,9 +4,9 @@
 
 | Repository | Content | Licence |
 | --- | --- | --- |
-| [`tinydesk`](https://github.com/schikani/tinydesk) | the desktop core (`src/`, `include/`), apps, protocols, the ESP-IDF and host ports, tools | MIT |
-| [`tinydesk-shell`](https://github.com/schikani/tinydesk-shell) | TinyDesk Shell (`tdsh`): the portable shell core, its ESP-IDF services (Wi-Fi, Ethernet, SSH, FTP, SMB, users, board configuration) and its POSIX host port | MIT; third-party parts (wolfSSH GPLv3, ...) keep their licences |
-| [`tinydesk-docs`](https://github.com/schikani/tinydesk-docs) | these pages, the web installer and the web terminal (plain static files, published with GitHub Pages) | MIT; the scripts and styles it loads from CDNs (Docsify, xterm.js, ESP Web Tools) keep their licences |
+| [`tinydesk`](https://github.com/tinydesk-project/tinydesk) | the desktop core (`src/`, `include/`), apps, protocols, the ESP-IDF and host ports, tools | MIT |
+| [`tinydesk-shell`](https://github.com/tinydesk-project/tinydesk-shell) | TinyDesk Shell (`tdsh`): the portable shell core, its ESP-IDF services (Wi-Fi, Ethernet, SSH, FTP, SMB, users, board configuration) and its POSIX host port | MIT; third-party parts (wolfSSH GPLv3, ...) keep their licences |
+| [`tinydesk-project.github.io`](https://github.com/tinydesk-project/tinydesk-project.github.io) | these pages, the web installer and the web terminal (plain static files, published with GitHub Pages) | MIT; the scripts and styles it loads from CDNs (Docsify, xterm.js, ESP Web Tools) keep their licences |
 
 `tinydesk` includes the shell as a **git submodule** at `third_party/tdsh`:
 a pointer to one exact commit of `tinydesk-shell`. The ports use it as
@@ -20,7 +20,7 @@ builds the host port and tests on Linux).
 ## Getting the code
 
 ```bash
-git clone --recursive https://github.com/schikani/tinydesk.git
+git clone --recursive https://github.com/tinydesk-project/tinydesk.git
 ```
 
 After a `git pull` that moved the submodule:
@@ -65,7 +65,7 @@ The shell's changes are listed in its own `CHANGELOG.md`.
 
 GitHub Actions runs the host build, the tests and both firmware builds on
 every push and pull request. For changes to the shell alone, tinydesk-shell
-has its own [CONTRIBUTING.md](https://github.com/schikani/tinydesk-shell/blob/main/CONTRIBUTING.md).
+has its own [CONTRIBUTING.md](https://github.com/tinydesk-project/tinydesk-shell/blob/main/CONTRIBUTING.md).
 
 ## Rules that keep the project portable
 

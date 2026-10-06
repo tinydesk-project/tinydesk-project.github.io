@@ -16,7 +16,7 @@ in two editions:
 | Shell features | all of them, except the SSH server on the 4 MB ESP32 | all of them: users, files, `.tdsh` scripts, Wi-Fi, Ethernet, SSH/SFTP, FTP, SMB, `board`, `hwtest` |
 | Terminal | a VT terminal with mouse support (PuTTY, Windows Terminal, ...) | any serial terminal |
 | Resources | more flash and RAM: on the classic ESP32, PSRAM gives large screens, SSH and OTA updates; without PSRAM (4 MB) the screen is at most 80x25, with no SSH server and no OTA | less; runs on more boards |
-| Repository | [`tinydesk`](https://github.com/schikani/tinydesk) | [`tinydesk-shell`](https://github.com/schikani/tinydesk-shell) |
+| Repository | [`tinydesk`](https://github.com/tinydesk-project/tinydesk) | [`tinydesk-shell`](https://github.com/tinydesk-project/tinydesk-shell) |
 
 ## Platforms
 
@@ -86,7 +86,7 @@ without erasing (as with the web installer). Compare the files with
 ## Linux and Windows
 
 Download the archive for your edition from the
-[releases page](https://github.com/schikani/tinydesk/releases),
+[releases page](https://github.com/tinydesk-project/tinydesk/releases),
 unpack it and start the program from a terminal:
 
 <!-- tabs:start -->

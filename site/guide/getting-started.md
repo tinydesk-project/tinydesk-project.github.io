@@ -15,11 +15,11 @@ the [prebuilt firmware](install.md) instead. The terminal side
 
 ## Get the source
 
-The shell, [TinyDesk Shell](https://github.com/schikani/tinydesk-shell),
+The shell, [TinyDesk Shell](https://github.com/tinydesk-project/tinydesk-shell),
 is a git submodule in `third_party/tdsh`, so clone with `--recursive`:
 
 ```bash
-git clone --recursive https://github.com/schikani/tinydesk.git
+git clone --recursive https://github.com/tinydesk-project/tinydesk.git
 cd tinydesk
 git submodule update --init      # only if you cloned without --recursive
 ```

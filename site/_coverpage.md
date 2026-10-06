@@ -5,7 +5,7 @@
 <p class="cover-cta">
   <a class="primary" href="install/">Install / Download</a>
   <a href="#/guide/getting-started">Build from source</a>
-  <a href="https://github.com/schikani/tinydesk">GitHub</a>
+  <a href="https://github.com/tinydesk-project/tinydesk">GitHub</a>
 </p>
 
 <div class="cover-shots">

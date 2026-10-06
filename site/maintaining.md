@@ -70,6 +70,13 @@ TinyDesk Shell have their own version numbers (both started at 0.1.0).
 5. Here: add the `changelog.md` entry, set the version in `_coverpage.md`,
    push, and run the *GitHub Pages* workflow: it puts the newest published
    `tinydesk` release into the installer.
+   Boards running 0.1.3 or 0.1.4 look for updates at the old address,
+   `https://schikani.github.io/tinydesk-docs/install/`, served by the
+   repository `schikani/tinydesk-docs`. Run its *GitHub Pages* workflow too
+   after every release (it takes the release from `tinydesk-project/tinydesk`),
+   so those boards are told about it. Never delete or rename that repository,
+   or create `tinydesk` or `tinydesk-shell` under `schikani` (that breaks
+   GitHub's redirects to `tinydesk-project`).
 
 ## Generated reference (optional)
 

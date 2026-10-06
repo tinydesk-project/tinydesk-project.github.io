@@ -412,7 +412,7 @@ The flash has two app slots, `ota_0` and `ota_1` (see [partition tables](config-
 ### ota official, ota notify
 
 `ota official` reads the update feed of the official releases, next to the
-web installer (`https://schikani.github.io/tinydesk-docs/install/update-desktop-<board>.json`,
+web installer (`https://tinydesk-project.github.io/install/update-desktop-<board>.json`,
 `<board>` `esp32c6` or `esp32`), and prints the newest release and the URL
 of its app image; `ota install <that URL>` installs it:
 
@@ -420,9 +420,9 @@ of its app image; `ota install <that URL>` installs it:
 # ota official
 TinyDesk 0.1.4 is available (installed: 0.1.3). Install it?
 Newest:    TinyDesk 0.1.4 of 2026-10-02, 1864 KB
-Image:     https://schikani.github.io/tinydesk-docs/install/firmware/tinydesk-desktop-0.1.4-esp32c6-app.bin
-Notes:     https://github.com/schikani/tinydesk/releases/tag/v0.1.4
-Install:   ota install https://schikani.github.io/tinydesk-docs/install/firmware/tinydesk-desktop-0.1.4-esp32c6-app.bin
+Image:     https://tinydesk-project.github.io/install/firmware/tinydesk-desktop-0.1.4-esp32c6-app.bin
+Notes:     https://github.com/tinydesk-project/tinydesk/releases/tag/v0.1.4
+Install:   ota install https://tinydesk-project.github.io/install/firmware/tinydesk-desktop-0.1.4-esp32c6-app.bin
 ```
 
 Other answers: `TinyDesk 0.1.3, the newest release, is installed.`, `No
