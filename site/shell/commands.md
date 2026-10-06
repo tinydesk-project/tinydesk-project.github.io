@@ -21,7 +21,7 @@ Examples use `$` as the prompt of any user and `#` for root.
 | `hwtest` | TinyDesk Shell | ESP32-C6, ESP32 (pins from the board configuration) | root |
 | `lan` | TinyDesk Shell | ESP32-C6, ESP32 (only with `eth.chip = w6100`) | as in TinyDesk Shell |
 | `networks`, `wifiadd`, `wifiremove`, `wificonnect` | TinyDesk Shell | ESP32-C6, ESP32 | any user, with per-user networks |
-| `network autowifi` | TinyDesk Shell (unchanged) | ESP32-C6, ESP32 | any user |
+| `network` | TinyDesk Shell | ESP32-C6, ESP32 | showing: any user; changing `mode` or `autowifi`: root |
 
 Exit status, as the code returns it: 0 success, 1 failure, 2 usage error.
 
@@ -755,7 +755,7 @@ Errors: `Network 'X' not found in database.`, `No saved networks. Use 'wifiadd <
 
 ### network autowifi
 
-This part of `network` is plain TinyDesk Shell, listed here because it decides whether Wi-Fi connects at boot without `wificonnect` in the boot script.
+This part of `network` is listed here because it decides whether Wi-Fi connects at boot without `wificonnect` in the boot script.
 
 ```
 network [status] | network mode [auto|lan|wifi|both] | network autowifi [on|off]
@@ -771,4 +771,4 @@ Wi-Fi auto-connect set to off.
 Existing Wi-Fi connection is unchanged; future automatic reconnects are suppressed.
 ```
 
-A wrong value prints `usage: network autowifi <on|off>`. The setting is stored in NVS (`ush_net` / `wifi_auto`, default off). Any user may change it.
+A wrong value prints `usage: network autowifi <on|off>`. The setting is stored in NVS (`ush_net` / `wifi_auto`, default off). Any user may show it; only root may change it, as `network mode` (others get `network: permission denied: root required`, exit status 1).

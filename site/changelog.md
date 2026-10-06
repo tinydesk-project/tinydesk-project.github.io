@@ -16,6 +16,8 @@ API may still change between minor versions.
   one. Should the site move again, boards from this release on follow.
 * **Board configuration numbers** are decimal or `0x` hexadecimal; a
   leading zero no longer means octal (TinyDesk Shell).
+* **Only root changes the network policy:** `network mode` and
+  `network autowifi` with a value now need root (TinyDesk Shell).
 * **New addresses:** the code is at github.com/tinydesk-project and the
   documentation at https://tinydesk-project.github.io/. Boards from this
   release on check that site for updates.

@@ -281,8 +281,8 @@ Keys in the ESP32's `nvs` partition used by TinyDesk and TinyDesk Shell:
 | `tdsh_ssh` | `hostkey` | blob, up to 160 bytes | TinyDesk Shell patch (`tdsh_ssh.c`) | This device's SSH host key: ECDSA P-256, DER (SEC1 with the public key, 121 bytes). Made on the first `ssh start`; deleted by `ssh hostkey new`. |
 | `ush_wifi` | `db` | blob | TinyDesk Shell (`tdsh_wifi.c`) | Saved Wi-Fi networks, version 2: magic `0x55535746`, version `2`, count, then 12 entries of `used`, SSID (33 bytes), password (65 bytes) and owner (32 bytes; empty = shared). A version 1 blob (no owners) is converted on first load. |
 | `ush_time` | `auto` | u8 | TinyDesk Shell patch (`tdsh_time.c`) | Automatic (SNTP) time: `1` on (default when missing), `0` off. |
-| `ush_net` | `wifi_auto` | u8 | TinyDesk Shell (unchanged) | `network autowifi`: `0` off (default), `1` on. |
-| `ush_net` | `mode` | u8 | TinyDesk Shell (unchanged) | `network mode`: auto, lan, wifi or both. |
+| `ush_net` | `wifi_auto` | u8 | TinyDesk Shell | `network autowifi`: `0` off (default), `1` on. |
+| `ush_net` | `mode` | u8 | TinyDesk Shell | `network mode`: auto, lan, wifi or both. |
 
 TinyDesk Shell keeps its user database and boot user in namespace `ush_users`; TinyDesk does not change those.
 
