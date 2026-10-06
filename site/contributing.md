@@ -63,6 +63,10 @@ The shell's changes are listed in its own `CHANGELOG.md`.
 | Classic ESP32 firmware | `cd ports/esp32 && idf.py build` |
 | Docs | update the pages listed in [Maintaining these docs](maintaining.md) and the [changelog](changelog.md) |
 
+Names, code style, commands, board keys, device paths and release files
+follow the [standards](https://github.com/tinydesk-project/tinydesk-shell/blob/main/STANDARDS.md),
+also for community ports.
+
 GitHub Actions runs the host build, the tests and both firmware builds on
 every push and pull request. For changes to the shell alone, tinydesk-shell
 has its own [CONTRIBUTING.md](https://github.com/tinydesk-project/tinydesk-shell/blob/main/CONTRIBUTING.md).
