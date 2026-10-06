@@ -7,7 +7,9 @@ that reaches users or changes an API (see [Maintaining these docs](maintaining.m
 Versions follow [Semantic Versioning](https://semver.org/): until 1.0.0 the
 API may still change between minor versions.
 
-## Unreleased
+## 0.1.5 (2026-10-06)
+
+TinyDesk 0.1.5, with TinyDesk Shell 0.1.5.
 
 * **Update information can move:** an update feed may name its new
   address (`moved`); the board keeps it and reads the update information
