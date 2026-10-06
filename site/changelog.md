@@ -7,6 +7,19 @@ that reaches users or changes an API (see [Maintaining these docs](maintaining.m
 Versions follow [Semantic Versioning](https://semver.org/): until 1.0.0 the
 API may still change between minor versions.
 
+## Unreleased
+
+* **Update information can move:** an update feed may name its new
+  address (`moved`); the board keeps it and reads the update information
+  there from then on (HTTPS only; `update.url` still comes first).
+  `ota feed` shows the address in use, `ota feed reset` forgets a moved
+  one. Should the site move again, boards from this release on follow.
+* **Board configuration numbers** are decimal or `0x` hexadecimal; a
+  leading zero no longer means octal (TinyDesk Shell).
+* **New addresses:** the code is at github.com/tinydesk-project and the
+  documentation at https://tinydesk-project.github.io/. Boards from this
+  release on check that site for updates.
+
 ## 0.1.4 (2026-10-05)
 
 TinyDesk 0.1.4, with TinyDesk Shell 0.1.4.

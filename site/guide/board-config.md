@@ -181,7 +181,7 @@ key from `/etc/board.conf`) to take effect.
 
 | Key | Default | Meaning |
 | --- | --- | --- |
-| `update.url` | the official feed | The update feed *Check for official updates* and the daily check read (`http://` or `https://`, a full URL to an `update-desktop-<board>.json`), for example your own server. |
+| `update.url` | the official feed | The update feed *Check for official updates* and the daily check read (`http://` or `https://`, a full URL to an `update-desktop-<board>.json`), for example your own server. It takes precedence over a `moved` address in the update information (`ota feed`). |
 
 ### Console (classic ESP32 only)
 

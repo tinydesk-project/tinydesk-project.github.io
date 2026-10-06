@@ -398,6 +398,8 @@ usage:
   ota status                    installed version, slots, last result
   ota official                  look up the newest official release
   ota notify [on|off]           daily check and notice (on: tell again)
+  ota feed [reset]              where the update information is read (reset:
+                                forget an address it moved to)
   ota check <url|file>          show the version of an update
   ota install [-f] <url|file>   install it (then: ota restart); -f: even with
                                 board settings that only this firmware has
@@ -429,6 +431,19 @@ Other answers: `TinyDesk 0.1.3, the newest release, is installed.`, `No
 update information for this board on the server (404).`, `Cannot reach the
 update server: <esp error>`. The board key `update.url` (a full feed URL)
 reads another feed instead, for example your own server.
+
+When the update information moves, the old feed can say so with a `moved`
+address: the board keeps it (NVS `td_update`, key `feed`) and reads the
+update information there from then on. It follows a move only from a feed
+read over HTTPS to another HTTPS address, and never while `update.url` is
+set. `ota feed` shows the address in use and why; `ota feed reset` forgets
+a moved address:
+
+```
+# ota feed
+Update information: https://tinydesk-project.github.io/install/update-desktop-esp32c6.json
+(built in)
+```
 
 `ota notify` shows whether the daily check is on (the default); `ota notify
 off` turns it off, `ota notify on` turns it on and forgets which version you

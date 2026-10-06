@@ -405,7 +405,7 @@ Board settings (optional, `NULL`: none):
 
 When both are set and `unsaved_settings()` is above 0, Software Update asks before *Install*: *Save and install*, *Install anyway* or *Cancel*. The ESP port uses `tdsh_board_unsaved()` and `tdsh_board_save_builtin()` (`board save`).
 
-The ESP port reads `update-desktop-<board>.json` from the web installer's site (or the board key `update.url`), keeps the setting in NVS (`td_update`) and resolves the feed's `image` relative to the feed. Software Update checks 2 minutes after start-up and then every 24 hours (every 30 minutes while checks fail).
+The ESP port reads `update-desktop-<board>.json` from the web installer's site (or the board key `update.url`, or an address a feed moved it to with `moved`), keeps the setting in NVS (`td_update`) and resolves the feed's `image` relative to the feed. Software Update checks 2 minutes after start-up and then every 24 hours (every 30 minutes while checks fail).
 
 When `ota` is set, the first six members must be set; the app calls them without checking. The app only lets root start, cancel or roll back; everyone can look.
 
