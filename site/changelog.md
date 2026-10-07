@@ -7,6 +7,14 @@ that reaches users or changes an API (see [Maintaining these docs](maintaining.m
 Versions follow [Semantic Versioning](https://semver.org/): until 1.0.0 the
 API may still change between minor versions.
 
+## Unreleased
+
+* **TinyDesk Shell:** ports can set the script memory limits
+  (`TDSH_MAX_VARS`, `TDSH_VAR_NAME_MAX`, `TDSH_VAR_VALUE_MAX`,
+  `TDSH_SCRIPT_TASK_STACK`) from the build; TinyDesk keeps the defaults.
+  Every component that includes `tdsh.h` must use the same values
+  (tinydesk-shell #4).
+
 ## 0.1.5 (2026-10-06)
 
 TinyDesk 0.1.5, with TinyDesk Shell 0.1.5.
