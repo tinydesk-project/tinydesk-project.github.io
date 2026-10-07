@@ -9,6 +9,10 @@ API may still change between minor versions.
 
 ## Unreleased
 
+* **Editor:** a build can set the number of undo records,
+  `TD_EDITOR_UNDO_OPS` (128 by default, 20 bytes each), like the text
+  buffer (`TD_EDITOR_MAX`) and the undo text (`TD_EDITOR_UNDO`), to fit
+  the Editor into boards with less RAM (tinydesk #6).
 * **TinyDesk Shell:** ports can set the script memory limits
   (`TDSH_MAX_VARS`, `TDSH_VAR_NAME_MAX`, `TDSH_VAR_VALUE_MAX`,
   `TDSH_SCRIPT_TASK_STACK`) from the build; TinyDesk keeps the defaults.

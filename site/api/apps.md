@@ -70,7 +70,7 @@ void weather_register(void) { td_app_register(&s_app); }
 |---|---|---|---|
 | Terminal | `>_` | `apps/terminal.c` | Runs the port's text program (normally TinyDesk Shell) through a `td_term_backend_t` with a VT100 emulator ([vterm.md](vterm.md)); scrollback with Shift+PgUp/PgDn and the wheel. The program keeps running while the window is closed. |
 | Files | `[]` | `apps/files.c` | Browses the port's filesystem: open files in the Editor, create files and folders, rename, delete, drag and drop. Non-root users stay inside their home. |
-| Editor | `¶_` | `apps/editor.c` | Text editor for one file at a time (`TD_EDITOR_MAX`, 16384 bytes, allocated while open; bigger files open read-only), with selection, undo/redo, the clipboard and Ctrl+S save. |
+| Editor | `¶_` | `apps/editor.c` | Text editor for one file at a time (`TD_EDITOR_MAX`, 16384 bytes, allocated while open; bigger files open read-only), with selection, undo/redo, the clipboard and Ctrl+S save. While open it also keeps the undo history: `TD_EDITOR_UNDO` bytes of text (6144) and `TD_EDITOR_UNDO_OPS` records of 20 bytes each (128), about 8.7 KB. A build can set all three, for example `-DTD_EDITOR_MAX=8192 -DTD_EDITOR_UNDO=2048 -DTD_EDITOR_UNDO_OPS=32`. |
 | Network | `((` | `apps/network.c` | Wi-Fi and Ethernet status, Wi-Fi scan / connect / forget, the Telnet remote-desktop switch and the SSH/SFTP and FTP servers, through `td_sysinfo()->net`. |
 | MQTT | `MQ` | `apps/mqtt.c` | Connects to a broker, subscribes, publishes and lists messages; shares the connection with the `mqtt` shell command ([mqtt.md](mqtt.md)). |
 | Modbus | `MB` | `apps/modbus.c` | Reads and writes coils and registers over Modbus TCP or RTU, optionally repeated, and switches the Modbus TCP server ([modbus.md](modbus.md)). |
