@@ -9,6 +9,10 @@ API may still change between minor versions.
 
 ## Unreleased
 
+* **nano with UTF-8 text** (TinyDesk Shell): the cursor, Backspace and
+  Delete work by character instead of by byte, so text such as `Привет`
+  or `日本語` is no longer cut into broken bytes; Up and Down keep the
+  column, and the column shown counts characters (tinydesk #4).
 * **Editor:** a build can set the number of undo records,
   `TD_EDITOR_UNDO_OPS` (128 by default, 20 bytes each), like the text
   buffer (`TD_EDITOR_MAX`) and the undo text (`TD_EDITOR_UNDO`), to fit
