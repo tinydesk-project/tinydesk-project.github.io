@@ -18,7 +18,7 @@ the system's task list) goes through one optional table,
    |
  td_hal_t       read_byte / write / millis / sleep_ms          td_sysinfo_t (optional)
    |                                                                |
- ports/         esp32c6, esp32 (ESP-IDF), windows, posix, common (host start-up, TinyDesk Shell bridges)
+ ports/         esp32c6, esp32s3, esp32 (ESP-IDF), windows, posix, common (host start-up, TinyDesk Shell bridges)
 ```
 
 The core never calls an operating-system or hardware API itself. It does
@@ -40,7 +40,7 @@ the ESP32-C6's RAM.
 5. Every second the terminal is asked for its size; a changed answer causes
    a full redraw ([Core](../api/core.md)).
 
-The loop then sleeps `TD_LOOP_SLEEP_MS` (5 ms) through `hal->sleep_ms`.
+After a frame the terminal is asked `ESC [ 5 n`, and the next frame waits for its answer, so a slow terminal never falls behind ([Frame pacing](../api/core.md#frame-pacing)). The loop then sleeps `TD_LOOP_SLEEP_MS` (5 ms) through `hal->sleep_ms`.
 
 ## Porting to a new platform
 
@@ -71,12 +71,12 @@ shell on a thread).
 | Path | Contents |
 | --- | --- |
 | `include/tinydesk/` | public core headers (`td.h` includes all of them except `td_vterm.h`) |
-| `src/` | core: `td.c` (loop), `screen.c`, `draw.c`, `render.c`, `utf8.c`, `input.c`, `event.c`, `timer.c`, `wm.c`, `widgets.c`, `theme.c`, `vterm.c` |
+| `src/` | core: `td.c` (loop), `screen.c`, `draw.c`, `render.c`, `canvas.c` (pixels), `utf8.c`, `input.c`, `event.c`, `timer.c`, `wm.c`, `widgets.c`, `theme.c`, `vterm.c` |
 | `apps/` | built-in apps and `td_apps.h` |
 | `proto/` | `td_sock`, `td_mqtt` (+ config file parser), `td_modbus`, `td_tls` |
 | `ports/common/` | host start-up, stdio file system, TinyDesk Shell host bridge, `mqtt`/`modbus` shell commands |
 | `ports/esp_idf/` | the ESP code shared by the ESP-IDF projects: the application (`app/`) and the TinyDesk component (`components/tinydesk/`) |
-| `ports/esp32c6/`, `ports/esp32/`, `ports/esp32-4mb/` | the ESP-IDF projects for the ESP32-C6, the ESP32 with PSRAM and the 4 MB ESP32: link, partitions, `sdkconfig.defaults` |
+| `ports/esp32c6/`, `ports/esp32s3/`, `ports/esp32/`, `ports/esp32-4mb/` | the ESP-IDF projects for the ESP32-C6, the ESP32-S3 with PSRAM, the ESP32 with PSRAM and the 4 MB ESP32: partitions, `sdkconfig.defaults`, the choice of link |
 | `ports/windows/`, `ports/posix/` | desktop `main.c` and console HALs |
 | `third_party/tdsh/` | TinyDesk Shell, the git submodule (repository `tinydesk-shell`) |
 | `tests/`, `tools/` | unit tests (ctest), [tools](../tools.md) |

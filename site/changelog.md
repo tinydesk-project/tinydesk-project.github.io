@@ -9,6 +9,31 @@ API may still change between minor versions.
 
 ## Unreleased
 
+* **Pixel canvas:** apps can draw pixels (`td_canvas.h`): each cell
+  shows two, as an upper half block with two colours, so it works in
+  every terminal TinyDesk runs in and only changed cells are sent. On
+  boards with PSRAM the pixels are kept there
+  (`td_canvas_set_allocator()`). See [Pixel canvas](api/canvas.md).
+* **Pixels** app: an animated plasma and the palette with pictures per
+  second, to see what a terminal link can show (up to 24 full-screen
+  pictures a second at 80x25 on the ESP32-S3).
+* **No lag in slow terminals (frame pacing):** after each frame the
+  terminal is asked `ESC[5n`, and the next frame waits for its answer, so
+  a terminal that draws slowly (PuTTY) never builds up a backlog; a key
+  in PuTTY during an animation showed after 0.1 s instead of 2-5 s
+  (`TD_ACK_TIMEOUT_MS`, `TD_EV_ACK`).
+* **No flicker after dropped frames:** frames a slow terminal could not
+  take are sent again over the picture it shows, without clearing the
+  screen; only a terminal that took nothing for 3 s (`TD_LINK_LOST_MS`)
+  is set up again and cleared. On the ESP32-C6 a write waits up to
+  150 ms (was 20 ms), so a slow terminal paces the board instead of
+  losing frames.
+* **New port: ESP32-S3 with PSRAM** (`ports/esp32s3`): the desktop on the
+  chip's built-in USB port (the ESP32-C6's link, now shared as
+  `ports/esp_idf/app/link_usj.c`), octal PSRAM, 16 MB flash with two
+  update slots, screen up to 256x96. Tested on an ESP32-S3R8. No official
+  release images yet. About names the chip ("ESP32-S3"), and the UI
+  task gets the larger stack on every Xtensa chip.
 * **nano with UTF-8 text** (TinyDesk Shell): the cursor, Backspace and
   Delete work by character instead of by byte, so text such as `Привет`
   or `日本語` is no longer cut into broken bytes; Up and Down keep the

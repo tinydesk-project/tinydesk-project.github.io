@@ -10,7 +10,7 @@ Everything on this page must be called from the UI task. The queue, the timer po
 ## Events
 
 ```c
-typedef enum { TD_EV_KEY, TD_EV_MOUSE, TD_EV_RESIZE, TD_EV_TICK, TD_EV_PASTE } td_ev_type_t;
+typedef enum { TD_EV_KEY, TD_EV_MOUSE, TD_EV_RESIZE, TD_EV_TICK, TD_EV_PASTE, TD_EV_ACK } td_ev_type_t;
 
 typedef struct {
     td_ev_type_t type;
@@ -40,6 +40,7 @@ typedef struct {
 | `TD_EV_RESIZE` | A cursor-position report `ESC [ rows ; cols R` with rows > 1 (the answer to the core's size query). | No: the main loop consumes it and resizes the desktop. |
 | `TD_EV_TICK` | Nothing in the current code. It is declared but never generated, and `td_wm_dispatch()` ignores it; use `on_tick` or a timer instead. | No. |
 | `TD_EV_PASTE` | A complete bracketed paste. Read the text with `td_paste_text()`. | Yes: the focused window. If its focused widget is a text box (and the window lacks `TD_WIN_RAW_KEYS`), the first line is inserted there; otherwise `on_event` gets it. |
+| `TD_EV_ACK` | `ESC [ 0 n`, the terminal's answer to the device status report `ESC [ 5 n` the core sends after each frame: it has shown everything sent before. Other status reports (`ESC [ 3 n`) are ignored. | No: the main loop uses it for [frame pacing](core.md#frame-pacing). |
 
 ### Modifiers
 
@@ -98,6 +99,7 @@ Special keys are numbered above the Unicode range (U+10FFFF), so `key < TD_KEY_B
 | `ESC [ n ~` and `ESC [ n ; m ~` | 1/7 Home, 2 Insert, 3 Delete, 4/8 End, 5 PgUp, 6 PgDn, 11..15 F1..F5, 17..21 F6..F10, 23/24 F11/F12; `m` as above. |
 | `ESC [ Z` | `TD_KEY_TAB` + `TD_MOD_SHIFT` (Shift+Tab) |
 | `ESC [ 200 ~` ... `ESC [ 201 ~` | One `TD_EV_PASTE` (see [Bracketed paste](#bracketed-paste)). |
+| `ESC [ 0 n` | `TD_EV_ACK` (the answer to `ESC [ 5 n`). |
 
 Gotchas:
 

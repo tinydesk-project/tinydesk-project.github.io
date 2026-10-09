@@ -112,7 +112,7 @@ A pass does the following:
 4. **Timers.** Runs every due timer (`td_timers_run()`), which includes the windows' `on_tick` callbacks.
 5. **Clock.** Once a second (whenever `td_millis() / 1000` changes), the whole screen is marked for recomposition so the taskbar clock updates. Because the renderer only sends changed cells, this costs a compose per second but very few bytes.
 6. **Size poll / link retry.** While the link is up, the terminal size is queried every `TD_SIZE_POLL_MS` (serial terminals do not report resizes on their own). While the link is down, a resync is scheduled every `TD_LINK_RETRY_MS` instead.
-7. **Render.** If a resync is pending, the setup sequence and a size query are sent and the whole screen is redrawn. Otherwise, if the link is up and the window manager reports a change (`td_wm_needs_redraw()`), the screen is composed into the back buffer and the difference to the front buffer is sent.
+7. **Render.** If a resync is pending, the setup sequence and a size query are sent and the whole screen is redrawn. A pending repaint (after a resize) clears the screen and redraws it; a pending redraw (after dropped frames) resends every cell without clearing. Otherwise, if the link is up, the window manager reports a change (`td_wm_needs_redraw()`) and the terminal has shown the previous frame ([Frame pacing](#frame-pacing)), the screen is composed into the back buffer and the difference to the front buffer is sent, followed by `ESC [ 5 n`.
 8. **Statistics.** Updates `bytes_sent`, `bytes_per_sec` and `loop_ms`.
 
 ### td_quit
@@ -166,16 +166,27 @@ Gotcha: a program that sends its own `ESC [ 6 n` to the *host* terminal would ha
 TinyDesk is designed for links where the far end may not be there (a USB-serial port with no terminal open, a dropped Telnet session). The renderer detects this from the HAL `write` callback:
 
 - **Dropped frame.** When `write` returns `<= 0`, the rest of the frame is discarded instead of stalling the UI. The core then counts a dropped frame, sets `link_up` to false and invalidates the front buffer so the next successful frame resends everything.
-- **While the link is down**, no normal frames are rendered and the size is not polled. Every `TD_LINK_RETRY_MS` a resync (setup sequence, size query, full redraw) is attempted. The first frame that is accepted completely sets `link_up` back to true.
+- **While the link is down**, no normal frames are rendered and the size is not polled. Every `TD_LINK_RETRY_MS` the whole screen is sent again. The first frame that is accepted completely sets `link_up` back to true.
+- **A slow terminal or a lost one.** An outage shorter than `TD_LINK_LOST_MS` is a terminal that reads too slowly (PuTTY while it draws): every cell is sent again over the picture it still shows, after CAN (`0x18`, which ends a cut-off escape sequence) and `ESC [ 0 m`, without clearing the screen, so nothing flickers. A frame that got any bytes through counts as the terminal still being there. Only when no bytes at all have got through for `TD_LINK_LOST_MS` is the terminal treated as gone (closed, unplugged): the retry is then a full resync with the setup sequence and a cleared screen.
 
 ### Reconnect detection
 
 The first input byte of a pass schedules a resync when either:
 
 - input has been received before and the link has been silent for more than `TD_RECONNECT_SILENCE_MS`, or
-- `link_up` is false (frames are being dropped).
+- `link_up` is false and nothing has got through for `TD_LINK_LOST_MS` (the terminal was gone).
+
+Silence while frames were being dropped does not count: no size query went out then, so the terminal had nothing to answer. A terminal closed and opened again within `TD_LINK_LOST_MS` is taken for the same one and gets every cell but not the setup sequence; Ctrl+L (or `td_full_redraw()`) sends it.
 
 Both usually mean that a terminal has just been opened on the other end and shows nothing yet; the resync sends it the setup sequence and the whole screen.
+
+## Frame pacing
+
+After every frame that went out completely, the core asks the terminal `ESC [ 5 n` (device status report). A terminal answers `ESC [ 0 n` only after it has processed everything sent before the question, so the answer (the event `TD_EV_ACK`, see [Input](input.md)) means it has shown the frame. The next ordinary frame waits for it: a terminal that draws slowly never has more than one frame on its way, input is handled meanwhile, and the next frame shows the newest state, so the mouse and keys show up at once instead of after a backlog. A fast terminal answers within milliseconds and is not slowed down.
+
+Without an answer within `TD_ACK_TIMEOUT_MS` the next frame goes anyway. A terminal that has not answered at all after three such frames is not asked again until the next resync (a new terminal starts afresh). Resyncs, repaints and redraws after dropped frames do not wait. `TD_ACK_TIMEOUT_MS` = 0 turns pacing off.
+
+Measured in PuTTY on an ESP32-C6 while the Pixels demo animated: a key took 2.4 s (median; at worst 4.7 s) to show without pacing, and 0.1 s (at worst 0.2 s) with it.
 
 ## Statistics
 
@@ -246,10 +257,10 @@ Notes:
 
 Every static pool in the core is sized in `td_config.h`. Each value except `TD_MIN_COLS` and `TD_MIN_ROWS` is wrapped in `#ifndef`, so it can be overridden from the build system (for example `-DTD_MAX_COLS=100`). Override a value consistently for every translation unit that includes the TinyDesk headers, because several of them size public structures (`td_buffer_t`, `td_renderer_t`, `td_vterm_t`).
 
-The host build (top-level `CMakeLists.txt`, used for the Windows and POSIX ports) uses the defaults. The ESP-IDF component (`ports/esp_idf/components/tinydesk/CMakeLists.txt`) is shared by the three ESP-IDF projects (ESP32-C6, ESP32, ESP32 4 MB) and sets `PUBLIC` compile definitions, with different screen limits depending on `CONFIG_SPIRAM`:
+The host build (top-level `CMakeLists.txt`, used for the Windows and POSIX ports) uses the defaults. The ESP-IDF component (`ports/esp_idf/components/tinydesk/CMakeLists.txt`) is shared by the four ESP-IDF projects (ESP32-C6, ESP32-S3, ESP32, ESP32 4 MB) and sets `PUBLIC` compile definitions, with different screen limits depending on `CONFIG_SPIRAM`:
 
 - **Without PSRAM** (the ESP32-C6 port): the buffers live in internal RAM, which TinyDesk Shell, Wi-Fi and SSH also need, so the screen is limited to 80x25.
-- **With PSRAM** (the classic ESP32 port on an ESP32-WROVER, `CONFIG_SPIRAM=y`; its TinyDesk statics are placed in PSRAM by `ports/esp32/main/extram.lf`): large enough for a maximised PuTTY.
+- **With PSRAM** (the classic ESP32 port on an ESP32-WROVER and the ESP32-S3 port, `CONFIG_SPIRAM=y`; their TinyDesk statics are placed in PSRAM by `main/extram.lf`): large enough for a maximised PuTTY.
 
 In the table, "ESP-IDF value" lists `no PSRAM / PSRAM` where they differ; "-" means the default is used.
 
@@ -271,7 +282,9 @@ In the table, "ESP-IDF value" lists `no PSRAM / PSRAM` where they differ; "-" me
 | `TD_OUT_BUF_SIZE` | 4096 | 1024 | Renderer output buffer (bytes, inside `td_renderer_t`). Output is written to the HAL whenever it fills and at the end of each frame. |
 | `TD_SIZE_QUERY_TIMEOUT_MS` | 300 | - | How long `td_init()` waits for the start-up size answer. |
 | `TD_SIZE_POLL_MS` | 1000 | - | Interval of the periodic size query while the link is up. 0 disables it. |
-| `TD_LINK_RETRY_MS` | 500 | - | After a dropped frame, how often a full resync is retried. |
+| `TD_LINK_RETRY_MS` | 500 | - | After a dropped frame, how often the whole screen is sent again. |
+| `TD_LINK_LOST_MS` | 3000 | - | Frames dropped with nothing getting through for this long mean the terminal is gone: the retry sets it up and clears it. Shorter outages resend the cells without clearing ([Link supervision](#link-supervision)). |
+| `TD_ACK_TIMEOUT_MS` | 500 | - | [Frame pacing](#frame-pacing): how long the next frame waits for the terminal's answer to `ESC [ 5 n`. 0 turns pacing off. |
 | `TD_RECONNECT_SILENCE_MS` | 5000 | - | Input after this much silence is treated as a (re)connected terminal and triggers a resync. |
 | `TD_LOOP_SLEEP_MS` | 5 | - | Sleep between passes in `td_run()` (the ESP-IDF UI task uses it too). |
 | `TD_OSC52_MAX` | 8192 | - | Largest text `td_host_clipboard_set()` sends; longer text is not sent. 0 disables OSC 52. |

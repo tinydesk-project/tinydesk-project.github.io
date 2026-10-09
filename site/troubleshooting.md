@@ -32,6 +32,14 @@ PuTTY's own text selection.
 
 **Alt+F4 closes PuTTY.** Use Ctrl+Q to close a TinyDesk window.
 
+**Animation is slower in PuTTY than in Windows Terminal.** PuTTY draws
+fewer pictures per second (about 10 of a 42 x 30-pixel window in the Pixels
+demo). TinyDesk sends a new picture only when the terminal has shown the
+last one ([frame pacing](api/core.md#frame-pacing)), so the mouse and keys
+still respond at once; Windows Terminal or the [web terminal](console/index.html)
+show more pictures. If you closed PuTTY and opened it again within three
+seconds and the mouse does nothing, press Ctrl+L.
+
 ## Connecting
 
 **The ESP32 resets every time PuTTY opens the COM port.** The USB-UART

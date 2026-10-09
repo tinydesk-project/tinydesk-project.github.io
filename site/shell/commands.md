@@ -14,14 +14,14 @@ Examples use `$` as the prompt of any user and `#` for root.
 |---|---|---|---|
 | `mqtt` | `ports/common/td_proto_cmds.c` | all | any user |
 | `modbus` | `ports/common/td_proto_cmds.c` | all (RTU where the board configuration has RS-485 lines) | any user |
-| `ota` | `ports/esp_idf/app/ota_esp.c` | ESP32-C6, ESP32 | root |
-| `ssh` | TinyDesk Shell | ESP32-C6, ESP32 | `status`, `hostkey`: any user; `hostkey new`: root; `start`, `stop`, `restart`: root, or any user on the local console |
-| `ftp` | TinyDesk Shell | ESP32-C6, ESP32 | as `ssh` (no `hostkey`) |
-| `board` | TinyDesk Shell (`tdsh_commands_espidf.c`) | ESP32-C6, ESP32 | `show`, `get`: any user; `set`, `unset`, `init`, `save`: root |
-| `hwtest` | TinyDesk Shell | ESP32-C6, ESP32 (pins from the board configuration) | root |
-| `lan` | TinyDesk Shell | ESP32-C6, ESP32 (only with `eth.chip = w6100`) | as in TinyDesk Shell |
-| `networks`, `wifiadd`, `wifiremove`, `wificonnect` | TinyDesk Shell | ESP32-C6, ESP32 | any user, with per-user networks |
-| `network` | TinyDesk Shell | ESP32-C6, ESP32 | showing: any user; changing `mode` or `autowifi`: root |
+| `ota` | `ports/esp_idf/app/ota_esp.c` | ESP32-C6, ESP32-S3, ESP32 | root |
+| `ssh` | TinyDesk Shell | ESP32-C6, ESP32-S3, ESP32 | `status`, `hostkey`: any user; `hostkey new`: root; `start`, `stop`, `restart`: root, or any user on the local console |
+| `ftp` | TinyDesk Shell | ESP32-C6, ESP32-S3, ESP32 | as `ssh` (no `hostkey`) |
+| `board` | TinyDesk Shell (`tdsh_commands_espidf.c`) | ESP32-C6, ESP32-S3, ESP32 | `show`, `get`: any user; `set`, `unset`, `init`, `save`: root |
+| `hwtest` | TinyDesk Shell | ESP32-C6, ESP32-S3, ESP32 (pins from the board configuration) | root |
+| `lan` | TinyDesk Shell | ESP32-C6, ESP32-S3, ESP32 (only with `eth.chip = w6100`) | as in TinyDesk Shell |
+| `networks`, `wifiadd`, `wifiremove`, `wificonnect` | TinyDesk Shell | ESP32-C6, ESP32-S3, ESP32 | any user, with per-user networks |
+| `network` | TinyDesk Shell | ESP32-C6, ESP32-S3, ESP32 | showing: any user; changing `mode` or `autowifi`: root |
 
 Exit status, as the code returns it: 0 success, 1 failure, 2 usage error.
 

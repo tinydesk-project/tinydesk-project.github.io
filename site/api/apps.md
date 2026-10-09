@@ -38,7 +38,7 @@ int td_app_register(const td_app_t *app);
 
 Adds an app to the start menu and the desktop. The descriptor is stored by pointer and must stay valid for the life of the program (make it `static const`). Apps appear in registration order. Returns 0, or -1 when `app` is `NULL` or `TD_MAX_APPS` (16) apps are registered. Names are not checked for duplicates. There is no unregister call.
 
-`td_apps_register_all()` registers 13 apps, leaving 3 slots with the default `TD_MAX_APPS`. The start menu lists at most 17 apps minus the entries added with `td_wm_add_start_item()` (see [wm.md](wm.md#start-menu)).
+`td_apps_register_all()` registers 14 apps, leaving 2 slots with the default `TD_MAX_APPS`. The start menu lists at most 17 apps minus the entries added with `td_wm_add_start_item()` (see [wm.md](wm.md#start-menu)).
 
 ### td_app_count / td_app_get
 
@@ -80,6 +80,7 @@ void weather_register(void) { td_app_register(&s_app); }
 | Settings | `☼ ` | `apps/settings.c` | Theme, ASCII / UTF-8 mode, desktop pattern and icons, icon / start menu / taskbar sizes; saved per user. |
 | Software Update | `↑ ` | `apps/update.c` | Shows the installed firmware and installs a new one from a URL or a file, with progress and roll-back, through `td_sysinfo()->ota`. Only root may install. |
 | Counter | `+1` | `apps/counter.c` | The minimal example app: a label, two buttons, a checkbox and a one-second tick. |
+| Pixels | `▀▄` | `apps/pixels.c` | The [pixel canvas](canvas.md) demo: an animated plasma and the 256-colour palette (Space switches, P pauses), with pictures per second and the link's KB/s. Its canvas follows the window and is allocated while it is open. |
 | About | `i ` | `apps/about.c` | Name, version, platform, chip, SDK version, free heap and uptime. |
 | Date & time | (none) | `apps/datetime.c` | Not a registered app: opened by clicking the taskbar clock or with `td_datetime_open()`. Big clock, time zone picker, automatic time, manual setting (root only), 12/24-hour and date format. |
 
@@ -101,6 +102,7 @@ void td_logview_register(void);
 void td_settings_register(void);
 void td_files_register(void);
 void td_counter_register(void);
+void td_pixels_register(void);
 void td_terminal_register(void);
 void td_editor_register(void);
 void td_network_register(void);

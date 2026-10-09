@@ -105,3 +105,4 @@ set the system clock. Details: [Apps API](../api/apps.md#sessions).
 | Software Update | check for official updates (and, with *notify me*, daily, with a notice when one is out), install firmware from a URL or file, roll back (root); offers to save pins that only the running firmware has before it installs |
 | Date & time | from the taskbar clock: clock, time zone, SNTP |
 | Counter, About | demo app; version, chip, heap, uptime and public source repository URLs |
+| Pixels | the [pixel canvas](../api/canvas.md) demo: an animated plasma and the palette, with pictures per second; Space switches, P pauses |

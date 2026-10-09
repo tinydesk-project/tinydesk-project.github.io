@@ -48,8 +48,9 @@ Versions follow [Semantic Versioning](https://semver.org/); TinyDesk and
 TinyDesk Shell have their own version numbers (both started at 0.1.0).
 
 1. In the `tinydesk` repository set `PROJECT_VER` in
-   `ports/esp32c6/CMakeLists.txt`, `ports/esp32/CMakeLists.txt` and
-   `ports/esp32-4mb/CMakeLists.txt`, and `TD_VERSION` in
+   `ports/esp32c6/CMakeLists.txt`, `ports/esp32s3/CMakeLists.txt`,
+   `ports/esp32/CMakeLists.txt` and `ports/esp32-4mb/CMakeLists.txt`, and
+   `TD_VERSION` in
    `include/tinydesk/td.h`. A new shell version goes in the shell's
    `VERSION` and `TDSH_VERSION` (`include/tdsh.h`) with a `CHANGELOG.md`
    entry there.

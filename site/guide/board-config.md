@@ -185,8 +185,8 @@ key from `/etc/board.conf`) to take effect.
 
 ### Console (classic ESP32 only)
 
-Read by `ports/esp_idf/app/link_uart.c` at start-up. The ESP32-C6 uses its
-built-in USB Serial/JTAG port and has no such keys.
+Read by `ports/esp_idf/app/link_uart.c` at start-up. The ESP32-C6 and
+ESP32-S3 use their built-in USB Serial/JTAG port and have no such keys.
 
 | Key | Default | Meaning |
 | --- | --- | --- |
@@ -206,6 +206,7 @@ deletes all files on the board:
 | Chip | Avoid | Notes |
 | --- | --- | --- |
 | ESP32-C6 | GPIO12/13 (USB D-/D+, the desktop's port), GPIO24-30 (flash on most modules) | UART0 and UART1 are free for RS-485: the console is USB Serial/JTAG. GPIO4/5 are used by `hwtest uart` (LP UART loopback). |
+| ESP32-S3 | GPIO26-32 (flash), GPIO33-37 (octal PSRAM on R8 chips and modules), GPIO19/20 (USB D-/D+, the desktop's port), GPIO43/44 (UART0, the USB-UART chip on most boards) | Every UART is free for RS-485: the console is USB Serial/JTAG. Strapping pins (0, 3, 45, 46) need care at boot. For Ethernet, SPI2's IO MUX pins are MISO 13, MOSI 11, SCLK 12, CS 10 (`eth.spi_host = 1`). |
 | ESP32 | GPIO6-11 (flash), GPIO16/17 (PSRAM on WROVER modules), GPIO1/3 (UART0, the desktop) | Use UART1 and UART2 for RS-485. GPIO34-39 are inputs only: fine for `eth.int` or RX, not for TX, DE or CS. Strapping pins (0, 2, 5, 12, 15) need care at boot. |
 
 The examples in `board.example.conf` are illustrations, not a tested
