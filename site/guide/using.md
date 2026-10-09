@@ -46,13 +46,44 @@ and in the Files app a green name marked `#!`.
 The script language (variables, `if`/`while`/`for`, functions, pipes,
 redirection, `test`) is described in [Shell scripts](../shell/scripting.md).
 
+## Pictures (`.bmp`, `.ppm`, `.pgm`)
+
+Pictures show the icon `▓▒` on the desktop; a double-click (or **Open**)
+in Files or on the desktop opens them in the **Image Viewer**. It shrinks
+or enlarges the picture to fit its window, keeping the proportions, and
+draws two pixels per character cell, so its first window (60 x 20 cells)
+shows at most 58 x 34 pixels: maximise the window or use full screen (F11),
+or choose Fine pictures (four pixels per cell; Settings → Sizes, below) for
+more detail. Larger pictures appear from top to bottom while they are read; the
+desktop stays usable meanwhile.
+
+| Key | Does |
+|---|---|
+| **D** | dithering on (default) or off: mixes the 256 terminal colours into smoother shades, or uses the nearest colour |
+| **R** | reads the file again |
+| **O** | opens another picture by its path (as the shell writes it, `~/Desktop/cat.bmp`) |
+
+Supported: uncompressed BMP (1, 4, 8, 16, 24 and 32 bits per pixel), PPM
+and PGM, binary or plain text, up to 4096 x 32768 pixels. Not supported:
+PNG, JPEG, GIF and compressed (RLE) BMP: convert them on the PC first, for
+example with ImageMagick (`magick photo.jpg -resize 640x480 BMP3:photo.bmp`).
+
+To copy a picture to the board, use SFTP or FTP (Network app) or an SD
+card. Without a network, a small plain-text PPM can be typed in through
+the Terminal, for example with the `write` line editor or `echo`:
+
+```text
+echo 'P3 2 2 255  255 0 0  0 255 0  0 0 255  255 255 255' > ~/Desktop/four.ppm
+```
+
 ```text
 echo 'wificonnect; ssh start' > ~/Desktop/online.tdsh    # a script on the desktop
 ```
 
 ## Sizes (Settings → Sizes)
 
-Each user picks Small / Medium / Large for three things:
+Each user picks Small / Medium / Large for three things, and the detail of
+pictures:
 
 | | Small | Medium (default) | Large |
 | --- | --- | --- | --- |
@@ -63,6 +94,15 @@ Each user picks Small / Medium / Large for three things:
 If the chosen icon size does not fit all icons on the screen, the next
 smaller one is used; a large start menu that would not fit uses one row per
 item. See [Window manager](../api/wm.md#ui-sizes).
+
+**Pictures: Normal / Fine** is how many pixels the Image Viewer and Pixels
+draw in each character cell: Normal two (one above the other, works with
+every font), Fine four (two by two: twice the detail across, so thin lines
+and edges get sharper). Fine needs a font with the quadrant characters
+`▖ ▗ ▝ ▞ ▟`: **Cascadia Mono** (Windows Terminal's font; in PuTTY choose it
+under Window → Appearance → Font), Cascadia Code or DejaVu Sans Mono.
+PuTTY's default Courier New lacks them and shows small boxes along edges.
+See [Pixel canvas](../api/canvas.md#picture-detail).
 
 ## Clipboard (copy and paste with the PC)
 
@@ -101,8 +141,9 @@ set the system clock. Details: [Apps API](../api/apps.md#sessions).
 | System Monitor | RAM (internal and PSRAM), tasks, CPU, frame time, serial traffic, screen size |
 | Task Manager | open windows (switch to / end) and system tasks with CPU %, state, stack |
 | Log Viewer | the system log (root) |
-| Settings | theme (Dark by default, or Classic), ASCII mode, icons, sizes, desktop pattern (light shade by default), links to Network / Date & time / Software update |
+| Settings | theme (Dark by default, or Classic), ASCII mode, icons, sizes, picture detail, desktop pattern (light shade by default), links to Network / Date & time / Software update |
 | Software Update | check for official updates (and, with *notify me*, daily, with a notice when one is out), install firmware from a URL or file, roll back (root); offers to save pins that only the running firmware has before it installs |
 | Date & time | from the taskbar clock: clock, time zone, SNTP |
 | Counter, About | demo app; version, chip, heap, uptime and public source repository URLs |
 | Pixels | the [pixel canvas](../api/canvas.md) demo: an animated plasma and the palette, with pictures per second; Space switches, P pauses |
+| Image Viewer | BMP, PPM and PGM pictures, scaled to fit the window ([below](#pictures-bmp-ppm-pgm)) |

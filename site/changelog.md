@@ -13,10 +13,26 @@ API may still change between minor versions.
   shows two, as an upper half block with two colours, so it works in
   every terminal TinyDesk runs in and only changed cells are sent. On
   boards with PSRAM the pixels are kept there
-  (`td_canvas_set_allocator()`). See [Pixel canvas](api/canvas.md).
+  (`td_canvas_set_allocator()`). `td_rgb256_dither()` dithers pictures
+  and gradients to the 256 colours. See [Pixel canvas](api/canvas.md).
+* **Fine pictures** (Settings → Sizes → Pictures): four pixels per cell
+  with quadrant characters instead of two, twice the detail across, for
+  the Image Viewer, Pixels and any canvas (`td_canvas_fit()`,
+  `td_canvas_detail()`). Needs a font with the quadrants, such as
+  Cascadia Mono; PuTTY's default Courier New lacks them. Saved per user
+  (byte 14 of `~/.tinydesk_settings`). vtshot draws block characters as
+  rectangles in its SVG pictures.
 * **Pixels** app: an animated plasma and the palette with pictures per
   second, to see what a terminal link can show (up to 24 full-screen
   pictures a second at 80x25 on the ESP32-S3).
+* **Image Viewer** app: BMP (uncompressed, 1 to 32 bits per pixel), PPM
+  and PGM pictures (binary or plain text) up to 4096 x 32768 pixels,
+  scaled to fit the window and dithered to the 256 colours (D, on by
+  default), with reload (R) and open (O). Double-click a picture in Files
+  or on the desktop (icon `▓▒`). Pictures are read in 4 KB parts through the new
+  optional `td_fs_ops_t.read_at`, so they may be larger than the RAM;
+  other apps can use the decoder (`td_image_load()`, `td_image_row()`).
+  See [Using the desktop](guide/using.md#pictures-bmp-ppm-pgm).
 * **No lag in slow terminals (frame pacing):** after each frame the
   terminal is asked `ESC[5n`, and the next frame waits for its answer, so
   a terminal that draws slowly (PuTTY) never builds up a backlog; a key

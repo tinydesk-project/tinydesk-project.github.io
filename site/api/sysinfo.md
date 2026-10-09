@@ -201,10 +201,11 @@ typedef struct {
     int (*write)(const char *path, const char *data, int len);
     int (*rename)(const char *from, const char *to);
     int (*exists)(const char *path);
+    int (*read_at)(const char *path, uint32_t offset, char *buf, int cap);
 } td_fs_ops_t;
 ```
 
-Minimal file access for Files, the Editor, the Desktop folder, per-user settings and the MQTT app's saved configuration. Paths are real paths: `root` followed by the path the shell sees (`"/fs" + "/root/Desktop/a.txt"`). Paths passed in are at most about 160 bytes.
+Minimal file access for Files, the Editor, the Image Viewer, the Desktop folder, per-user settings and the MQTT app's saved configuration. Paths are real paths: `root` followed by the path the shell sees (`"/fs" + "/root/Desktop/a.txt"`). Paths passed in are at most about 160 bytes.
 
 | Member | Required | What it must do |
 |---|---|---|
@@ -216,8 +217,9 @@ Minimal file access for Files, the Editor, the Desktop folder, per-user settings
 | `remove` | yes | Delete a file, or a folder with everything in it. Return 0 on success. |
 | `rename` | yes | Rename or move a file or folder. Return 0 on success. Should fail rather than overwrite an existing target. |
 | `exists` | no | Return 1 if the path exists, else 0. Used to refuse names that are taken; without it, `rename` and `write` decide. |
+| `read_at` | no | Read up to `cap` bytes starting `offset` bytes into the file and return the byte count (0 at or after the end), or -1 on error. The Image Viewer reads pictures in parts with it, so a file larger than the RAM can be shown; without it the viewer says "This system cannot read files in parts." |
 
-The apps check `fs` and a few members (Files checks `list`, the Editor `read` and `write`), but Files and the Desktop menus then call `write`, `mkdir`, `remove` and `rename` without checking, so implement all members except `exists`. All calls are made on the UI task and should finish in milliseconds; a flash filesystem is fine.
+The apps check `fs` and a few members (Files checks `list`, the Editor `read` and `write`), but Files and the Desktop menus then call `write`, `mkdir`, `remove` and `rename` without checking, so implement all members except `exists` and `read_at`. All calls are made on the UI task and should finish in milliseconds; a flash filesystem is fine.
 
 ### td_fs_stdio
 
@@ -227,7 +229,7 @@ Every port uses the same implementation on top of the C library and `<dirent.h>`
 const td_fs_ops_t *td_fs_stdio(const char *root);
 ```
 
-Declared in `ports/common/td_fs_stdio.h`. Returns a static table (one per program; a second call replaces the root). `root` is copied into a 128-byte buffer, so longer paths are cut. Behaviour: `remove` deletes folders recursively up to 8 levels deep; `rename` refuses to overwrite an existing target; `write` writes the whole file in one `fopen("wb")`; `mkdir` uses mode 0755 (`_mkdir` on Windows); entries whose `stat()` fails are listed as files of size 0.
+Declared in `ports/common/td_fs_stdio.h`. Returns a static table (one per program; a second call replaces the root). `root` is copied into a 128-byte buffer, so longer paths are cut. Behaviour: `remove` deletes folders recursively up to 8 levels deep; `rename` refuses to overwrite an existing target; `write` writes the whole file in one `fopen("wb")`; `read_at` opens the file, seeks and reads for every call; `mkdir` uses mode 0755 (`_mkdir` on Windows); entries whose `stat()` fails are listed as files of size 0.
 
 ## Network
 

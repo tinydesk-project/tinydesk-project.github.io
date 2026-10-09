@@ -57,7 +57,8 @@ the actions in order and writes captures:
 `vtshot` replays a capture through the [terminal emulator](api/vterm.md)
 and prints the screen (at most 400x150). With `--svg` it renders the
 screen as an SVG picture instead, with its colours (the 16 basic colours as
-Windows Terminal's Campbell scheme shows them); `--rows A-B` keeps only
+Windows Terminal's Campbell scheme shows them) and the block characters of
+canvases (`▀ ▄ ▌ ▐ █` and the quadrants) drawn as exact rectangles; `--rows A-B` keeps only
 those rows and `--title` adds a window frame with a caption. The cover
 pictures of this site are made that way. A capture contains only what
 the board sent during that run, so send `key=CtrlL` before `shot` for a full

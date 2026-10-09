@@ -38,7 +38,7 @@ int td_app_register(const td_app_t *app);
 
 Adds an app to the start menu and the desktop. The descriptor is stored by pointer and must stay valid for the life of the program (make it `static const`). Apps appear in registration order. Returns 0, or -1 when `app` is `NULL` or `TD_MAX_APPS` (16) apps are registered. Names are not checked for duplicates. There is no unregister call.
 
-`td_apps_register_all()` registers 14 apps, leaving 2 slots with the default `TD_MAX_APPS`. The start menu lists at most 17 apps minus the entries added with `td_wm_add_start_item()` (see [wm.md](wm.md#start-menu)).
+`td_apps_register_all()` registers 15 apps, leaving 1 slot with the default `TD_MAX_APPS`. The start menu lists at most 17 apps minus the entries added with `td_wm_add_start_item()` (see [wm.md](wm.md#start-menu)).
 
 ### td_app_count / td_app_get
 
@@ -69,7 +69,7 @@ void weather_register(void) { td_app_register(&s_app); }
 | App | Glyph | Source | What it does |
 |---|---|---|---|
 | Terminal | `>_` | `apps/terminal.c` | Runs the port's text program (normally TinyDesk Shell) through a `td_term_backend_t` with a VT100 emulator ([vterm.md](vterm.md)); scrollback with Shift+PgUp/PgDn and the wheel. The program keeps running while the window is closed. |
-| Files | `[]` | `apps/files.c` | Browses the port's filesystem: open files in the Editor, create files and folders, rename, delete, drag and drop. Non-root users stay inside their home. |
+| Files | `[]` | `apps/files.c` | Browses the port's filesystem: open files in the Editor (pictures in the Image Viewer), create files and folders, rename, delete, drag and drop. Non-root users stay inside their home. |
 | Editor | `¶_` | `apps/editor.c` | Text editor for one file at a time (`TD_EDITOR_MAX`, 16384 bytes, allocated while open; bigger files open read-only), with selection, undo/redo, the clipboard and Ctrl+S save. While open it also keeps the undo history: `TD_EDITOR_UNDO` bytes of text (6144) and `TD_EDITOR_UNDO_OPS` records of 20 bytes each (128), about 8.7 KB. A build can set all three, for example `-DTD_EDITOR_MAX=8192 -DTD_EDITOR_UNDO=2048 -DTD_EDITOR_UNDO_OPS=32`. |
 | Network | `((` | `apps/network.c` | Wi-Fi and Ethernet status, Wi-Fi scan / connect / forget, the Telnet remote-desktop switch and the SSH/SFTP and FTP servers, through `td_sysinfo()->net`. |
 | MQTT | `MQ` | `apps/mqtt.c` | Connects to a broker, subscribes, publishes and lists messages; shares the connection with the `mqtt` shell command ([mqtt.md](mqtt.md)). |
@@ -77,10 +77,11 @@ void weather_register(void) { td_app_register(&s_app); }
 | System Monitor | `▄█` | `apps/sysmon.c` | Live heap and PSRAM bars, task count, CPU clock, uptime and tinydesk's own frame and link statistics. |
 | Task Manager | `▐▌` | `apps/taskmgr.c` | Lists the open windows (switch to one, end it) and, where the port can list them, the system tasks with state, priority, core, CPU share and free stack. |
 | Log Viewer | `≡≡` | `apps/logview.c` | Shows the log ring buffer filled by `td_log_append()` with level colours. |
-| Settings | `☼ ` | `apps/settings.c` | Theme, ASCII / UTF-8 mode, desktop pattern and icons, icon / start menu / taskbar sizes; saved per user. |
+| Settings | `☼ ` | `apps/settings.c` | Theme, ASCII / UTF-8 mode, desktop pattern and icons, icon / start menu / taskbar sizes, picture detail ([canvas](canvas.md#picture-detail)); saved per user. |
 | Software Update | `↑ ` | `apps/update.c` | Shows the installed firmware and installs a new one from a URL or a file, with progress and roll-back, through `td_sysinfo()->ota`. Only root may install. |
 | Counter | `+1` | `apps/counter.c` | The minimal example app: a label, two buttons, a checkbox and a one-second tick. |
 | Pixels | `▀▄` | `apps/pixels.c` | The [pixel canvas](canvas.md) demo: an animated plasma and the 256-colour palette (Space switches, P pauses), with pictures per second and the link's KB/s. Its canvas follows the window and is allocated while it is open. |
+| Image Viewer | `▓▒` | `apps/imageview.c`, `apps/imagefile.c` | Shows BMP, PPM and PGM pictures ([below](#pictures-td_image_)) on a [pixel canvas](canvas.md), scaled to fit the window (shrunk by averaging, enlarged by repeating pixels), dithered to the 256 colours (D switches), R loads again, O opens another path. The picture is decoded a slice per timer tick, so a large one appears from the top while the desktop stays usable. While open it holds the canvas, the fitted picture (3 bytes per pixel shown), one picture row (3 bytes per pixel) and a 4 KB file window. |
 | About | `i ` | `apps/about.c` | Name, version, platform, chip, SDK version, free heap and uptime. |
 | Date & time | (none) | `apps/datetime.c` | Not a registered app: opened by clicking the taskbar clock or with `td_datetime_open()`. Big clock, time zone picker, automatic time, manual setting (root only), 12/24-hour and date format. |
 
@@ -103,6 +104,7 @@ void td_settings_register(void);
 void td_files_register(void);
 void td_counter_register(void);
 void td_pixels_register(void);
+void td_imageview_register(void);
 void td_terminal_register(void);
 void td_editor_register(void);
 void td_network_register(void);
@@ -115,7 +117,7 @@ Each registers one app with `td_app_register()`. Use them instead of `td_apps_re
 
 ## Files and Desktop folder
 
-The Desktop folder is `~/Desktop` of the current desktop user. Its files and folders are shown as desktop icons after the app icons, through a desktop provider (see [wm.md](wm.md#desktop-provider)) implemented in `apps/desktop.c`. Double-click opens a folder in Files and a file in the Editor; right-click offers Open / Rename / Delete, and on the empty desktop New file, New folder, Terminal, Open Desktop folder, Refresh and Settings. Files and folders can be dragged onto folders, into Files, into the Editor (opens the file) and into the Terminal (types the path). Up to 24 entries are shown; names starting with `.` are hidden.
+The Desktop folder is `~/Desktop` of the current desktop user. Its files and folders are shown as desktop icons after the app icons, through a desktop provider (see [wm.md](wm.md#desktop-provider)) implemented in `apps/desktop.c`. Double-click opens a folder in Files, a picture (`.bmp`, `.ppm`, `.pgm`) in the Image Viewer and any other file in the Editor; pictures have the icon `▓▒`; right-click offers Open / Rename / Delete, and on the empty desktop New file, New folder, Terminal, Open Desktop folder, Refresh and Settings. Files and folders can be dragged onto folders, into Files, into the Editor (opens the file) and into the Terminal (types the path). Up to 24 entries are shown; names starting with `.` are hidden.
 
 All paths on this page are real paths, which include the filesystem root from `td_sysinfo()->fs->root` (for example `/fs` on the ESP32). The shell sees the same files without that prefix.
 
@@ -134,6 +136,38 @@ void td_files_open(const char *dir);
 ```
 
 Opens (or focuses) the Files app in folder `dir`. A `dir` outside the user's allowed area (`td_session_jail()`), or `NULL`, keeps the last folder, or starts at the home folder. The entry table (64 entries) is allocated while the window is open.
+
+### td_imageview_open
+
+```c
+void td_imageview_open(const char *path);
+bool td_is_image(const char *name);
+```
+
+`td_imageview_open()` opens (or focuses) the Image Viewer with the picture at the real path `path`, replacing the one it shows; `NULL` opens it without a picture. Errors (not a supported picture, too large, unreadable) are shown on its status line. `td_is_image()` is true for names ending in `.bmp`, `.ppm` or `.pgm` (any case); Files and the Desktop use it to choose between the viewer and the Editor.
+
+### Pictures (td_image_*)
+
+```c
+#define TD_IMAGE_MAX_W 4096
+#define TD_IMAGE_MAX_H 32768
+
+bool td_image_load(td_image_t *img, const td_fs_ops_t *fs, const char *path, char *err, int errcap);
+bool td_image_row(td_image_t *img, int *y, uint8_t *rgb);
+void td_image_rewind(td_image_t *img);
+void td_image_close(td_image_t *img);
+```
+
+The Image Viewer's decoder, usable by other apps (`apps/imagefile.c`). It reads a picture row by row through `fs->read_at` ([sysinfo.md](sysinfo.md#filesystem)), keeping a 4 KB window of the file (or one row, if a row is longer), so pictures larger than the RAM can be read.
+
+| Function | Does |
+|---|---|
+| `td_image_load` | Reads the header into `img` (the caller's struct, about 1 KB): `img->w`, `img->h` and `img->format` (for example `"BMP 24-bit"`, `"PPM"`, `"PGM 16-bit"`, `"PPM text"`). Returns `false` with a sentence in `err` for a file that is not a supported picture, larger than `TD_IMAGE_MAX_W` x `TD_IMAGE_MAX_H`, unreadable, or when `fs->read_at` is missing. |
+| `td_image_row` | The next row in the order the file stores them: its number in `*y` (0 = top; BMP files usually store the bottom row first) and `img->w` RGB triples in `rgb`. `false` after the last row, or when the file ends early. |
+| `td_image_rewind` | Starts again with the first stored row. |
+| `td_image_close` | Frees the window. Call it after every successful `td_image_load()`. |
+
+Supported: BMP with 1, 4, 8 bits per pixel (colour table), 16 bits (5-5-5, or bit-field masks), 24 bits, 32 bits (with or without bit-field masks), stored bottom-up or top-down; PPM (colour) and PGM (grey), binary (`P6`, `P5`) or plain text (`P3`, `P2`), with a maximum value up to 65535. Not supported: compressed (RLE) BMP, the old OS/2 BMP header, PNG, JPEG and GIF.
 
 ### td_files_changed
 
@@ -239,7 +273,7 @@ Installs functions that serialise access to the log buffer when several tasks wr
 
 ## Settings
 
-Each user's settings are stored in `~/.tinydesk_settings` (through `td_sysinfo()->fs`): theme, ASCII mode, desktop pattern, icons shown, clock format, date format, clock shown, and the icon, start menu and taskbar sizes. The file format is private to `apps/settings.c`. A user without that file gets the device defaults: the first 8 bytes of the blob loaded with `td_sysinfo()->settings_load` (theme, ASCII mode, pattern, icons; written by older versions), or the built-in defaults (Dark theme, light-shade pattern, icons shown).
+Each user's settings are stored in `~/.tinydesk_settings` (through `td_sysinfo()->fs`): theme, ASCII mode, desktop pattern, icons shown, clock format, date format, clock shown, the icon, start menu and taskbar sizes, and the picture detail. The file format is private to `apps/settings.c`. A user without that file gets the device defaults: the first 8 bytes of the blob loaded with `td_sysinfo()->settings_load` (theme, ASCII mode, pattern, icons; written by older versions), or the built-in defaults (Dark theme, light-shade pattern, icons shown).
 
 ### td_settings_apply_saved
 
@@ -247,7 +281,7 @@ Each user's settings are stored in `~/.tinydesk_settings` (through `td_sysinfo()
 void td_settings_apply_saved(void);
 ```
 
-Loads the current user's settings as described above and applies them: `td_theme_set()`, ASCII mode (with a full redraw if it changed), `td_desktop_set_pattern()`, `td_desktop_set_icons()`, the clock preferences and the three UI sizes. Called by `td_session_init()` and `td_session_switch()`.
+Loads the current user's settings as described above and applies them: `td_theme_set()`, ASCII mode (with a full redraw if it changed), `td_desktop_set_pattern()`, `td_desktop_set_icons()`, the clock preferences, the three UI sizes and `td_canvas_set_detail()`. Called by `td_session_init()` and `td_session_switch()`.
 
 ### td_settings_save
 
@@ -255,7 +289,7 @@ Loads the current user's settings as described above and applies them: `td_theme
 bool td_settings_save(void);
 ```
 
-Saves the current state (active theme, ASCII mode, pattern, icons, `td_clock_prefs()`, UI sizes) to the current user's `~/.tinydesk_settings`. Returns `false` when there is no filesystem with `write`, no home folder, or writing failed. The Settings app and the Date & time window call it after every change. It does not call `td_sysinfo()->settings_save`.
+Saves the current state (active theme, ASCII mode, pattern, icons, `td_clock_prefs()`, UI sizes, picture detail) to the current user's `~/.tinydesk_settings`. Returns `false` when there is no filesystem with `write`, no home folder, or writing failed. The Settings app and the Date & time window call it after every change. It does not call `td_sysinfo()->settings_save`.
 
 ```c
 td_theme_set(1);                       /* Dark */
