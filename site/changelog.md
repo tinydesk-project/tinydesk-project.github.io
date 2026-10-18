@@ -17,6 +17,8 @@ API may still change between minor versions.
   (TinyDesk Shell): `uscript: <file>:<line>: not enough memory to load
   the script` instead of returning with no output (tinydesk-shell #2).
 * **TinyDesk Shell builds on macOS** (tinydesk-shell #5).
+* **About** shows the TinyDesk Shell repository's address in full; it was
+  cut off at the window's edge.
 * **nano with UTF-8 text** (TinyDesk Shell): the cursor, Backspace and
   Delete work by character instead of by byte, so text such as `Привет`
   or `日本語` is no longer cut into broken bytes; Up and Down keep the
