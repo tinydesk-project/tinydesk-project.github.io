@@ -22,6 +22,7 @@ Examples use `$` as the prompt of any user and `#` for root.
 | `lan` | TinyDesk Shell | ESP32-C6, ESP32 (only with `eth.chip = w6100`) | as in TinyDesk Shell |
 | `networks`, `wifiadd`, `wifiremove`, `wificonnect` | TinyDesk Shell | ESP32-C6, ESP32 | any user, with per-user networks |
 | `network` | TinyDesk Shell | ESP32-C6, ESP32 | showing: any user; changing `mode` or `autowifi`: root |
+| `peek`, `poke` | TinyDesk Shell (regions in `tdsh_platform_espidf.c`) | ESP32-C6, ESP32 | root |
 
 Exit status, as the code returns it: 0 success, 1 failure, 2 usage error.
 
@@ -676,6 +677,63 @@ Saved in /etc/board.conf. Restart to apply.
 ```
 
 Errors: `board: permission denied: root required`, `board: keys are a-z 0-9 . _ - and values one line without #`, `board: /etc/board.conf already exists (edit it with nano)`. Exit status 0, 1 on an error, 2 for usage.
+
+## peek, poke
+
+Read and write memory: RAM, ROM and hardware registers. Root only. The
+commands come from TinyDesk Shell; the firmware lists the address ranges
+they may use, and everything else is refused.
+
+```
+usage:
+  peek -l                               the regions
+  peek [-w 8|16|32] <address>           one value, printed alone: 0x00001234
+  peek [-w 8|16|32] <address> <count>   count values, 16 bytes per line
+  poke [-w 8|16|32] <address> <value>   write one value
+```
+
+Accesses are 32-bit unless `-w` says otherwise; addresses, counts and
+values are decimal or `0x` hexadecimal. One value prints alone, so a
+script can use it: `MAC=$(peek 0x3ff5a004)`.
+
+| Region | ESP32 | ESP32-C6 | Widths | Access |
+|---|---|---|---|---|
+| `gpio_out`: GPIO output and output-enable registers | `0x3ff44004`-`0x3ff44037` | `0x60091004`-`0x60091037` | 32 | read/write |
+| `gpio`: all GPIO registers | `0x3ff44000`-`0x3ff445cf` | `0x60091000`-`0x600916ff` | 32 | read |
+| `io_mux` | `0x3ff49000`-`0x3ff49093` | `0x60090000`-`0x600900ff` | 32 | read |
+| `efuse` | `0x3ff5a000`-`0x3ff5a1ff` | `0x600b0800`-`0x600b09ff` | 32 | read |
+| internal RAM: `dram`, `sram` | `0x3ffae000`-`0x3fffffff` | `0x40800000`-`0x4087ffff` | 8 16 32 | read |
+| RTC / LP RAM: `rtc_slow`, `lp_ram` | `0x50000000`-`0x50001fff` | `0x50000000`-`0x50003fff` | 8 16 32 | read |
+| mask ROM: `rom` | `0x40000000`-`0x4005ffff`, 32-bit only | `0x40000000`-`0x4004ffff`, 8 16 32 | | read |
+| ROM data: `rom_data` | `0x3ff90000`-`0x3ff9ffff` | - | 8 16 32 | read |
+| `psram` | `0x3f800000`, up to 4 MB (boards with PSRAM) | - | 8 16 32 | read |
+
+RAM is read-only because the firmware lives there; `poke` writes only the
+GPIO output registers. In both chips they start at the GPIO block's base
+(`0x3ff44000` on the ESP32, `0x60091000` on the ESP32-C6): `OUT` + 0x04,
+`OUT_W1TS` + 0x08 sets bits, `OUT_W1TC` + 0x0c clears them, `ENABLE` +
+0x20, `ENABLE_W1TS` + 0x24 and `ENABLE_W1TC` + 0x28 (the `1` registers
+from + 0x10 and + 0x2c are GPIO 32 and up). A bit is a GPIO number.
+
+```
+# peek 0x3ff5a004 2              (ESP32: the eFuse words with the MAC address)
+0x3ff5a004: 0cad4560 00fe9038
+# poke 0x3ff44024 0x4             (GPIO2 becomes an output)
+# poke 0x3ff44008 0x4             (GPIO2 high)
+# poke 0x3ff4400c 0x4             (GPIO2 low)
+```
+
+`poke` drives real pins: a pin the board uses (RS-485, SD card, Ethernet,
+the console) stops working until the next restart, and a pin wired to
+something that drives it back can be damaged. Check the
+[board configuration](../guide/board-config.md) first.
+
+Refused with exit status 1: a misaligned address, an address outside the
+regions, a dump across a region's end, a width the region does not allow
+(`peek: rom does not allow 8-bit access`), a `poke` outside `gpio_out`
+(`poke: dram is read-only`) and a value too wide for the width. Exit
+status 2 for usage. The Windows and Linux programs list no regions, so
+they do not have the commands.
 
 ---
 

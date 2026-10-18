@@ -9,6 +9,15 @@ API may still change between minor versions.
 
 ## Unreleased
 
+* **`peek` and `poke` on the ESP32 boards** (TinyDesk Shell): root can
+  read RAM, ROM, PSRAM and the GPIO, IO_MUX and eFuse registers, and
+  write the GPIO output registers; `peek -l` lists the ranges. See
+  [Commands](shell/commands.md#peek-poke) (tinydesk-shell #1).
+* **Scripts that run out of memory while loading say so**
+  (TinyDesk Shell): `uscript: <file>:<line>: not enough memory to load
+  the script` instead of returning with no output (tinydesk-shell #2).
+* **TinyDesk Shell builds on macOS** (tinydesk-shell #5).
+
 * **nano with UTF-8 text** (TinyDesk Shell): the cursor, Backspace and
   Delete work by character instead of by byte, so text such as `Привет`
   or `日本語` is no longer cut into broken bytes; Up and Down keep the
