@@ -26,7 +26,7 @@ page updated before the release.
 | a new board configuration key | `guide/board-config.md` (and, in the code, every `board.example.conf`) |
 | a change in the shell (`third_party/tdsh`) | the shell repository's `CHANGELOG.md`, and the pages here that describe it |
 | a new tool or tool option | `tools.md` |
-| every release | `changelog.md`, the version in `_coverpage.md` |
+| every release | `changelog.md` (the Pages workflow writes the version into `_coverpage.md`) |
 | a new page | add it to `_sidebar.md` |
 
 ## Style
@@ -67,9 +67,10 @@ TinyDesk Shell have their own version numbers (both started at 0.1.0).
    `VERSION`) in `tinydesk-shell` too: its own release workflow publishes
    the Shell edition there, with the same file names. Review each draft
    on GitHub and publish it.
-5. Here: add the `changelog.md` entry, set the version in `_coverpage.md`,
-   push, and run the *GitHub Pages* workflow: it puts the newest published
-   `tinydesk` release into the installer.
+5. Here: add the `changelog.md` entry, push, and run the *GitHub Pages*
+   workflow: it puts the newest published `tinydesk` release into the
+   installer and writes its version into `_coverpage.md` and the
+   installer page (`tools/fetch_release.py`).
    **Once, after publishing 0.1.5:** boards running 0.1.3 or 0.1.4 look for
    updates at the old address, `https://schikani.github.io/tinydesk-docs/install/`
    (repository `schikani/tinydesk-docs`). Run that repository's *GitHub

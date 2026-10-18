@@ -7,7 +7,7 @@ that reaches users or changes an API (see [Maintaining these docs](maintaining.m
 Versions follow [Semantic Versioning](https://semver.org/): until 1.0.0 the
 API may still change between minor versions.
 
-## Unreleased
+## 0.1.6 (2026-10-18)
 
 * **`peek` and `poke` on the ESP32 boards** (TinyDesk Shell): root can
   read RAM, ROM, PSRAM and the GPIO, IO_MUX and eFuse registers, and
@@ -17,7 +17,6 @@ API may still change between minor versions.
   (TinyDesk Shell): `uscript: <file>:<line>: not enough memory to load
   the script` instead of returning with no output (tinydesk-shell #2).
 * **TinyDesk Shell builds on macOS** (tinydesk-shell #5).
-
 * **nano with UTF-8 text** (TinyDesk Shell): the cursor, Backspace and
   Delete work by character instead of by byte, so text such as `Привет`
   or `日本語` is no longer cut into broken bytes; Up and Down keep the
