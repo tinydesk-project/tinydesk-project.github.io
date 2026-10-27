@@ -1,3 +1,5 @@
+<p class="cover-logo"><img src="images/tinydesk-logo.png" alt="TinyDesk logo: the letters TD in blue pixels, with TinyDesk written in binary below"></p>
+
 # TinyDesk <small>v0.1.5 · Developer preview</small>
 
 > A tiny board. A real desktop. Inside your terminal.
