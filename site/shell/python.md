@@ -7,6 +7,7 @@ Linux programs.
 
 ```
 # py hello.py                 run a script
+# py hello.mpy                run a precompiled script
 # py                          the interactive prompt (>>>)
 # py -c "print(2 ** 100)"     run one line
 ```
@@ -22,7 +23,7 @@ Usage: `py [-m KB] [FILE [ARG...] | -c CODE [ARG...]]`
 
 | Form | What it does |
 |---|---|
-| `py FILE [ARG...]` | Runs the script. `sys.argv` is `[FILE, ARG...]`; the script's directory comes first in `sys.path`, so it can import modules next to it. |
+| `py FILE [ARG...]` | Runs the script: Python source, or a `.mpy` file (see [Precompiled .mpy files](#precompiled-mpy-files)). `sys.argv` is `[FILE, ARG...]`; the script's directory comes first in `sys.path`, so it can import modules next to it. |
 | `py -c CODE [ARG...]` | Runs `CODE`; `sys.argv` is `['-c', ARG...]`. |
 | `py` | The interactive prompt, with history, auto-indent and paste mode (Ctrl+E, then Ctrl+D to run). Ctrl+D or `exit()` leaves it. `help()` lists what is available. |
 | `-m KB` | Heap size in KB (16 to 65536) instead of the default (see [Memory](#memory)). |
@@ -60,18 +61,31 @@ cannot leave the TinyDesk root.
   `f.close()`, so the data is on the flash before the script goes on
   (Windows also refuses to rename or delete a file that is still open).
 * `import mod` looks in the script's directory (or the current directory
-  at the prompt), then in `/lib`.
+  at the prompt), then among the modules built into the firmware
+  (`asyncio`), then in `/lib`. It finds `mod.py`, or `mod.mpy` when there
+  is no `mod.py`.
 
 ## Modules
 
 `sys`, `os`, `time`, `json`, `re`, `math`, `cmath`, `random`,
-`binascii`, `heapq`, `collections`, `struct`, `array`, `errno`, `gc`, `io`,
-`micropython`, and `tinydesk`. `help('modules')` lists them on the device.
+`binascii`, `hashlib`, `heapq`, `collections`, `struct`, `array`, `errno`,
+`gc`, `io`, `select`, `asyncio`, `micropython`, and `tinydesk`.
+`help('modules')` lists them on the device.
 
-Not included: `machine`, `network`, `socket`, `select`, `asyncio`,
-`_thread`, `bluetooth`, `hashlib`, `deflate`, `framebuf`, `vfs`. Numbers:
-integers of any size, and single-precision floats (about 7 digits, the
-same on every board and PC).
+Not included: `machine`, `network`, `socket`, `_thread`, `bluetooth`,
+`deflate`, `framebuf`, `cryptolib`, `vfs`. Numbers: integers of any size,
+and single-precision floats (about 7 digits, the same on every board and
+PC).
+
+* `hashlib`: `sha256`, `sha1` and `md5`. On the boards they use mbedTLS
+  and the chip's SHA hardware. The Windows and Linux programs have `sha1`
+  and `md5` when they were built with mbedTLS, as the released ones are
+  (the same condition as MQTT over TLS).
+* `os.urandom(n)`: `n` random bytes from TinyDesk's random source (the
+  chip's hardware generator on a board).
+* `select.poll()` works on objects that support it; TinyDesk has no
+  sockets, and whether a key is waiting on `sys.stdin` is not known, so
+  its main use is `asyncio`'s loop.
 
 `time.time()` and `time.localtime()` follow the clock TinyDesk keeps (SNTP
 or `date`); `time.ticks_ms()` and `time.sleep()` work as in MicroPython.
@@ -104,6 +118,112 @@ while True:
     time.sleep(10)
 ```
 
+## asyncio
+
+`asyncio` runs several coroutines in one script: for example one that
+reads a Modbus device every second, one that publishes on MQTT every
+minute and one that writes a file every hour, each with its own timing.
+
+```python
+import asyncio, tinydesk
+
+async def poll():
+    while True:
+        hr = tinydesk.modbus_read("192.168.1.50", 1, "hr", 0, 2)
+        tinydesk.log("hr=%d,%d" % (hr[0], hr[1]))
+        await asyncio.sleep(1)
+
+async def report():
+    while True:
+        await asyncio.sleep(60)
+        tinydesk.mqtt_publish("plant/alive", "1")
+
+async def main():
+    await asyncio.gather(poll(), report())
+
+asyncio.run(main())
+```
+
+How it fits into TinyDesk:
+
+* **One task.** The event loop runs inside the script, in the shell task
+  the script runs in (the Terminal window's, or a Telnet or SSH
+  session's). It switches only between the script's own coroutines: the
+  desktop, Wi-Fi, MQTT, the Modbus server and other sessions keep running
+  in their own FreeRTOS tasks (threads on a PC), as they do for any
+  script.
+* **Waiting sleeps.** When every coroutine is waiting (`asyncio.sleep()`,
+  an `Event`, a `Lock`), the loop sleeps the shell task in steps of up to
+  10 ms until the next one is due, so an idle script takes no CPU time.
+  Ctrl+C stops it there as anywhere else (exit status 130).
+* **The `tinydesk` calls block.** `modbus_read()`, `modbus_write()`,
+  `mqtt_publish()` and `shell()` are ordinary functions: while one runs
+  (a Modbus request up to its timeout, a shell command until it ends), no
+  other coroutine runs. Keep them short, or run them less often.
+* **No I/O to wait on.** Without sockets, and without a way to know that
+  a key is waiting, `asyncio`'s streams have nothing to read in TinyDesk:
+  coroutines wait for time, `Event`s and each other.
+
+It is MicroPython's `asyncio` (the functions are listed in
+[its documentation](https://docs.micropython.org/en/v1.29.0/library/asyncio.html)).
+One difference from CPython: `asyncio.sleep()` is not a coroutine, so
+`wait_for()` needs a coroutine around it.
+
+## Precompiled .mpy files
+
+`mpy-cross`, MicroPython's compiler, turns a `.py` file into a `.mpy`
+file: bytecode that loads without being compiled on the device, which
+needs less RAM (the compiler's work is done) and starts faster. Use an
+`mpy-cross` from MicroPython 1.19 or later (`pip install mpy-cross`, or
+the one `tools/micropython` builds); for files with machine code, one from
+1.29:
+
+```
+mpy-cross sensors.py            makes sensors.mpy
+```
+
+Copy the `.mpy` file to the device (with FTP, `scp`, or the Files app);
+`py sensors.mpy` runs it, and `import sensors` loads it from the script's
+directory or `/lib`. `.mpy` files are the same on every board and PC,
+unless they contain machine code (next section).
+
+## Native code (root only)
+
+`@micropython.native` compiles a function to machine code instead of
+bytecode, and `@micropython.viper` to faster machine code with typed
+integers and raw pointers (`ptr8`, `ptr16`, `ptr32`). `mpy-cross -march=`
+does the same for `.mpy` files.
+
+```python
+import micropython
+
+@micropython.viper
+def checksum(buf) -> int:
+    p = ptr8(buf)
+    s = 0
+    for i in range(int(len(buf))):
+        s += p[i]
+    return s & 0xFFFF
+```
+
+* **Only root.** Machine code can read and write all of the device's RAM,
+  past TinyDesk's users and file permissions, so for any other user a
+  native function, or loading a `.mpy` file with machine code, raises
+  `RuntimeError: machine code (native, viper, native .mpy) needs root`.
+* **Where.** The ESP32 boards (`mpy-cross -march=xtensawin`) and the Linux
+  program on x86-64 (`-march=x64`). Not the ESP32-C6: its firmware keeps
+  RAM non-executable, a protection MicroPython's own firmware turns off and
+  TinyDesk keeps. Not the Windows program: MicroPython has no emitter for
+  the Windows x64 calling convention. There, `@micropython.native` is a
+  `SyntaxError` and a native `.mpy` file is refused.
+* **Memory.** The code goes to executable RAM outside the Python heap and
+  is freed when the script ends. On the ESP32 that is the IRAM the firmware
+  leaves: up to about 10 KB on the ESP32 with PSRAM and about 33 KB on the
+  4 MB ESP32, enough for a few small hot functions (each takes a few
+  hundred bytes to a few KB). When it runs out, `MemoryError`.
+* **Ctrl+C** does not stop a loop inside a native or viper function that
+  calls nothing; it takes effect when the function returns.
+
 ## Memory
 
 The interpreter's heap is allocated when `py` starts and freed when it
@@ -132,7 +252,9 @@ A script's frames use the shell task's stack; deep recursion ends with
 ## For developers
 
 The interpreter is in `third_party/micropython`, generated from the
-MicroPython release by `tools/micropython` (see its README); TinyDesk's
-port of it, including the configuration (`mpconfigport.h`), the file
+MicroPython release by `tools/micropython` (see its README), including
+`asyncio`'s Python part, compiled to bytecode and built into the firmware
+(`frozen/`). TinyDesk's port of it, including the configuration
+(`mpconfigport.h`), the frozen-module list (`manifest.py`), the file
 system and the `tinydesk` module, is in `ports/common/python`. Builds can
 leave it out with `-DTD_WITH_PYTHON=OFF` (PC). See [Tools](../tools.md).

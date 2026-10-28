@@ -391,15 +391,16 @@ Errors: `modbus: bad port`, `modbus: bind: ...` (port in use), `modbus: count mu
 
 ## py
 
-MicroPython: runs a Python script, one line of code, or the interactive
-prompt. See [Python scripts](python.md) for the files, modules, the
-`tinydesk` module and memory.
+MicroPython: runs a Python script (source or a precompiled `.mpy` file),
+one line of code, or the interactive prompt. See
+[Python scripts](python.md) for the files, modules, `asyncio`, the
+`tinydesk` module, native code and memory.
 
 Help line: `py [-m KB] [FILE [ARG...] | -c CODE [ARG...]]`
 
 ```
 usage: py                    interactive prompt (Ctrl+D leaves)
-       py FILE [ARG...]      run a script
+       py FILE [ARG...]      run a script (.py or .mpy)
        py -c CODE [ARG...]   run CODE
        py -m KB ...          heap size in KB
 ```
@@ -415,7 +416,8 @@ exception, 130 after Ctrl+C, 2 for a usage error or a missing script.
 Ctrl+C in the Terminal window stops the script. One script runs at a time
 on a device.
 
-Who: any user.
+Who: any user; machine code (`@micropython.native`, `@micropython.viper`,
+`.mpy` files with machine code) only root.
 
 ## ota
 

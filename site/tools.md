@@ -176,9 +176,11 @@ tools/micropython/gen.sh /tmp/micropython
 Regenerates `third_party/micropython`, the interpreter behind
 [`py`](shell/python.md): it copies the sources TinyDesk builds from a
 MicroPython checkout and generates the headers that depend on TinyDesk's
-configuration (the qstr table, the built-in modules, the root pointers).
-Run it after changing `ports/common/python/mpconfigport.h`, after adding a
+configuration (the qstr table, the built-in modules, the root pointers),
+and compiles the Python part of `asyncio` into the firmware with
+`mpy-cross`, which it builds in the checkout. Run it after changing
+`ports/common/python/mpconfigport.h` or `manifest.py`, after adding a
 function to the `tinydesk` module (any new `MP_QSTR_` name), or to move to
 another MicroPython release, and commit the result. It needs make, gcc and
-python3: Linux, or WSL on Windows. `tools/micropython/README.md` has the
-details.
+python3 on x86-64: Linux, or WSL on Windows. `tools/micropython/README.md`
+has the details.

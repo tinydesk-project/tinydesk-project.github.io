@@ -17,7 +17,10 @@ API may still change between minor versions.
   The heap is allocated only while a script runs: 512 KB of PSRAM on the
   ESP32 with PSRAM, 64 KB of internal RAM on the ESP32-C6, and what is
   free above a 32 KB reserve on the 4 MB ESP32 (about 31 KB with Wi-Fi
-  off). See [Python scripts](shell/python.md).
+  off). Included: `hashlib` (sha256, sha1, md5), `os.urandom`,
+  `asyncio` with `select`, and precompiled `.mpy` files; root can also use
+  `@micropython.native` and `@micropython.viper` on the ESP32 boards and
+  in the Linux program. See [Python scripts](shell/python.md).
 * **Ctrl+C stops `modbus read -i` in the PC programs** too, as on the
   boards.
 
