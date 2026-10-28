@@ -31,13 +31,16 @@ Shift+PgUp/PgDn and the mouse wheel scroll back.
 ## Shell scripts (`.tdsh`)
 
 Files ending in `.tdsh` are [TinyDesk Shell](../shell/commands.md) scripts.
-They stand out: a green **`#!`** icon on the desktop (other files show `¶`),
-and in the Files app a green name marked `#!`.
+They stand out: a green **`#!`** icon on the desktop (other files show `¶`,
+and [Python scripts](../shell/python.md) `py`), and in the Files app a green
+name marked `#!`.
 
 * **Right-click → Run** (on the desktop or in Files) opens the Terminal and
   runs the script there: it types `tdsh run "<path>"` and Enter, after
   clearing whatever was half-typed at the prompt. The output stays in the
-  Terminal.
+  Terminal. A `.py` file has **Run** too, with `py "<path>"`.
+* In the Editor, **F5** saves the script and runs it with the output below
+  the text (see [The Editor](#the-editor)).
 * Double-click (or **Open**) still opens the script in the Editor, so a
   script never runs by accident.
 * From the shell: `tdsh run ~/Desktop/backup.tdsh`; a folder runs its
@@ -88,13 +91,67 @@ change closes the previous user's windows. Root can use everything; other
 users are limited to their home and cannot read the system log, reboot or
 set the system clock. Details: [Apps API](../api/apps.md#sessions).
 
+## The Editor
+
+Double-click a file on the desktop or in Files, or drop it on the Editor.
+It edits one file of up to 16 KB at a time (bigger files open read-only).
+
+| Key | Effect |
+| --- | --- |
+| arrows, Home/End, PgUp/PgDn, Ctrl+Home/End, Ctrl+Left/Right | move; hold Shift to select (or drag, Shift+click, double-click a word) |
+| Ctrl+A / Ctrl+C / Ctrl+X / Ctrl+V | select all, copy, cut, paste (also Ctrl+Insert, Shift+Delete, Shift+Insert) |
+| Ctrl+Z / Ctrl+Y | undo / redo |
+| Enter | new line with the same indent |
+| Tab / Shift+Tab | indent / unindent the selected lines; without a selection, spaces to the next multiple of 4 |
+| Ctrl+/ | comment out the lines with `#`, or uncomment them |
+| Ctrl+F, F3 | find, find the next match |
+| Ctrl+R | replace all (one undo step) |
+| Ctrl+G | go to a line |
+| Ctrl+S | save (a new file is saved on the Desktop) |
+| Esc, Ctrl+W, Ctrl+Q | close; asks about unsaved changes |
+
+The right-click menu has the same commands, and turns the line numbers on
+or off.
+
+### Python files
+
+A file ending in `.py` gets more:
+
+* **Colours** for keywords, built-ins, strings, comments, numbers and the
+  names after `def` and `class`, line numbers, and the matching bracket at
+  the cursor underlined.
+* **Indents:** Enter adds 4 spaces after a line ending in `:` and takes 4
+  away after `return`, `pass`, `break`, `continue` or `raise`; Backspace in
+  the indent goes back 4.
+* **F5 runs the file** (after saving it) with `py` in the Terminal's shell,
+  and shows that session in an **output pane** under the text. **F7** moves
+  the keyboard into the pane, for `input()` and Ctrl+C; F7 or Esc moves it
+  back. Shift+F5 (or **Stop** in the menu) sends Ctrl+C from the text.
+  Drag the pane's title row to resize it; the mouse wheel scrolls it back.
+  `.tdsh` scripts run with F5 too.
+* **The error line:** when the script stops with a traceback, the line is
+  marked red in the line numbers and the message is shown in the status
+  bar; **F8** goes there (opening the file it is in, if that is another
+  one, such as a module in `/lib`).
+* **Suggestions:** Ctrl+Space lists the names that complete the word at the
+  cursor: keywords, built-ins, the modules `py` has, the names of a module
+  after `module.` (`tinydesk.`, `os.`, `time.`, `asyncio.`...), and the
+  words already in the file. Up/Down choose, Enter or Tab insert, Esc
+  closes. With **Auto-complete** ticked in the right-click menu they pop
+  up while typing; the choice is saved with the user's settings.
+
+The pane is the same session as the Terminal window, so what the script
+printed is also there, and a command typed in the pane runs in the shell.
+Shift+F5 needs a terminal that sends Shift with function keys (PuTTY does
+not); **Stop** in the menu and Ctrl+C in the pane work everywhere.
+
 ## Apps
 
 | App | What it does |
 | --- | --- |
 | Terminal | TinyDesk Shell in a window; the session survives closing the window |
-| Files | browse, create, rename, delete, drag and drop, run `.tdsh` scripts (jailed to the home for non-root users) |
-| Editor | text editor with selection, undo/redo, clipboard, paste from the PC |
+| Files | browse, create, rename, delete, drag and drop, run `.tdsh` and `.py` scripts (jailed to the home for non-root users) |
+| Editor | text editor with selection, undo/redo, clipboard, paste from the PC, find and replace, go to a line; for Python, colours, line numbers, run with F5 and output below, the error line, suggestions (see [The Editor](#the-editor)) |
 | Network | Wi-Fi scan/connect/forget, Ethernet status, SSH/FTP servers, Telnet switch |
 | MQTT | connect (config file or URL, TLS), subscribe, publish, message log |
 | Modbus | read/write coils and registers over TCP or RTU, repeat at an interval, built-in TCP server |

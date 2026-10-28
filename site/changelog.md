@@ -21,6 +21,22 @@ API may still change between minor versions.
   `asyncio` with `select`, and precompiled `.mpy` files; root can also use
   `@micropython.native` and `@micropython.viper` on the ESP32 boards and
   in the Linux program. See [Python scripts](shell/python.md).
+* **The Editor for Python:** a `.py` file gets colours, line numbers,
+  indents after `:`, and the matching bracket shown. **F5** saves and runs
+  it, with the output in a pane under the text (F7 types into it); after
+  an error the line is marked and **F8** goes there. Ctrl+Space suggests
+  names (keywords, built-ins, modules and their functions, the file's
+  words), which can also pop up while typing (right-click →
+  Auto-complete, saved per user). For every file: find (Ctrl+F, F3),
+  replace all (Ctrl+R), go to a line (Ctrl+G), comment lines (Ctrl+/),
+  Tab / Shift+Tab on selected lines and Enter keeping the indent.
+  See [The Editor](guide/using.md#the-editor).
+* **The Editor's buffer follows the file:** it is sized to the file and
+  grows with the text up to 16 KB, instead of taking 16 KB for any file.
+  A small script then leaves enough RAM to run it with F5 on the 4 MB
+  ESP32.
+* **Run `.py` files** from the desktop and the Files app (right-click →
+  Run), as `.tdsh` scripts; they show a `py` icon.
 * **Ctrl+C stops `modbus read -i` in the PC programs** too, as on the
   boards.
 

@@ -43,6 +43,18 @@ Who: any user. One script runs at a time on a device: while one runs, `py`
 in another session (or from `tinydesk.shell()`) says
 `py: Python is already running (one script at a time)`.
 
+## Writing scripts on the desktop
+
+The desktop's [Editor](../guide/using.md#the-editor) knows Python: it
+colours a `.py` file, numbers its lines and indents after `:`. **F5** saves
+and runs the file with `py`, with the output in a pane under the text (F7
+types into it, for `input()` and Ctrl+C). When the script stops with an
+error, the line is marked and **F8** goes to it. **Ctrl+Space** suggests
+names: keywords, built-ins, modules, a module's functions after the dot
+(`tinydesk.`, `time.`, `asyncio.`...) and the words of the file; they can
+also pop up while typing (right-click → Auto-complete). On the desktop and
+in Files, right-click → **Run** runs a `.py` file in the Terminal.
+
 ## Files
 
 Paths are TinyDesk paths, the same ones the shell uses: `/home/root`,

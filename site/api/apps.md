@@ -70,7 +70,7 @@ void weather_register(void) { td_app_register(&s_app); }
 |---|---|---|---|
 | Terminal | `>_` | `apps/terminal.c` | Runs the port's text program (normally TinyDesk Shell) through a `td_term_backend_t` with a VT100 emulator ([vterm.md](vterm.md)); scrollback with Shift+PgUp/PgDn and the wheel. The program keeps running while the window is closed. |
 | Files | `[]` | `apps/files.c` | Browses the port's filesystem: open files in the Editor, create files and folders, rename, delete, drag and drop. Non-root users stay inside their home. |
-| Editor | `¶_` | `apps/editor.c` | Text editor for one file at a time (`TD_EDITOR_MAX`, 16384 bytes, allocated while open; bigger files open read-only), with selection, undo/redo, the clipboard and Ctrl+S save. While open it also keeps the undo history: `TD_EDITOR_UNDO` bytes of text (6144) and `TD_EDITOR_UNDO_OPS` records of 20 bytes each (128), about 8.7 KB. A build can set all three, for example `-DTD_EDITOR_MAX=8192 -DTD_EDITOR_UNDO=2048 -DTD_EDITOR_UNDO_OPS=32`. |
+| Editor | `¶_` | `apps/editor.c`, `apps/editor_py.c` | Text editor for one file at a time (up to `TD_EDITOR_MAX`, 16384 bytes; the text buffer is allocated while open, sized to the file plus 1 KB and grown with the text; bigger files open read-only), with selection, undo/redo, the clipboard, find and replace, go to a line and Ctrl+S save; Python files get colours, line numbers, F5 Run with an output pane (the Terminal's session, through `td_terminal_draw_view()`), the error line from the traceback, and suggestions (`td_editor_prefs()`). While open it also keeps the undo history: `TD_EDITOR_UNDO` bytes of text (6144) and `TD_EDITOR_UNDO_OPS` records of 20 bytes each (128), about 8.7 KB, plus 256 bytes for a line's colours, and 2 KB of program output after the first Run. A build can set all three, for example `-DTD_EDITOR_MAX=8192 -DTD_EDITOR_UNDO=2048 -DTD_EDITOR_UNDO_OPS=32`. Keys: [Using the desktop](../guide/using.md#the-editor). |
 | Network | `((` | `apps/network.c` | Wi-Fi and Ethernet status, Wi-Fi scan / connect / forget, the Telnet remote-desktop switch and the SSH/SFTP and FTP servers, through `td_sysinfo()->net`. |
 | MQTT | `MQ` | `apps/mqtt.c` | Connects to a broker, subscribes, publishes and lists messages; shares the connection with the `mqtt` shell command ([mqtt.md](mqtt.md)). |
 | Modbus | `MB` | `apps/modbus.c` | Reads and writes coils and registers over Modbus TCP or RTU, optionally repeated, and switches the Modbus TCP server ([modbus.md](modbus.md)). |
@@ -253,7 +253,7 @@ Loads the current user's settings as described above and applies them: `td_theme
 bool td_settings_save(void);
 ```
 
-Saves the current state (active theme, ASCII mode, pattern, icons, `td_clock_prefs()`, UI sizes) to the current user's `~/.tinydesk_settings`. Returns `false` when there is no filesystem with `write`, no home folder, or writing failed. The Settings app and the Date & time window call it after every change. It does not call `td_sysinfo()->settings_save`.
+Saves the current state (active theme, ASCII mode, pattern, icons, `td_clock_prefs()`, `td_editor_prefs()`, UI sizes) to the current user's `~/.tinydesk_settings`. Returns `false` when there is no filesystem with `write`, no home folder, or writing failed. The Settings app and the Date & time window call it after every change. It does not call `td_sysinfo()->settings_save`.
 
 ```c
 td_theme_set(1);                       /* Dark */
@@ -280,6 +280,17 @@ td_clock_prefs_t *td_clock_prefs(void);
 | `hide_clock` | 1 hides the date and time in the taskbar. |
 
 `td_clock_prefs()` returns a pointer to the current user's preferences (a single static structure, never `NULL`). Changes show on the next frame (call `td_wm_invalidate()`); call `td_settings_save()` to keep them. They are replaced by `td_settings_apply_saved()` on a user switch.
+
+### Editor preferences
+
+```c
+typedef struct {
+    uint8_t completion;     /* 1: suggestions pop up while typing Python */
+} td_editor_prefs_t;
+td_editor_prefs_t *td_editor_prefs(void);
+```
+
+The same pattern as the clock preferences: one static structure for the current user, saved by `td_settings_save()` (bit 0 of a byte in `~/.tinydesk_settings` that older versions left 0, so suggestions start off) and replaced by `td_settings_apply_saved()`. The Editor's right-click **Auto-complete** entry changes it and saves.
 
 ## Clipboard
 
@@ -431,11 +442,35 @@ bool td_terminal_run(const char *command);
 
 Opens the Terminal window (or brings it to the front) and types `command` followed by Enter, as if the user had typed it. Ctrl+U is sent first, so a line the user had half-typed at the prompt is discarded rather than joined to the command. The text goes to whatever runs in the Terminal: if a program is still busy, it reads it. Returns `false`, after showing a message box, when the build has no shell backend.
 
+### The session in another window
+
+```c
+bool td_terminal_command(const char *command);
+int  td_terminal_draw_view(td_window_t *win, int x, int y, int w, int h, int scroll_back, bool cursor);
+void td_terminal_key(const td_event_t *ev);
+void td_terminal_send(const char *text, int len);
+void td_terminal_set_viewer(td_window_t *win, void (*tap)(const uint8_t *data, int len));
+void td_terminal_pump(void);
+```
+
+The Terminal's one shell session can also be shown and used in another window; the Editor's output pane does this.
+
+| Function | Meaning |
+|---|---|
+| `td_terminal_command` | `td_terminal_run()` without opening the Terminal window. |
+| `td_terminal_draw_view` | Draws the session into the cells `(x, y, w, h)` of `win`'s client area, from that window's `on_draw`. While the Terminal window is closed the session takes that size (the program is told, as by `resize`); while it is open the session keeps the Terminal's size and the view shows the rows that end at the cursor, cut at the right. `scroll_back` > 0 shows older lines; the value used (clamped to the scrollback) is returned. `cursor` draws the cursor. |
+| `td_terminal_key` | Sends a key event to the program as the Terminal window would (VT100 / xterm sequences). |
+| `td_terminal_send` | Sends bytes, for example pasted text or `"\x03"` (Ctrl+C). |
+| `td_terminal_set_viewer` | `win` is redrawn whenever the program prints, and `tap`, if not `NULL`, gets every byte of output (escape sequences included) right after the emulator. One viewer at a time; `NULL` removes it. Call it with `NULL` from the window's `on_close`. |
+| `td_terminal_pump` | Reads the output waiting now. The Terminal reads every 15 ms while its window is open and every 100 ms otherwise; a viewer can call this from its own `on_tick` for a quicker display. |
+
 ### Shell scripts
 
 ```c
 #define TD_SCRIPT_EXT ".tdsh"
 bool td_is_script(const char *name);
+bool td_is_python(const char *name);
+bool td_is_runnable(const char *name);
 bool td_script_run(const char *path);
 uint8_t td_script_colour(uint8_t bg);
 ```
@@ -443,10 +478,12 @@ uint8_t td_script_colour(uint8_t bg);
 | Function | Meaning |
 |---|---|
 | `td_is_script` | True if the file name ends in `.tdsh` (and is not just the extension). |
-| `td_script_run` | Runs the script at `path` (a real path, as the Files app and the Desktop use) in the Terminal: `td_terminal_run("tdsh run \"<shell path>\"")`, with the path converted by `td_shell_path()`. Refuses, with a message, a path containing `"` or one too long for the command line. |
+| `td_is_python` | True if the file name ends in `.py` (and is not just the extension). |
+| `td_is_runnable` | A shell or Python script: `td_is_script() || td_is_python()`. |
+| `td_script_run` | Runs the script at `path` (a real path, as the Files app and the Desktop use) in the Terminal: `td_terminal_run("tdsh run \"<shell path>\"")`, or `py "<shell path>"` for a `.py` file, with the path converted by `td_shell_path()`. Refuses, with a message, a path containing `"` or one too long for the command line. |
 | `td_script_colour` | The colour for script names and icons on background `bg` (a palette index): bright green (10) on dark backgrounds, dark green (28) on light ones. |
 
-The Desktop folder and the Files app use them for the **Run** entry at the top of a script's right-click menu and for the `#!` icon; see [Using the desktop](../guide/using.md#shell-scripts-tdsh).
+The Desktop folder and the Files app use them for the **Run** entry at the top of a runnable file's right-click menu, and for the green `#!` icon of a shell script (a Python file shows `py`); see [Using the desktop](../guide/using.md#shell-scripts-tdsh).
 
 ## MQTT and Modbus service
 
