@@ -42,7 +42,9 @@ and appears as the Terminal app; the desktop runs in the `tinydesk` task.
    configuration](../guide/board-config.md) with the built-in
    `board_builtin.conf`, users, networking), then the
    extra shell commands: `mqtt`, `modbus` (`td_proto_register_shell_commands`),
-   Ctrl+C for repeated reads (`td_proto_set_break_check`), `ota`.
+   Ctrl+C for repeated reads (`td_proto_set_break_check`), `py`
+   (`td_py_register_shell_command`, with the same Ctrl+C check through
+   `td_py_set_break_check`), `ota`.
 5. `td_mb_set_serial(board_rtu_lines())`.
 6. The `tinydesk` task: `hal_mux_init()`, `td_init()`, apps, Terminal
    backend, `td_step()` loop (priority above the shell).

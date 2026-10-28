@@ -1,6 +1,6 @@
 # Shell commands
 
-This page lists the shell commands that TinyDesk adds to TinyDesk Shell (`mqtt`, `modbus`, `ota`) and the shell commands that matter most on the desktop: `board`, `hwtest`, `lan`, `ssh`, `ftp` and the Wi-Fi commands. `help` in the Terminal lists all commands.
+This page lists the shell commands that TinyDesk adds to TinyDesk Shell (`mqtt`, `modbus`, `py`, `ota`) and the shell commands that matter most on the desktop: `board`, `hwtest`, `lan`, `ssh`, `ftp` and the Wi-Fi commands. `help` in the Terminal lists all commands.
 
 Commands run on the TinyDesk Shell task: in the desktop's Terminal window (the local console), or in an SSH or Telnet session. Their output goes to that session.
 
@@ -14,6 +14,7 @@ Examples use `$` as the prompt of any user and `#` for root.
 |---|---|---|---|
 | `mqtt` | `ports/common/td_proto_cmds.c` | all | any user |
 | `modbus` | `ports/common/td_proto_cmds.c` | all (RTU where the board configuration has RS-485 lines) | any user |
+| `py` | `ports/common/python/td_py.c` | all | any user |
 | `ota` | `ports/esp_idf/app/ota_esp.c` | ESP32-C6, ESP32 | root |
 | `ssh` | TinyDesk Shell | ESP32-C6, ESP32 | `status`, `hostkey`: any user; `hostkey new`: root; `start`, `stop`, `restart`: root, or any user on the local console |
 | `ftp` | TinyDesk Shell | ESP32-C6, ESP32 | as `ssh` (no `hostkey`) |
@@ -387,6 +388,34 @@ Modbus TCP server stopped
 Errors: `modbus: bad port`, `modbus: bind: ...` (port in use), `modbus: count must be 1..64`, `modbus: addresses go up to 127`. `set` returns 1 when it hit the end of the table before writing every value.
 
 ---
+
+## py
+
+MicroPython: runs a Python script, one line of code, or the interactive
+prompt. See [Python scripts](python.md) for the files, modules, the
+`tinydesk` module and memory.
+
+Help line: `py [-m KB] [FILE [ARG...] | -c CODE [ARG...]]`
+
+```
+usage: py                    interactive prompt (Ctrl+D leaves)
+       py FILE [ARG...]      run a script
+       py -c CODE [ARG...]   run CODE
+       py -m KB ...          heap size in KB
+```
+
+```
+# py ~/report.py today
+# py -c "import time; print(time.localtime())"
+(2026, 10, 27, 18, 40, 12, 1, 300)
+```
+
+Exit status: the script's (`sys.exit(n)` gives *n*), 1 after an uncaught
+exception, 130 after Ctrl+C, 2 for a usage error or a missing script.
+Ctrl+C in the Terminal window stops the script. One script runs at a time
+on a device.
+
+Who: any user.
 
 ## ota
 

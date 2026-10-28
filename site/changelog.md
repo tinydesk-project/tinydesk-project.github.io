@@ -7,6 +7,20 @@ that reaches users or changes an API (see [Maintaining these docs](maintaining.m
 Versions follow [Semantic Versioning](https://semver.org/): until 1.0.0 the
 API may still change between minor versions.
 
+## Unreleased
+
+* **Python scripts with MicroPython:** the new shell command `py` runs a
+  script (`py report.py`), one line (`py -c ...`) or the interactive
+  prompt, in the Terminal, over SSH and in the PC programs. Scripts use
+  TinyDesk's files and paths, and the `tinydesk` module runs shell
+  commands, publishes MQTT messages and reads or writes Modbus registers.
+  The heap is allocated only while a script runs: 512 KB of PSRAM on the
+  ESP32 with PSRAM, 64 KB of internal RAM on the ESP32-C6, and what is
+  free above a 32 KB reserve on the 4 MB ESP32 (about 31 KB with Wi-Fi
+  off). See [Python scripts](shell/python.md).
+* **Ctrl+C stops `modbus read -i` in the PC programs** too, as on the
+  boards.
+
 ## 0.1.6 (2026-10-18)
 
 * **`peek` and `poke` on the ESP32 boards** (TinyDesk Shell): root can

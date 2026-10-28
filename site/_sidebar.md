@@ -26,6 +26,7 @@
 - Shell
   - [Commands](/shell/commands.md)
   - [Scripts (.tdsh)](/shell/scripting.md)
+  - [Python scripts (py)](/shell/python.md)
   - [Configuration files](/shell/config-files.md)
 - Ports
   - [Architecture and porting](/ports/overview.md)
