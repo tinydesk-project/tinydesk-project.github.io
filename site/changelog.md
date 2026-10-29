@@ -20,7 +20,9 @@ API may still change between minor versions.
   off). Included: `hashlib` (sha256, sha1, md5), `os.urandom`,
   `asyncio` with `select`, and precompiled `.mpy` files; root can also use
   `@micropython.native` and `@micropython.viper` on the ESP32 boards and
-  in the Linux program. See [Python scripts](shell/python.md).
+  in the Linux program. The prompt's history (Up and Down) is kept in
+  `~/.py_history` from one `py` to the next. See
+  [Python scripts](shell/python.md).
 * **Pins and buses from Python (`machine`):** on the ESP32 boards, root's
   scripts use `Pin` (with interrupts), `ADC`, `PWM`, `I2C`, `SPI`, `UART`,
   `SoftI2C`, `SoftSPI`, `time_pulse_us`, `bitstream` and the `neopixel`

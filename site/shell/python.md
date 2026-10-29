@@ -26,7 +26,7 @@ Usage: `py [-m KB] [FILE [ARG...] | -c CODE [ARG...]]`
 |---|---|
 | `py FILE [ARG...]` | Runs the script: Python source, or a `.mpy` file (see [Precompiled .mpy files](#precompiled-mpy-files)). `sys.argv` is `[FILE, ARG...]`; the script's directory comes first in `sys.path`, so it can import modules next to it. |
 | `py -c CODE [ARG...]` | Runs `CODE`; `sys.argv` is `['-c', ARG...]`. |
-| `py` | The interactive prompt, with history, auto-indent and paste mode (Ctrl+E, then Ctrl+D to run). Ctrl+D or `exit()` leaves it. `help()` lists what is available. |
+| `py` | The interactive prompt, with history, auto-indent and paste mode (Ctrl+E, then Ctrl+D to run). Ctrl+D or `exit()` leaves it. `help()` lists what is available. Up and Down (or Ctrl+P and Ctrl+N) recall the last 8 lines, also from earlier prompts: they are kept in `~/.py_history`, as the shell keeps its own in `~/.tdsh_history`. |
 | `-m KB` | Heap size in KB (16 to 65536) instead of the default (see [Memory](#memory)). |
 
 Exit status: 0 when the script ends normally, 1 after an uncaught
