@@ -111,7 +111,7 @@ A pass does the following:
 3. **Dispatch events.** `TD_EV_RESIZE` events are handled by the core (below) and are not passed on. Every other event goes to `td_wm_dispatch()` (see [Window manager](wm.md)). After a `TD_EV_PASTE` has been dispatched, its text is freed.
 4. **Timers.** Runs every due timer (`td_timers_run()`), which includes the windows' `on_tick` callbacks.
 5. **Clock.** Once a second (whenever `td_millis() / 1000` changes), the whole screen is marked for recomposition so the taskbar clock updates. Because the renderer only sends changed cells, this costs a compose per second but very few bytes.
-6. **Size poll / link retry.** While the link is up, the terminal size is queried every `TD_SIZE_POLL_MS` (serial terminals do not report resizes on their own). While the link is down, a resync is scheduled every `TD_LINK_RETRY_MS` instead.
+6. **Size poll / link retry.** While the link is up, the terminal size is queried every `TD_SIZE_POLL_MS` (serial terminals do not report resizes on their own), except while a bracketed paste is arriving. While the link is down, a resync is scheduled every `TD_LINK_RETRY_MS` instead.
 7. **Render.** If a resync is pending, the setup sequence and a size query are sent and the whole screen is redrawn. Otherwise, if the link is up and the window manager reports a change (`td_wm_needs_redraw()`), the screen is composed into the back buffer and the difference to the front buffer is sent.
 8. **Statistics.** Updates `bytes_sent`, `bytes_per_sec` and `loop_ms`.
 

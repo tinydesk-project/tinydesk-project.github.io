@@ -53,6 +53,12 @@ API may still change between minor versions.
   Run), as `.tdsh` scripts; they show a `py` icon.
 * **Ctrl+C stops `modbus read -i` in the PC programs** too, as on the
   boards.
+* **Pastes no longer pick up the size reply:** the desktop's periodic
+  terminal size query could be answered in the middle of a bracketed
+  paste, and the reply (such as `[25;80R`) ended up in the pasted text, in
+  up to one paste in ten of a few KB at 921600 baud. The reply is now taken
+  out of the paste and handled as usual, and the query is not sent while a
+  paste is arriving.
 
 ## 0.1.6 (2026-10-18)
 
