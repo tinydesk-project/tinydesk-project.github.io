@@ -362,14 +362,14 @@ How it works:
 
 | Class or function | Notes |
 |---|---|
-| `Window(title, w, h, x=None, y=None, resizable=False)` | `w` and `h` are the client area in cells; without `x`, `y` the window is centred. `.title`, `.focus()`, `.close()`, `.is_open`; `.on_close(win)` runs when the user closes it; `.on_key(win, key)` gets the keys no widget used, as `'a'`, `'enter'`, `'f5'`, `'ctrl+s'`, `'shift+tab'`. `.every(ms, fn)` and `.after(ms, fn)` run `fn()` repeatedly or once while the window is open; they return a timer with `cancel()`. |
+| `Window(title, w, h, x=None, y=None, resizable=False)` | `w` and `h` are the client area in cells; without `x`, `y` the window is centred. `.title`, `.focus()`, `.close()`, `.is_open`; `.on_close(win)` runs when the user closes it; `.on_key(win, key)` gets the keys no widget used, as `'a'`, `'enter'`, `'f5'`, `'ctrl+s'`, `'shift+tab'`. `.every(ms, fn)` and `.after(ms, fn)` run `fn()` repeatedly or once while the window is open; they return a timer with `cancel()`. See [Size and place](#size-and-place). |
 | `w.label(x, y, text, width=0)` | `width` 0: to the right edge. |
 | `w.button(x, y, text, on_click)` | `on_click(button)`: a click, Enter or Space. |
 | `w.checkbox(x, y, text, checked=False, on_change=None)` | `.checked`; `on_change(box)`. |
 | `w.textbox(x, y, width, text="", secret=False, on_enter=None, on_change=None)` | `.text`; `on_enter(box)` on Enter, `on_change(box)` after each edit. `secret` shows `*`. |
 | `w.progress(x, y, width, value=0)` | `.value`, 0–100. |
-| `w.list(x, y, w, h, items, on_select=None, on_activate=None)` | `.items` (a list of strings; set it to replace them), `.append(item)`, `.selected`; `on_select(lst)` when the selection moves, `on_activate(lst)` on Enter or a double-click. Up to 1000 items. |
-| `w.canvas(x, y, w, h, on_mouse=None)` | A grid of character cells: `put(x, y, text, fg=-1, bg=-1)`, `fill(x, y, w, h, ch=" ", fg=-1, bg=-1)`, `clear()`. Colours are the terminal's 256 palette numbers, -1 the window's own. `on_mouse(canvas, x, y, button, action)`: `action` 0 press, 1 release, 2 drag. |
+| `w.list(x, y, w, h, items, on_select=None, on_activate=None)` | `.items` (a list of strings; set it to replace them), `.append(item)`, `.selected`; `on_select(lst)` when the selection moves, `on_activate(lst)` on Enter or a double-click. Up to 1000 items. `w` or `h` 0 or less: to that many cells before the window's right or bottom edge, following resizes. |
+| `w.canvas(x, y, w, h, on_mouse=None)` | A grid of character cells: `put(x, y, text, fg=-1, bg=-1)`, `fill(x, y, w, h, ch=" ", fg=-1, bg=-1)`, `clear()`. Colours are the terminal's 256 palette numbers, -1 the window's own. `on_mouse(canvas, x, y, button, action)`: `action` 0 press, 1 release, 2 drag. `.width`, `.height`; `resize(w, h)` keeps what fits of the picture, `move(x, y)` places it elsewhere in the window. |
 | Every widget | `.text`, `.visible`, `.color(fg, bg)`, `.focus()`. |
 | `msgbox(title, text, buttons="OK")` | Buttons separated by `\|`, for example `"Yes\|No"`; returns the number of the one chosen (from 0), -1 for Esc. |
 | `confirm(title, text)` | Yes / No; `True` for Yes. |
@@ -379,6 +379,31 @@ How it works:
 | `poll(ms=0)` | Handles what happened and the timers that are due, for up to `ms` milliseconds: for a script with its own loop. |
 | `run_async()` | `run()` for [asyncio](#asyncio): `await tdui.run_async()` while other tasks keep going. |
 | `every(ms, fn)`, `after(ms, fn)`, `quit()` | Timers not tied to a window; `quit()` closes all the script's windows. |
+
+### Size and place
+
+| Method or attribute | Notes |
+|---|---|
+| `win.width`, `win.height` | The client area's size now. The desktop may give less than asked for on a small screen, and the user can resize a window made with `resizable=True`; these follow. |
+| `win.on_resize(win, w, h)` | Runs after every change of size: the user dragging the corner, maximising, full screen (F11), and the script's own calls below. |
+| `win.resize(w, h)`, `win.move(x, y)` | A new client size, or the window's top-left corner on the screen. A maximised window is restored first. Works without `resizable=True`. |
+| `win.maximize()`, `win.minimize()`, `win.restore()`, `win.fullscreen()` | `restore()` also brings a minimised window back. Maximise needs `resizable=True`. |
+
+Widgets placed with a negative `x` or `y` (from the right or bottom edge),
+labels with `width=0` and lists with a size of 0 or less follow a resize by
+themselves; canvases keep their size until the script calls
+`canvas.resize()`, usually in `on_resize`:
+
+```python
+w = tdui.Window("Sketch", 40, 12, resizable=True)
+cv = w.canvas(0, 0, 40, 11)
+w.label(0, -1, "drag the corner to resize", width=0)
+
+def grow(win, width, height):
+    cv.resize(width, height - 1)       # within the 2000-cell limit
+
+w.on_resize = grow
+```
 
 The dialogs wait for the answer, while the script's other windows and
 timers keep working. Each script has its own windows: they are not in the

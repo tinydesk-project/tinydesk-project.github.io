@@ -509,7 +509,7 @@ The desktop side of Python's [`tdui` module](../shell/python.md#windows-tdui) (`
 
 | Function | Task | Meaning |
 |---|---|---|
-| `td_pyui_start` | UI | Starts a 10 ms timer that carries out the requests, sends the changes of text boxes and list selections, and notices dialogs closed without an answer. Only the first call has an effect; called by `td_apps_register_all()`. |
+| `td_pyui_start` | UI | Starts a 10 ms timer that carries out the requests, sends the changes of text boxes and list selections and of the scripts' window sizes (the desktop has no resize callback, so it compares each window's client size), and notices dialogs closed without an answer. Only the first call has an effect; called by `td_apps_register_all()`. |
 | `td_pyui_attach` | script | Allocates the queues and the object table (about 12 KB). False when `td_pyui_start()` has not run or memory is short. |
 | `td_pyui_send` | script | Queues a request; false while the queue is full (try again shortly). |
 | `td_pyui_recv` | script | 1 and the next event, or 0 when there is none. Text longer than `cap - 1` bytes is cut; it is always `'\0'`-terminated. |

@@ -34,7 +34,10 @@ API may still change between minor versions.
   menus, and handles clicks, keys and timers in Python: a small app without
   writing C. The desktop makes the windows on its own loop, so a busy
   script never slows it; the windows close when the script ends, and
-  Ctrl+C in one of them stops it. See [Windows](shell/python.md#windows-tdui).
+  Ctrl+C in one of them stops it. Scripts can resize, move, maximise and
+  minimise their windows, hear when the user resizes one (`on_resize`),
+  and lists and canvases can follow the new size.
+  See [Windows](shell/python.md#windows-tdui).
 * **The Editor for Python:** a `.py` file gets colours, line numbers,
   indents after `:`, and the matching bracket shown. **F5** saves and runs
   it, with the output in a pane under the text (F7 types into it); after
