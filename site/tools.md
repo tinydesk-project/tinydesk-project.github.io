@@ -177,7 +177,8 @@ Regenerates `third_party/micropython`, the interpreter behind
 [`py`](shell/python.md): it copies the sources TinyDesk builds from a
 MicroPython checkout and generates the headers that depend on TinyDesk's
 configuration (the qstr table, the built-in modules, the root pointers),
-and compiles the Python part of `asyncio`, and TinyDesk's `neopixel`, into
+and compiles the Python part of `asyncio`, and TinyDesk's `neopixel` and
+`tdui`, into
 the firmware with `mpy-cross`, which it builds in the checkout. Run it after changing
 `ports/common/python/mpconfigport.h` or `manifest.py`, after adding a
 function to the `tinydesk` module (any new `MP_QSTR_` name), or to move to

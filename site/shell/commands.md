@@ -418,7 +418,8 @@ on a device.
 
 Who: any user; machine code (`@micropython.native`, `@micropython.viper`,
 `.mpy` files with machine code) and the hardware (`machine`: pins and
-buses) only root.
+buses) only root. Windows (`tdui`) only for a script started from the
+desktop's own console (the Terminal window, the Editor, Run).
 
 ## ota
 

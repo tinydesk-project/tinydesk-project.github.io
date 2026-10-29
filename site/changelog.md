@@ -28,6 +28,13 @@ API may still change between minor versions.
   refused, strapping pins get a warning, and everything a script opened is
   closed and reset when it ends. The PC programs import `machine` but have
   no hardware for it. See [Hardware](shell/python.md#hardware-machine).
+* **Windows from Python (`tdui`):** a script started from the desktop opens
+  windows with labels, buttons, text boxes, check boxes, lists, progress
+  bars and character canvases, shows message boxes, input boxes and popup
+  menus, and handles clicks, keys and timers in Python: a small app without
+  writing C. The desktop makes the windows on its own loop, so a busy
+  script never slows it; the windows close when the script ends, and
+  Ctrl+C in one of them stops it. See [Windows](shell/python.md#windows-tdui).
 * **The Editor for Python:** a `.py` file gets colours, line numbers,
   indents after `:`, and the matching bracket shown. **F5** saves and runs
   it, with the output in a pane under the text (F7 types into it); after

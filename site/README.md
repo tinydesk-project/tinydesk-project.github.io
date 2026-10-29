@@ -36,7 +36,7 @@ app. It also runs on its own, without the desktop: see the two
 | Protocols: sockets, MQTT 3.1.1 (TLS), Modbus TCP/RTU client and TCP server | `proto/` | [Sockets](api/sock.md), [MQTT](api/mqtt.md), [Modbus](api/modbus.md), [TLS](api/tls.md) |
 | Ports: ESP32-C6 (USB Serial/JTAG), classic ESP32 with PSRAM and with 4 MB flash (UART0), Windows, Linux | `ports/` | [Architecture](ports/overview.md), [ESP-IDF](ports/esp.md), [Hosts](ports/host.md) |
 | Shell: TinyDesk Shell (`tdsh`, the git submodule `third_party/tdsh`) plus `mqtt`, `modbus`, `py`, `ota` commands | `third_party/tdsh/`, `ports/common/td_proto_cmds.c` | [Commands](shell/commands.md), [Config files](shell/config-files.md) |
-| Python: MicroPython for the `py` command, with TinyDesk's file system and `tinydesk` module | `third_party/micropython/`, `ports/common/python/` | [Python scripts](shell/python.md) |
+| Python: MicroPython for the `py` command, with TinyDesk's file system, the `tinydesk` module, pins and buses (`machine`) and windows (`tdui`) | `third_party/micropython/`, `ports/common/python/`, `apps/pyui.c` | [Python scripts](shell/python.md) |
 | Tools: serial probe, screen renderer, simulator, serial bridge, Modbus slave, LittleFS migration | `tools/` | [Tools](tools.md) |
 
 ## Boards

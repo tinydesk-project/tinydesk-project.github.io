@@ -5,7 +5,7 @@ TinyDesk ships a set of optional apps (Terminal, Files, Editor, Network, MQTT, M
 Header: `apps/td_apps.h` (the app registry itself is in `include/tinydesk/td_wm.h`)
 Sources: `apps/*.c`; registry in `src/wm.c`
 
-Add `apps/` to the include path and `#include "td_apps.h"`; it includes `tinydesk/td.h`. Everything on this page runs on the UI task and must be called from it, except `td_log_append()` / `td_logf()` once a lock is installed.
+Add `apps/` to the include path and `#include "td_apps.h"`; it includes `tinydesk/td.h`. Everything on this page runs on the UI task and must be called from it, except `td_log_append()` / `td_logf()` once a lock is installed, and the script side of [Windows for Python scripts](#windows-for-python-scripts).
 
 Most apps get platform services (filesystem, network, firmware update, clock, users) through `td_sysinfo()`; a missing service shows "n/a" or a message instead of failing. See [sysinfo.md](sysinfo.md).
 
@@ -89,7 +89,7 @@ void weather_register(void) { td_app_register(&s_app); }
 void td_apps_register_all(void);
 ```
 
-Registers every built-in app, in the order of the table above (Terminal first, About last), then installs the taskbar clock (`td_datetime_install_clock()`), starts the MQTT / Modbus service timer (`td_proto_service_start()`) and starts the desktop session (`td_session_init()`, which also applies the user's saved settings and shows their Desktop folder). Call it once, after `td_init()` and `td_set_sysinfo()`.
+Registers every built-in app, in the order of the table above (Terminal first, About last), then installs the taskbar clock (`td_datetime_install_clock()`), starts the MQTT / Modbus service timer (`td_proto_service_start()`), starts serving Python scripts' windows (`td_pyui_start()`) and starts the desktop session (`td_session_init()`, which also applies the user's saved settings and shows their Desktop folder). Call it once, after `td_init()` and `td_set_sysinfo()`.
 
 ### Individual register functions
 
@@ -492,3 +492,28 @@ void td_proto_service_start(void);
 ```
 
 Starts a 20 ms repeating timer on the UI loop that calls `td_mqtt_poll()` and `td_mb_poll()`, which drive the MQTT and Modbus connections (see [mqtt.md](mqtt.md) and [modbus.md](modbus.md)). No extra task is created. Only the first call has an effect. Called by `td_apps_register_all()`; call it yourself if you register the MQTT or Modbus app individually or use those clients from your own code.
+
+## Windows for Python scripts
+
+```c
+void td_pyui_start(void);
+
+bool td_pyui_attach(void);
+bool td_pyui_send(const td_pyui_msg_t *m, const char *text);
+int td_pyui_recv(td_pyui_msg_t *m, char *text, int cap);
+void td_pyui_detach_begin(void);
+bool td_pyui_detach_done(void);
+```
+
+The desktop side of Python's [`tdui` module](../shell/python.md#windows-tdui) (`apps/pyui.c`). A script runs on the shell's task and must not call the window manager, so the two talk through two queues, each with one writer and one reader: requests (`TD_PYUI_OPEN`, `TD_PYUI_ADD`, `TD_PYUI_TEXT`, ...) from the script, events (`TD_PYUI_EV_CLICK`, `TD_PYUI_EV_CHANGE`, `TD_PYUI_EV_CLOSE`, ...) back to it. Each message is a `td_pyui_msg_t` (operation, flags, the object's number, its window, six small integers) followed by up to `TD_PYUI_TEXT_MAX` bytes of text; `td_apps.h` lists the operations and what their fields mean. The script numbers the windows and widgets itself, so no request waits for an answer.
+
+| Function | Task | Meaning |
+|---|---|---|
+| `td_pyui_start` | UI | Starts a 10 ms timer that carries out the requests, sends the changes of text boxes and list selections, and notices dialogs closed without an answer. Only the first call has an effect; called by `td_apps_register_all()`. |
+| `td_pyui_attach` | script | Allocates the queues and the object table (about 12 KB). False when `td_pyui_start()` has not run or memory is short. |
+| `td_pyui_send` | script | Queues a request; false while the queue is full (try again shortly). |
+| `td_pyui_recv` | script | 1 and the next event, or 0 when there is none. Text longer than `cap - 1` bytes is cut; it is always `'\0'`-terminated. |
+| `td_pyui_detach_begin` | script | The script is ending: on its next tick the desktop closes every window, dialog and menu the script opened. |
+| `td_pyui_detach_done` | script | True once the desktop has let go; the queues are then freed. Call it until it returns true. |
+
+One script at a time uses them, as MicroPython runs one script at a time.

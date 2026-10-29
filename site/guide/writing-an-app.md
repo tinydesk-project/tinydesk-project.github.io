@@ -5,6 +5,8 @@ This tutorial builds a small TinyDesk app step by step: a window with widgets, a
 Header: `tinydesk/td.h` (core, windows, widgets), plus `apps/td_apps.h` if you use the built-in app services
 Examples: `examples/hello_window.c`, `examples/counter_app.c`, `apps/counter.c`
 
+A smaller app can also be a Python script: see [Windows from Python](../shell/python.md#windows-tdui). It needs no build, but runs only while its script does and is not in the start menu.
+
 Reference pages: [core.md](../api/core.md) (main loop), [wm.md](../api/wm.md) (windows), [widgets.md](../api/widgets.md), [screen.md](../api/screen.md) (drawing), [apps.md](../api/apps.md) (registry and shared services), [sysinfo.md](../api/sysinfo.md) (platform services).
 
 ## 1. The smallest program

@@ -14,8 +14,9 @@ Linux programs.
 
 Scripts use TinyDesk's own files and paths, and reach the rest of TinyDesk
 (shell commands, MQTT, Modbus, the Log Viewer) through the `tinydesk`
-module. They do not drive hardware directly: TinyDesk owns the pins, the
-network and the connections.
+module. Root's scripts drive the free pins and buses with `machine` (see
+[Hardware](#hardware-machine)), and a script started from the desktop can
+open windows of its own with `tdui` (see [Windows](#windows-tdui)).
 
 ## Running scripts
 
@@ -82,7 +83,8 @@ cannot leave the TinyDesk root.
 `sys`, `os`, `time`, `json`, `re`, `math`, `cmath`, `random`,
 `binascii`, `hashlib`, `heapq`, `collections`, `struct`, `array`, `errno`,
 `gc`, `io`, `select`, `asyncio`, `micropython`, `machine` and `neopixel`
-(see [Hardware](#hardware-machine)), and `tinydesk`.
+(see [Hardware](#hardware-machine)), `tdui` (see [Windows](#windows-tdui))
+and `tinydesk`.
 `help('modules')` lists them on the device.
 
 Not included: `network`, `socket`, `_thread`, `bluetooth`,
@@ -304,6 +306,90 @@ drivers' interrupt code that ESP-IDF keeps in RAM shares memory with the
 heap, and under 1 KB taken once by the drivers the first time a script
 uses them. Nothing else stays allocated between scripts.
 
+## Windows (`tdui`)
+
+A script can put windows on the desktop, with labels, buttons, text boxes,
+check boxes, lists, progress bars and character canvases, and handle what
+the user does in Python. That makes a small app without writing C:
+
+```python
+import tdui
+
+w = tdui.Window("Counter", 32, 9)        # client area: 32 x 9 cells, centred
+count = w.label(2, 1, "0", width=10)
+name = w.textbox(2, 3, 20)
+loud = w.checkbox(2, 5, "Shout")
+
+def add(button):
+    count.text = str(int(count.text) + 1)
+
+def greet(button):
+    msg = "Hello " + name.text
+    tdui.msgbox("Hi", msg.upper() if loud.checked else msg)
+
+w.button(2, 7, "+1", add)
+w.button(10, 7, "Greet", greet)
+tdui.run()                               # until the window is closed
+```
+
+How it works:
+
+* **The desktop draws, the script decides.** The window manager runs in
+  the desktop's own task and the script in the shell's, so a script never
+  touches a window directly: it sends requests (open this window, set this
+  label) and the desktop carries them out within 10 ms. What the user does
+  (a click, typing, closing the window) comes back as events, and
+  `tdui.run()` or `tdui.poll()` calls the script's handlers. A slow handler
+  holds up only the script, never the desktop.
+* **Reading a widget does not wait.** The desktop sends every change of a
+  text box, check box or list selection to the script as it happens, so
+  `name.text` or `loud.checked` is read at once, and is up to date when a
+  button's handler runs.
+* **Where.** Only a script started from the desktop's own console has a
+  desktop: the Terminal window, the Editor (F5), or Run on the desktop and in
+  Files. In an SSH session `tdui.Window()` raises
+  `OSError: tdui: no desktop in this session`. It works the same in the
+  Windows and Linux programs.
+* **Who:** any user; the windows appear on that user's desktop.
+* **The windows belong to the script.** They close when it ends, also after
+  an error or Ctrl+C. Ctrl+C in one of the script's windows stops it as it
+  does in the Terminal. A script that does not call `tdui.run()` (or keep
+  calling `poll()`) ends at once, and so do its windows.
+* **Limits**, so a script cannot crowd out the desktop's own apps: 4
+  windows, 48 widgets (a list counts as 2, for its scrollbar) and 2000
+  canvas cells in all. Past them, `OSError` says which. Labels, buttons and
+  text boxes hold up to 63 bytes, a window title 31.
+
+| Class or function | Notes |
+|---|---|
+| `Window(title, w, h, x=None, y=None, resizable=False)` | `w` and `h` are the client area in cells; without `x`, `y` the window is centred. `.title`, `.focus()`, `.close()`, `.is_open`; `.on_close(win)` runs when the user closes it; `.on_key(win, key)` gets the keys no widget used, as `'a'`, `'enter'`, `'f5'`, `'ctrl+s'`, `'shift+tab'`. `.every(ms, fn)` and `.after(ms, fn)` run `fn()` repeatedly or once while the window is open; they return a timer with `cancel()`. |
+| `w.label(x, y, text, width=0)` | `width` 0: to the right edge. |
+| `w.button(x, y, text, on_click)` | `on_click(button)`: a click, Enter or Space. |
+| `w.checkbox(x, y, text, checked=False, on_change=None)` | `.checked`; `on_change(box)`. |
+| `w.textbox(x, y, width, text="", secret=False, on_enter=None, on_change=None)` | `.text`; `on_enter(box)` on Enter, `on_change(box)` after each edit. `secret` shows `*`. |
+| `w.progress(x, y, width, value=0)` | `.value`, 0–100. |
+| `w.list(x, y, w, h, items, on_select=None, on_activate=None)` | `.items` (a list of strings; set it to replace them), `.append(item)`, `.selected`; `on_select(lst)` when the selection moves, `on_activate(lst)` on Enter or a double-click. Up to 1000 items. |
+| `w.canvas(x, y, w, h, on_mouse=None)` | A grid of character cells: `put(x, y, text, fg=-1, bg=-1)`, `fill(x, y, w, h, ch=" ", fg=-1, bg=-1)`, `clear()`. Colours are the terminal's 256 palette numbers, -1 the window's own. `on_mouse(canvas, x, y, button, action)`: `action` 0 press, 1 release, 2 drag. |
+| Every widget | `.text`, `.visible`, `.color(fg, bg)`, `.focus()`. |
+| `msgbox(title, text, buttons="OK")` | Buttons separated by `\|`, for example `"Yes\|No"`; returns the number of the one chosen (from 0), -1 for Esc. |
+| `confirm(title, text)` | Yes / No; `True` for Yes. |
+| `inputbox(title, prompt, text="", secret=False)` | The text entered, or `None` for Cancel. |
+| `menu(items)` | A popup menu at the mouse; the number of the item chosen, -1 if none. An item `"-"` is a separator. Up to 20 items. |
+| `run()` | Handles events and timers until every window is closed. |
+| `poll(ms=0)` | Handles what happened and the timers that are due, for up to `ms` milliseconds: for a script with its own loop. |
+| `run_async()` | `run()` for [asyncio](#asyncio): `await tdui.run_async()` while other tasks keep going. |
+| `every(ms, fn)`, `after(ms, fn)`, `quit()` | Timers not tied to a window; `quit()` closes all the script's windows. |
+
+The dialogs wait for the answer, while the script's other windows and
+timers keep working. Each script has its own windows: they are not in the
+start menu, and two scripts cannot run at once (see
+[Running scripts](#running-scripts)).
+
+Cost: about 14 KB of flash. Nothing in RAM until a script opens a window;
+then about 12 KB of internal RAM for the queues and the window table while
+it runs, plus 6 bytes per canvas cell and the list items, all freed when it
+ends.
+
 ## Memory
 
 The interpreter's heap is allocated when `py` starts and freed when it
@@ -338,5 +424,8 @@ MicroPython release by `tools/micropython` (see its README), including
 (`mpconfigport.h`), the frozen-module list (`manifest.py`), the file
 system, the `tinydesk` module and the `machine` module, is in
 `ports/common/python`; the chip side of `machine` (ESP-IDF's drivers, and
-the rules for which pins a script may use) is in its `hw/` folder. Builds can
+the rules for which pins a script may use) is in its `hw/` folder. `tdui`
+is `modules/tdui.py` there, over the small C module `_tdui`; the desktop
+side, which makes the windows, is `apps/pyui.c`, and the messages between
+the two are in `apps/td_apps.h`. Builds can
 leave it out with `-DTD_WITH_PYTHON=OFF` (PC). See [Tools](../tools.md).

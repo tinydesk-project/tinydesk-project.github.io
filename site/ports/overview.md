@@ -74,7 +74,7 @@ shell on a thread).
 | `src/` | core: `td.c` (loop), `screen.c`, `draw.c`, `render.c`, `utf8.c`, `input.c`, `event.c`, `timer.c`, `wm.c`, `widgets.c`, `theme.c`, `vterm.c` |
 | `apps/` | built-in apps and `td_apps.h` |
 | `proto/` | `td_sock`, `td_mqtt` (+ config file parser), `td_modbus`, `td_tls` |
-| `ports/common/` | host start-up, stdio file system, TinyDesk Shell host bridge, `mqtt`/`modbus` shell commands, and `python/`: the `py` command (MicroPython's configuration, file system and `tinydesk` module) |
+| `ports/common/` | host start-up, stdio file system, TinyDesk Shell host bridge, `mqtt`/`modbus` shell commands, and `python/`: the `py` command (MicroPython's configuration, file system, the `tinydesk`, `machine` and `tdui` modules; the chip side of `machine` in `python/hw/`) |
 | `ports/esp_idf/` | the ESP code shared by the ESP-IDF projects: the application (`app/`), the TinyDesk component (`components/tinydesk/`) and the MicroPython component (`components/micropython/`) |
 | `ports/esp32c6/`, `ports/esp32/`, `ports/esp32-4mb/` | the ESP-IDF projects for the ESP32-C6, the ESP32 with PSRAM and the 4 MB ESP32: link, partitions, `sdkconfig.defaults` |
 | `ports/windows/`, `ports/posix/` | desktop `main.c` and console HALs |
