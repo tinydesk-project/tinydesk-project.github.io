@@ -62,6 +62,10 @@ API may still change between minor versions.
   up to one paste in ten of a few KB at 921600 baud. The reply is now taken
   out of the paste and handled as usual, and the query is not sent while a
   paste is arriving.
+* **ESP32-C6: long pastes arrive whole.** The USB receive buffer grows from
+  1 KB to 8 KB, as on the other boards: when it filled while the desktop
+  was drawing, the USB driver dropped whole 64-byte packets, and a paste
+  of a few KB could lose some of its text. It costs 7 KB of RAM.
 
 ## 0.1.6 (2026-10-18)
 

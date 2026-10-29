@@ -15,11 +15,11 @@ and appears as the Terminal app; the desktop runs in the `tinydesk` task.
 | | ESP32-C6 (`ports/esp32c6`) | ESP32 with PSRAM (`ports/esp32`) | ESP32, 4 MB (`ports/esp32-4mb`) |
 | --- | --- | --- | --- |
 | Tested on | ESP32-C6-DevKitC-1 (8 MB) | ESP32-WROVER-IE N16R8 | ESP32-WROOM-32 dev board (ESP32-D0WDQ6, 4 MB) |
-| Desktop link | built-in USB Serial/JTAG (`ports/esp32c6/main/link_usj.c`) | UART0, 921600 8N1, via the USB-UART chip (`ports/esp_idf/app/link_uart.c`, 8 KB RX buffer) | the same `link_uart.c` |
+| Desktop link | built-in USB Serial/JTAG (`ports/esp32c6/main/link_usj.c`, 8 KB RX buffer) | UART0, 921600 8N1, via the USB-UART chip (`ports/esp_idf/app/link_uart.c`, 8 KB RX buffer) | the same `link_uart.c` |
 | CPU | 1 core, 160 MHz | 2 cores, 240 MHz | 2 cores, 240 MHz |
 | RAM | 452 KB unified (code in IRAM shares it with the heap) | 180 KB internal data RAM + 4 MB PSRAM (of 8 MB) | 180 KB internal data RAM, no PSRAM |
 | Screen limit | 80x25 | 256x96 (buffers in PSRAM) | 80x25 |
-| Free RAM, desktop and Terminal open | about 109 KB at boot | about 157 KB internal with Wi-Fi up | about 108 KB before Wi-Fi, 75 KB with Wi-Fi up |
+| Free RAM, desktop and Terminal open | about 113 KB at boot | about 157 KB internal with Wi-Fi up | about 108 KB before Wi-Fi, 75 KB with Wi-Fi up |
 | SSH/SFTP server | yes | yes | no: it needs about 160 KB of internal RAM (its 64 KB heap plus headroom) |
 | Modbus RTU | up to 2 RS-485 lines from the [board configuration](../guide/board-config.md) (`rs485.N.*`) | the same (use UART1/UART2; UART0 is the desktop) | the same |
 | Ethernet | W6100 on SPI when `eth.chip = w6100` | the same; not tested on hardware yet | the same; not tested on hardware yet |
