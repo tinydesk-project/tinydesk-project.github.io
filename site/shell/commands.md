@@ -417,7 +417,8 @@ Ctrl+C in the Terminal window stops the script. One script runs at a time
 on a device.
 
 Who: any user; machine code (`@micropython.native`, `@micropython.viper`,
-`.mpy` files with machine code) only root.
+`.mpy` files with machine code) and the hardware (`machine`: pins and
+buses) only root.
 
 ## ota
 

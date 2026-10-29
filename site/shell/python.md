@@ -81,10 +81,11 @@ cannot leave the TinyDesk root.
 
 `sys`, `os`, `time`, `json`, `re`, `math`, `cmath`, `random`,
 `binascii`, `hashlib`, `heapq`, `collections`, `struct`, `array`, `errno`,
-`gc`, `io`, `select`, `asyncio`, `micropython`, and `tinydesk`.
+`gc`, `io`, `select`, `asyncio`, `micropython`, `machine` and `neopixel`
+(see [Hardware](#hardware-machine)), and `tinydesk`.
 `help('modules')` lists them on the device.
 
-Not included: `machine`, `network`, `socket`, `_thread`, `bluetooth`,
+Not included: `network`, `socket`, `_thread`, `bluetooth`,
 `deflate`, `framebuf`, `cryptolib`, `vfs`. Numbers: integers of any size,
 and single-precision floats (about 7 digits, the same on every board and
 PC).
@@ -236,6 +237,73 @@ def checksum(buf) -> int:
 * **Ctrl+C** does not stop a loop inside a native or viper function that
   calls nothing; it takes effect when the function returns.
 
+## Hardware (`machine`)
+
+On the ESP32 boards, root's scripts drive the chip's pins and buses with
+MicroPython's usual `machine` API, so examples and sensor drivers written
+for MicroPython work as they are:
+
+```python
+from machine import Pin, PWM, ADC, I2C
+import time
+
+led = Pin(25, Pin.OUT)
+button = Pin(26, Pin.IN, Pin.PULL_UP)
+button.irq(lambda p: print("pressed"), Pin.IRQ_FALLING)
+for i in range(6):
+    led.toggle()
+    time.sleep_ms(250)
+
+dim = PWM(Pin(27), freq=1000, duty_u16=16384)    # 25 %
+print(ADC(Pin(32)).read_uv(), "microvolts")
+i2c = I2C(0, scl=Pin(22), sda=Pin(21), freq=400000)
+print(i2c.scan())                                 # addresses that answer
+```
+
+* **Only root**, as for the shell's `gpio` command: for any other user,
+  using a pin or a bus raises `OSError: machine: hardware needs root`.
+* **Pins TinyDesk uses are refused**, with what uses them:
+  `OSError: machine: GPIO 16 is used by TinyDesk (rs485.1.tx)`. Those are
+  the pins in the [board configuration](../guide/board-config.md)
+  (`console.*`, `rs485.*`, `eth.*`, `sd.*`), the desktop's link (UART0 on
+  GPIO1 and 3 on the classic ESP32 unless `console.*` says otherwise; USB
+  on GPIO12 and 13 of the ESP32-C6), and the pins the chip keeps (flash,
+  and PSRAM on the ESP32 with PSRAM).
+* **Strapping pins** (ESP32: 0, 2, 5, 12, 15; ESP32-C6: 8, 9, 15) work, with
+  a warning the first time: what is wired to them can keep the board from
+  starting.
+* **Everything is undone when the script ends**, normally, after an error
+  or after Ctrl+C: interrupts are removed, PWM outputs, buses and UARTs
+  closed, and the pins the script changed reset to inputs.
+* **The PC programs** have the module, without hardware: `import machine`
+  works, and using a pin or a bus raises
+  `OSError: machine: no hardware in this program`.
+
+| Class or function | Notes |
+|---|---|
+| `Pin(n, mode, pull, *, value)` | GPIO numbers. `Pin.IN`, `Pin.OUT`, `Pin.OPEN_DRAIN`; `Pin.PULL_UP`, `Pin.PULL_DOWN`. `value()`, `on()`, `off()`, `toggle()`, `init()`; an output reads back its own level. `Pin(n)` without a mode leaves the pin as it is. Input-only pins (ESP32 GPIO34–39) refuse `OUT`. |
+| `pin.irq(handler, trigger)` | `Pin.IRQ_RISING`, `Pin.IRQ_FALLING` or both (the default). The handler gets the `Pin`; it runs between the script's bytecodes, shortly after the edge (not inside the interrupt), so it may allocate and print. `irq(None)` removes it. |
+| `ADC(pin)` | `read_u16()` (0–65535) and `read_uv()` (microvolts, calibrated where the chip has calibration data). 12 bits, input range about 0–3.1 V. ADC1 pins only: ESP32 GPIO32–39, ESP32-C6 GPIO0–6 (ADC2 is unusable while Wi-Fi is on). |
+| `PWM(pin, freq, *, duty_u16, duty_ns)` | `freq()`, `duty_u16()`, `duty_ns()`, `deinit()`. 6 outputs on the ESP32-C6, 8 on the ESP32; up to 4 different frequencies at a time (outputs with the same frequency share a timer). Duty resolution up to 14 bits, less above about 5 kHz. Starts at duty 0. |
+| `I2C(id, *, scl, sda, freq=400000, timeout=50000)` | Hardware I2C 0 (and 1 on the ESP32); the pins are given. `scan()`, `readfrom()`, `writeto()`, `readfrom_mem()`, `writeto_mem()` and the rest of MicroPython's I2C methods. Every transfer ends with a stop (`stop=False` is not kept); a register read is one write-then-read transfer. The chip's internal pull-ups are on; most buses still need real ones. |
+| `SPI(id, baudrate, *, polarity, phase, firstbit, sck, mosi, miso)` | Hardware SPI 1 (and 2 on the ESP32), 8-bit words. A bus TinyDesk uses for Ethernet or the SD card is refused: on an ESP32-C6 with either, use `SoftSPI`. |
+| `SoftI2C(scl, sda, ...)`, `SoftSPI(sck, mosi, miso, ...)` | Driven by the CPU on any free pins. |
+| `UART(id, baudrate, bits, parity, stop, *, tx, rx, rxbuf, timeout, timeout_char)` | A UART that is neither the console nor an RS-485 line (`console.uart`, `rs485.N.uart`): UART1 or 2 on the ESP32 (UART0 is the console), UART0 or 1 on the ESP32-C6; none on an ESP32-C6 whose two RS-485 lines use both. `read()`, `readline()`, `write()`, `any()`, `txdone()`, `flush()`; works with `select` and asyncio streams. Waiting for data still lets Ctrl+C through. |
+| `time_pulse_us(pin, level, timeout_us)` | Busy-waits; returns -2 or -1 on time-out. |
+| `bitstream(pin, 0, timing, buf)`, module `neopixel` | WS2812-type LEDs through the RMT peripheral: `np = neopixel.NeoPixel(Pin(18), 8)`, `np[0] = (255, 0, 0)`, `np.write()`. |
+| `unique_id()`, `freq()`, `idle()` | The factory MAC address; the CPU clock (setting it is refused). |
+
+Not included: `Timer`, `RTC`, `WDT`, `deepsleep()`, `lightsleep()`,
+`reset()`, `mem8`/`mem16`/`mem32`, `I2S`, `CAN`, `Signal`, touch pins and
+the DAC. Sleep, reset, the clock and the watchdog belong to TinyDesk; a
+script that must restart the board can run `tinydesk.shell("reboot")`.
+
+Cost: about 65 KB of flash on the ESP32 boards and 75 KB on the ESP32-C6.
+Internal RAM: about 7 KB less free at boot on the ESP32-C6, where the
+drivers' interrupt code that ESP-IDF keeps in RAM shares memory with the
+heap, and under 1 KB taken once by the drivers the first time a script
+uses them. Nothing else stays allocated between scripts.
+
 ## Memory
 
 The interpreter's heap is allocated when `py` starts and freed when it
@@ -268,5 +336,7 @@ MicroPython release by `tools/micropython` (see its README), including
 `asyncio`'s Python part, compiled to bytecode and built into the firmware
 (`frozen/`). TinyDesk's port of it, including the configuration
 (`mpconfigport.h`), the frozen-module list (`manifest.py`), the file
-system and the `tinydesk` module, is in `ports/common/python`. Builds can
+system, the `tinydesk` module and the `machine` module, is in
+`ports/common/python`; the chip side of `machine` (ESP-IDF's drivers, and
+the rules for which pins a script may use) is in its `hw/` folder. Builds can
 leave it out with `-DTD_WITH_PYTHON=OFF` (PC). See [Tools](../tools.md).

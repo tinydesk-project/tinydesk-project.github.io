@@ -21,6 +21,13 @@ API may still change between minor versions.
   `asyncio` with `select`, and precompiled `.mpy` files; root can also use
   `@micropython.native` and `@micropython.viper` on the ESP32 boards and
   in the Linux program. See [Python scripts](shell/python.md).
+* **Pins and buses from Python (`machine`):** on the ESP32 boards, root's
+  scripts use `Pin` (with interrupts), `ADC`, `PWM`, `I2C`, `SPI`, `UART`,
+  `SoftI2C`, `SoftSPI`, `time_pulse_us`, `bitstream` and the `neopixel`
+  module. Pins of the board configuration and the desktop's link are
+  refused, strapping pins get a warning, and everything a script opened is
+  closed and reset when it ends. The PC programs import `machine` but have
+  no hardware for it. See [Hardware](shell/python.md#hardware-machine).
 * **The Editor for Python:** a `.py` file gets colours, line numbers,
   indents after `:`, and the matching bracket shown. **F5** saves and runs
   it, with the output in a pane under the text (F7 types into it); after
