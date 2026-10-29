@@ -17,6 +17,10 @@ The shell does not depend on the desktop. It builds and runs on its own
 (its root is an ESP32-C6 ESP-IDF project, and `-DTDSH_BUILD_HOST=ON`
 builds the host port and tests on Linux).
 
+The people who made TinyDesk and TinyDesk Shell are listed in
+[`CONTRIBUTORS.md`](https://github.com/tinydesk-project/tinydesk/blob/main/CONTRIBUTORS.md);
+add yourself in your pull request.
+
 ## Getting the code
 
 ```bash

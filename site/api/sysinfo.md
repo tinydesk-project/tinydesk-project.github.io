@@ -76,6 +76,7 @@ typedef struct {
     const td_fs_ops_t *fs;
 
     const char *extra;
+    const td_desktop_file_t *desktop_files;
 } td_sysinfo_t;
 ```
 
@@ -101,6 +102,7 @@ typedef struct {
 | `settings_load`, `settings_save` | NVS namespace `"tinydesk"`, key `"settings"` | file `tinydesk_settings.bin` in the working directory |
 | `fs` | `td_fs_stdio("/fs")`, TinyDesk Shell's LittleFS mount point | `td_fs_stdio("<cwd>/tinydesk_fs")` |
 | `extra` | `"Shell:     TinyDesk Shell <version>"` | the same with `TD_WITH_TDSH` |
+| `desktop_files` | not set | not set |
 
 ### Identification
 
@@ -112,6 +114,54 @@ typedef struct {
 | `extra` | Optional extra line for About, for example the embedded shell version. |
 
 The strings are read when About draws; they must stay valid.
+
+### Files for a new Desktop
+
+`desktop_files` lists files the port puts on every new Desktop, for example
+the board's credits or notes. When a user's `~/Desktop` folder is created
+(the first time that user's desktop starts), TinyDesk writes `Welcome.txt`
+and then these files into it. Like `Welcome.txt`, they are written once per
+user: Desktops that already exist do not get them, and a user may change or
+delete them. Builds that leave `desktop_files` `NULL` get only `Welcome.txt`.
+
+```c
+typedef struct {
+    const char *name;   /* "Credits.txt"; NULL ends the list */
+    const char *text;   /* the file's contents */
+} td_desktop_file_t;
+```
+
+The array ends with an entry whose `name` is `NULL`. A name must be a plain
+file name: entries with `/` or `\`, an empty name, `.`, `..` or a `NULL`
+`text` are skipped. The array and the strings must stay valid; they are read
+again whenever a new user's Desktop is created.
+
+```c
+static const td_desktop_file_t s_desk_files[] = {
+    {"Credits.txt",
+     "MyBoard port of TinyDesk\n"
+     "\n"
+     "Port:      Jane Doe (https://github.com/janedoe)\n"
+     "Testing:   Sam Roe\n"
+     "\n"
+     "TinyDesk:  https://github.com/tinydesk-project/tinydesk\n"
+     "           (its contributors: CONTRIBUTORS.md)\n"},
+    {NULL, NULL},
+};
+...
+s_info.desktop_files = s_desk_files;
+```
+
+A suggested format for a port's `Credits.txt`, in plain text so it opens in
+the Editor and reads well on an 80-column screen:
+
+- first line: what this is, such as `MyBoard port of TinyDesk`;
+- a blank line, then one line per person or group: the role, padded to a
+  column, then the name and, if they like, a link;
+- a blank line, then where the port and TinyDesk come from.
+
+Keep lines under 78 characters. The file is a starting point for the user,
+not a licence notice: licence texts stay in the port's repository.
 
 ### Memory and CPU
 
