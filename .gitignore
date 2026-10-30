@@ -2,6 +2,7 @@
 site/install/firmware/
 site/install/downloads/
 site/install/manifest-*.json
+site/install/update-*.json
 site/install/SHA256SUMS.txt
 site/install/README.txt
 site/install/*.bin
