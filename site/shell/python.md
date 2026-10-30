@@ -225,17 +225,22 @@ def checksum(buf) -> int:
   past TinyDesk's users and file permissions, so for any other user a
   native function, or loading a `.mpy` file with machine code, raises
   `RuntimeError: machine code (native, viper, native .mpy) needs root`.
-* **Where.** The ESP32 boards (`mpy-cross -march=xtensawin`) and the Linux
-  program on x86-64 (`-march=x64`). Not the ESP32-C6: its firmware keeps
-  RAM non-executable, a protection MicroPython's own firmware turns off and
-  TinyDesk keeps. Not the Windows program: MicroPython has no emitter for
-  the Windows x64 calling convention. There, `@micropython.native` is a
+* **Where.** The ESP32 and the ESP32-S3 (`mpy-cross -march=xtensawin`),
+  the ESP32-C6 (`-march=rv32imc`) and the Linux program on x86-64
+  (`-march=x64`). A `.mpy` file made for another chip is refused with
+  `ValueError: incompatible .mpy arch`. For this, the ESP32-S3's and the
+  ESP32-C6's firmware turn off the memory protection that keeps RAM
+  non-executable, as MicroPython's own firmware does; the classic ESP32
+  has none. Not the Windows program: MicroPython has no emitter for the
+  Windows x64 calling convention. There, `@micropython.native` is a
   `SyntaxError` and a native `.mpy` file is refused.
 * **Memory.** The code goes to executable RAM outside the Python heap and
-  is freed when the script ends. On the ESP32 that is the IRAM the firmware
-  leaves: up to about 10 KB on the ESP32 with PSRAM and about 33 KB on the
-  4 MB ESP32, enough for a few small hot functions (each takes a few
-  hundred bytes to a few KB). When it runs out, `MemoryError`.
+  is freed when the script ends. On the classic ESP32 that is the IRAM the
+  firmware leaves: up to about 10 KB on the ESP32 with PSRAM and about
+  33 KB on the 4 MB ESP32, enough for a few small hot functions (each takes
+  a few hundred bytes to a few KB). On the ESP32-S3 and the ESP32-C6 it
+  comes from the internal RAM everything else uses. When it runs out,
+  `MemoryError`.
 * **Ctrl+C** does not stop a loop inside a native or viper function that
   calls nothing; it takes effect when the function returns.
 
@@ -268,10 +273,12 @@ print(i2c.scan())                                 # addresses that answer
   `OSError: machine: GPIO 16 is used by TinyDesk (rs485.1.tx)`. Those are
   the pins in the [board configuration](../guide/board-config.md)
   (`console.*`, `rs485.*`, `eth.*`, `sd.*`), the desktop's link (UART0 on
-  GPIO1 and 3 on the classic ESP32 unless `console.*` says otherwise; USB
-  on GPIO12 and 13 of the ESP32-C6), and the pins the chip keeps (flash,
-  and PSRAM on the ESP32 with PSRAM).
-* **Strapping pins** (ESP32: 0, 2, 5, 12, 15; ESP32-C6: 8, 9, 15) work, with
+  GPIO1 and 3 on the classic ESP32 and GPIO43 and 44 on the ESP32-S3
+  unless `console.*` says otherwise; USB on GPIO12 and 13 of the ESP32-C6),
+  and the pins the chip keeps (flash, and PSRAM on the ESP32 with PSRAM and
+  the ESP32-S3: GPIO26–37 there).
+* **Strapping pins** (ESP32: 0, 2, 5, 12, 15; ESP32-S3: 0, 3, 45, 46;
+  ESP32-C6: 8, 9, 15) work, with
   a warning the first time: what is wired to them can keep the board from
   starting.
 * **Everything is undone when the script ends**, normally, after an error
@@ -285,12 +292,12 @@ print(i2c.scan())                                 # addresses that answer
 |---|---|
 | `Pin(n, mode, pull, *, value)` | GPIO numbers. `Pin.IN`, `Pin.OUT`, `Pin.OPEN_DRAIN`; `Pin.PULL_UP`, `Pin.PULL_DOWN`. `value()`, `on()`, `off()`, `toggle()`, `init()`; an output reads back its own level. `Pin(n)` without a mode leaves the pin as it is. Input-only pins (ESP32 GPIO34–39) refuse `OUT`. |
 | `pin.irq(handler, trigger)` | `Pin.IRQ_RISING`, `Pin.IRQ_FALLING` or both (the default). The handler gets the `Pin`; it runs between the script's bytecodes, shortly after the edge (not inside the interrupt), so it may allocate and print. `irq(None)` removes it. |
-| `ADC(pin)` | `read_u16()` (0–65535) and `read_uv()` (microvolts, calibrated where the chip has calibration data). 12 bits, input range about 0–3.1 V. ADC1 pins only: ESP32 GPIO32–39, ESP32-C6 GPIO0–6 (ADC2 is unusable while Wi-Fi is on). |
-| `PWM(pin, freq, *, duty_u16, duty_ns)` | `freq()`, `duty_u16()`, `duty_ns()`, `deinit()`. 6 outputs on the ESP32-C6, 8 on the ESP32; up to 4 different frequencies at a time (outputs with the same frequency share a timer). Duty resolution up to 14 bits, less above about 5 kHz. Starts at duty 0. |
-| `I2C(id, *, scl, sda, freq=400000, timeout=50000)` | Hardware I2C 0 (and 1 on the ESP32); the pins are given. `scan()`, `readfrom()`, `writeto()`, `readfrom_mem()`, `writeto_mem()` and the rest of MicroPython's I2C methods. Every transfer ends with a stop (`stop=False` is not kept); a register read is one write-then-read transfer. The chip's internal pull-ups are on; most buses still need real ones. |
-| `SPI(id, baudrate, *, polarity, phase, firstbit, sck, mosi, miso)` | Hardware SPI 1 (and 2 on the ESP32), 8-bit words. A bus TinyDesk uses for Ethernet or the SD card is refused: on an ESP32-C6 with either, use `SoftSPI`. |
+| `ADC(pin)` | `read_u16()` (0–65535) and `read_uv()` (microvolts, calibrated where the chip has calibration data). 12 bits, input range about 0–3.1 V. ADC1 pins only: ESP32 GPIO32–39, ESP32-S3 GPIO1–10, ESP32-C6 GPIO0–6 (ADC2 is unusable while Wi-Fi is on). |
+| `PWM(pin, freq, *, duty_u16, duty_ns)` | `freq()`, `duty_u16()`, `duty_ns()`, `deinit()`. 6 outputs on the ESP32-C6, 8 on the ESP32 and the ESP32-S3; up to 4 different frequencies at a time (outputs with the same frequency share a timer). Duty resolution up to 14 bits, less above about 5 kHz. Starts at duty 0. |
+| `I2C(id, *, scl, sda, freq=400000, timeout=50000)` | Hardware I2C 0 (and 1 on the ESP32 and the ESP32-S3); the pins are given. `scan()`, `readfrom()`, `writeto()`, `readfrom_mem()`, `writeto_mem()` and the rest of MicroPython's I2C methods. Every transfer ends with a stop (`stop=False` is not kept); a register read is one write-then-read transfer. The chip's internal pull-ups are on; most buses still need real ones. |
+| `SPI(id, baudrate, *, polarity, phase, firstbit, sck, mosi, miso)` | Hardware SPI 1 (and 2 on the ESP32 and the ESP32-S3), 8-bit words. A bus TinyDesk uses for Ethernet or the SD card is refused: on an ESP32-C6 with either, use `SoftSPI`. |
 | `SoftI2C(scl, sda, ...)`, `SoftSPI(sck, mosi, miso, ...)` | Driven by the CPU on any free pins. |
-| `UART(id, baudrate, bits, parity, stop, *, tx, rx, rxbuf, timeout, timeout_char)` | A UART that is neither the console nor an RS-485 line (`console.uart`, `rs485.N.uart`): UART1 or 2 on the ESP32 (UART0 is the console), UART0 or 1 on the ESP32-C6; none on an ESP32-C6 whose two RS-485 lines use both. `read()`, `readline()`, `write()`, `any()`, `txdone()`, `flush()`; works with `select` and asyncio streams. Waiting for data still lets Ctrl+C through. |
+| `UART(id, baudrate, bits, parity, stop, *, tx, rx, rxbuf, timeout, timeout_char)` | A UART that is neither the console nor an RS-485 line (`console.uart`, `rs485.N.uart`): UART1 or 2 on the ESP32 and the ESP32-S3 (UART0 is the console), UART0 or 1 on the ESP32-C6; none on an ESP32-C6 whose two RS-485 lines use both. `read()`, `readline()`, `write()`, `any()`, `txdone()`, `flush()`; works with `select` and asyncio streams. Waiting for data still lets Ctrl+C through. |
 | `time_pulse_us(pin, level, timeout_us)` | Busy-waits; returns -2 or -1 on time-out. |
 | `bitstream(pin, 0, timing, buf)`, module `neopixel` | WS2812-type LEDs through the RMT peripheral: `np = neopixel.NeoPixel(Pin(18), 8)`, `np[0] = (255, 0, 0)`, `np.write()`. |
 | `unique_id()`, `freq()`, `idle()` | The factory MAC address; the CPU clock (setting it is refused). |
@@ -423,7 +430,7 @@ under 1 KB of RAM.
 
 | Device | Default heap | From |
 |---|---|---|
-| ESP32 with PSRAM | 512 KB | PSRAM |
+| ESP32 with PSRAM, ESP32-S3 | 512 KB | PSRAM |
 | ESP32-C6 | 64 KB | internal RAM |
 | ESP32 4 MB (no PSRAM) | 64 KB, usually less (see below) | internal RAM |
 | Windows, Linux | 1 MB | the PC's memory |
