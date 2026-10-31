@@ -78,6 +78,18 @@ class ReleaseValidation(unittest.TestCase):
         self.sums()
         with self.assertRaises(SystemExit): verify(str(self.root))
 
+    def chip(self, family):
+        self.manifest.write_text(self.manifest.read_text().replace('ESP32-C6', family))
+        self.sums()
+
+    def test_chip_s3(self):
+        self.chip('ESP32-S3')
+        verify(str(self.root))
+
+    def test_chip_unknown(self):
+        self.chip('ESP32-H2')
+        with self.assertRaises(SystemExit): verify(str(self.root))
+
     def test_missing_manifests(self):
         self.manifest.unlink()
         self.sums()
