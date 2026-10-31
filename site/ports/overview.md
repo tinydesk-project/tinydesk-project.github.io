@@ -54,8 +54,11 @@ The loop then sleeps `TD_LOOP_SLEEP_MS` (5 ms) through `hal->sleep_ms`.
    calling `td_step()`.
 3. Fill the parts of `td_sysinfo_t` you can support: heap numbers, a file
    system for the Files and Editor apps, network ops for the Network app,
-   OTA ops, the clock, the task list. Everything is optional; apps show
-   "n/a" or hide features that are missing.
+   OTA ops, the clock, the task list, and files of your own for every new
+   Desktop such as a `Credits.txt`
+   ([Files for a new Desktop](../api/sysinfo.md#files-for-a-new-desktop)).
+   Everything is optional; apps show "n/a" or hide features that are
+   missing.
 4. For the Terminal app, give it a backend (`td_terminal_set_backend()`,
    see [Apps API](../api/apps.md)): a byte pipe to a shell.
 5. Size the build with the `TD_*` macros in `td_config.h`

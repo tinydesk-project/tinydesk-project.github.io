@@ -15,9 +15,9 @@ API may still change between minor versions.
   TinyDesk's files and paths, and the `tinydesk` module runs shell
   commands, publishes MQTT messages and reads or writes Modbus registers.
   The heap is allocated only while a script runs: 512 KB of PSRAM on the
-  ESP32 with PSRAM and the ESP32-S3, 64 KB of internal RAM on the ESP32-C6, and what is
-  free above a 32 KB reserve on the 4 MB ESP32 (about 31 KB with Wi-Fi
-  off). Included: `hashlib` (sha256, sha1, md5), `os.urandom`,
+  ESP32 with PSRAM and the ESP32-S3, 64 KB of internal RAM on the
+  ESP32-C6, and what is free above a 32 KB reserve on the 4 MB ESP32
+  (about 31 KB with Wi-Fi off). Included: `hashlib` (sha256, sha1, md5), `os.urandom`,
   `asyncio` with `select`, and precompiled `.mpy` files; root can also use
   `@micropython.native` and `@micropython.viper` on the ESP32, ESP32-S3
   and ESP32-C6 and in the Linux program (the S3's and the C6's firmware
@@ -70,6 +70,15 @@ API may still change between minor versions.
   1 KB to 8 KB, as on the other boards: when it filled while the desktop
   was drawing, the USB driver dropped whole 64-byte packets, and a paste
   of a few KB could lose some of its text. It costs 7 KB of RAM.
+* **Ports can put their own files on new Desktops:** `td_sysinfo_t` has a
+  new optional member `desktop_files`, a list of file names and contents
+  that TinyDesk writes next to `Welcome.txt` when a user's Desktop folder
+  is created, for example a port's `Credits.txt`. Written once per user,
+  like `Welcome.txt`; builds that do not set it are unchanged. See
+  [Files for a new Desktop](api/sysinfo.md#files-for-a-new-desktop)
+  (tinydesk #5).
+* **`CONTRIBUTORS.md`** in the `tinydesk` repository lists the people who
+  made TinyDesk and TinyDesk Shell.
 
 ## 0.1.6 (2026-10-18)
 
