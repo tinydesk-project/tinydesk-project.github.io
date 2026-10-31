@@ -1,7 +1,7 @@
 # Board configuration
 
 Which GPIO drives what — the RS-485 transceivers, a W6100 Ethernet chip, an
-SD card, the classic ESP32's console UART — is **not compiled into the
+SD card, the console UART of the classic ESP32 and the ESP32-S3 — is **not compiled into the
 code**. It comes from a small text file, the *board configuration*. So:
 
 * one firmware runs on many boards; prebuilt releases are configured on
@@ -35,7 +35,7 @@ build from source can use either layer.
 ### From source (your own `board.conf`)
 
 ```bash
-cd ports/esp32c6                       # or ports/esp32
+cd ports/esp32c6                       # or ports/esp32, ports/esp32-4mb, ports/esp32s3
 cp board.example.conf board.conf       # Windows: copy board.example.conf board.conf
 # edit board.conf: remove the '#' in front of the lines your board has
 idf.py build flash
@@ -139,7 +139,7 @@ values in use; `lan hw set` writes them here too.
 | Key | Default | Meaning |
 | --- | --- | --- |
 | `eth.chip` | none | `w6100` switches Ethernet on. Without it, `lan` reports that the board has no Ethernet and nothing touches the pins. |
-| `eth.spi_host` | 1 | SPI controller: 1 = SPI2_HOST (2 = SPI3_HOST on the classic ESP32). |
+| `eth.spi_host` | 1 | SPI controller: 1 = SPI2_HOST (2 = SPI3_HOST on the classic ESP32 and the ESP32-S3). |
 | `eth.miso`, `eth.mosi`, `eth.sclk`, `eth.cs` | -1 | SPI GPIOs; all four are needed. |
 | `eth.int` | -1 | Interrupt GPIO; -1 polls the chip every `eth.poll_ms`. |
 | `eth.rst` | -1 | Reset GPIO; -1 if not connected. |
@@ -183,7 +183,7 @@ key from `/etc/board.conf`) to take effect.
 | --- | --- | --- |
 | `update.url` | the official feed | The update feed *Check for official updates* and the daily check read (`http://` or `https://`, a full URL to an `update-desktop-<board>.json`), for example your own server. It takes precedence over a `moved` address in the update information (`ota feed`). |
 
-### Console (classic ESP32 only)
+### Console (classic ESP32 and ESP32-S3)
 
 Read by `ports/esp_idf/app/link_uart.c` at start-up. The ESP32-C6 uses its
 built-in USB Serial/JTAG port and has no such keys.
@@ -191,7 +191,7 @@ built-in USB Serial/JTAG port and has no such keys.
 | Key | Default | Meaning |
 | --- | --- | --- |
 | `console.uart` | 0 | UART that serves the desktop. |
-| `console.tx`, `console.rx` | the UART's usual pins (GPIO1 / GPIO3 on UART0) | TX and RX GPIO. |
+| `console.tx`, `console.rx` | the UART's usual pins (UART0: GPIO1 / GPIO3 on the ESP32, GPIO43 / GPIO44 on the ESP32-S3) | TX and RX GPIO. |
 | `console.baud` | 921600 | Line speed; set the same in the terminal. |
 
 !> A wrong console setting leaves the serial port silent. Fix it over
@@ -199,7 +199,8 @@ Telnet or SSH if the board is on the network (`board unset console.baud`,
 then `reboot`). Reflashing does **not** remove `/etc/board.conf`, because
 the file system is kept. The last resort is erasing the file system, which
 deletes all files on the board:
-`esptool.py --chip esp32 erase_region 0x620000 0x9E0000`.
+`esptool.py --chip esp32 erase_region 0x620000 0x9E0000` (`--chip esp32s3`
+on the ESP32-S3, which has the same layout).
 
 ## Choosing pins
 
@@ -207,6 +208,7 @@ deletes all files on the board:
 | --- | --- | --- |
 | ESP32-C6 | GPIO12/13 (USB D-/D+, the desktop's port), GPIO24-30 (flash on most modules) | UART0 and UART1 are free for RS-485: the console is USB Serial/JTAG. GPIO4/5 are used by `hwtest uart` (LP UART loopback). |
 | ESP32 | GPIO6-11 (flash), GPIO16/17 (PSRAM on WROVER modules), GPIO1/3 (UART0, the desktop) | Use UART1 and UART2 for RS-485. GPIO34-39 are inputs only: fine for `eth.int` or RX, not for TX, DE or CS. Strapping pins (0, 2, 5, 12, 15) need care at boot. |
+| ESP32-S3 | GPIO19/20 (USB), GPIO26-32 (flash), GPIO33-37 (Octal PSRAM on R8 modules), GPIO43/44 (UART0, the desktop) | Use UART1 and UART2 for RS-485. Strapping pins (0, 3, 45, 46) need care at boot. |
 
 The examples in `board.example.conf` are illustrations, not a tested
 product. Check them against your board's schematic.

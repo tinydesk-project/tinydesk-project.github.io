@@ -79,6 +79,20 @@ API may still change between minor versions.
   (tinydesk #5).
 * **`CONTRIBUTORS.md`** in the `tinydesk` repository lists the people who
   made TinyDesk and TinyDesk Shell.
+* **ESP32-S3 port** (tinydesk #9, by SanjayG-xls): TinyDesk Desktop on an
+  ESP32-S3 with 16 MB flash and 8 MB Octal PSRAM (e.g.
+  ESP32-S3-DevKitC-1 N16R8), on UART0, the board's USB-UART port, at
+  921600 baud. Screens up to 256x96, two OTA slots with Software Update,
+  the SSH server, and the same `console.*` board keys as the classic ESP32
+  (default pins TX 43, RX 44). Project `ports/esp32s3`; CI builds it.
+* **TinyDesk Shell on the ESP32-S3:** `projects/esp32s3` in TinyDesk Shell
+  runs on any ESP32-S3 with 4 MB flash or more, at 115200 baud, and uses
+  Octal PSRAM when the module has it. `peek` and `poke` know the S3's
+  memory map ([peek, poke](shell/commands.md#peek-poke)).
+* **Install:** the installer and the web terminal offer the ESP32-S3 for
+  both editions; releases carry `tinydesk-desktop-<version>-esp32s3-factory.bin`
+  (with its app image and update feed) and
+  `tinydesk-shell-<version>-esp32s3-factory.bin`.
 
 ## 0.1.6 (2026-10-18)
 

@@ -92,8 +92,9 @@ python tools/make_release.py [--site ../tinydesk-site/site] [--out dist] [--allo
 
 Packages both [editions](guide/install.md#editions) for people without a
 toolchain. Run it after building the ESP-IDF projects: `ports/esp32c6`,
-`ports/esp32` and `ports/esp32-4mb` (TinyDesk Desktop, required),
-`third_party/tdsh` and `third_party/tdsh/projects/esp32` (TinyDesk Shell,
+`ports/esp32`, `ports/esp32-4mb` and `ports/esp32s3` (TinyDesk Desktop, required),
+`third_party/tdsh`, `third_party/tdsh/projects/esp32` and
+`third_party/tdsh/projects/esp32s3` (TinyDesk Shell,
 left out with a note when not built). For each board it merges what
 `idf.py flash` writes (`build/flash_args`) into one factory image and
 writes `dist/tinydesk-<version>/`:

@@ -9,7 +9,7 @@ All functions must be called from the UI task. None are thread-safe.
 
 ## The widget pool
 
-| Macro | Default | ESP32-C6 build | Classic ESP32 build (PSRAM) | Meaning |
+| Macro | Default | ESP32-C6 build | PSRAM builds (classic ESP32, ESP32-S3) | Meaning |
 |---|---|---|---|---|
 | `TD_MAX_WIDGETS` | 128 | 96 | 128 | Widgets in all open windows together (the last 4 only for a message box). |
 | `TD_TEXT_MAX` | 64 | 48 | 48 | Bytes of a widget's text, including the NUL. |

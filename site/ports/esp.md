@@ -1,32 +1,33 @@
-# ESP-IDF ports (ESP32-C6, ESP32)
+# ESP-IDF ports (ESP32-C6, ESP32, ESP32-S3)
 
-Three ESP-IDF 5.3.1 projects share one application. The shared code is in
+Four ESP-IDF 5.3.1 projects share one application. The shared code is in
 `ports/esp_idf`: the application in `app/` (start-up, Telnet, network,
 OTA, RS-485, the shell bridge, the UART link) and the TinyDesk core as
 an ESP-IDF component in `components/tinydesk/`. Each board project holds
 only what differs: `ports/esp32c6` its USB Serial/JTAG link
 (`main/link_usj.c`), `ports/esp32` (ESP32 modules with PSRAM) and
-`ports/esp32-4mb` (4 MB boards without PSRAM) the UART link, and each its
+`ports/esp32-4mb` (4 MB boards without PSRAM) and `ports/esp32s3`
+(ESP32-S3 with 16 MB flash and Octal PSRAM) the UART link, and each its
 partitions, `sdkconfig.defaults` and `board.example.conf`. TinyDesk Shell runs in its own FreeRTOS task
 and appears as the Terminal app; the desktop runs in the `tinydesk` task.
 
 ## Board differences
 
-| | ESP32-C6 (`ports/esp32c6`) | ESP32 with PSRAM (`ports/esp32`) | ESP32, 4 MB (`ports/esp32-4mb`) |
-| --- | --- | --- | --- |
-| Tested on | ESP32-C6-DevKitC-1 (8 MB) | ESP32-WROVER-IE N16R8 | ESP32-WROOM-32 dev board (ESP32-D0WDQ6, 4 MB) |
-| Desktop link | built-in USB Serial/JTAG (`ports/esp32c6/main/link_usj.c`, 8 KB RX buffer) | UART0, 921600 8N1, via the USB-UART chip (`ports/esp_idf/app/link_uart.c`, 8 KB RX buffer) | the same `link_uart.c` |
-| CPU | 1 core, 160 MHz | 2 cores, 240 MHz | 2 cores, 240 MHz |
-| RAM | 452 KB unified (code in IRAM shares it with the heap) | 180 KB internal data RAM + 4 MB PSRAM (of 8 MB) | 180 KB internal data RAM, no PSRAM |
-| Screen limit | 80x25 | 256x96 (buffers in PSRAM) | 80x25 |
-| Free RAM, desktop and Terminal open | about 113 KB at boot | about 157 KB internal with Wi-Fi up | about 108 KB before Wi-Fi, 75 KB with Wi-Fi up |
-| SSH/SFTP server | yes | yes | no: it needs about 160 KB of internal RAM (its 64 KB heap plus headroom) |
-| Modbus RTU | up to 2 RS-485 lines from the [board configuration](../guide/board-config.md) (`rs485.N.*`) | the same (use UART1/UART2; UART0 is the desktop) | the same |
-| Ethernet | W6100 on SPI when `eth.chip = w6100` | the same; not tested on hardware yet | the same; not tested on hardware yet |
-| Console keys | none (USB Serial/JTAG) | `console.uart`, `console.tx`, `console.rx`, `console.baud` | the same as ESP32 |
-| Flash | 8 MB: 2 x 2.5 MB OTA slots, 2.9 MB `/fs` | 16 MB: 2 x 3 MB OTA slots, 9.9 MB `/fs` | 4 MB: one 2.5 MB app, 1.4 MB `/fs` (the layout of TinyDesk Shell's ESP32 firmware) |
-| Software Update, `ota` | yes | yes | no (no second slot): update by flashing |
-| Resets on port open | no | yes, with PuTTY (use the [serial bridge](../guide/terminals.md#esp32-boards-without-resets)) | the same |
+| | ESP32-C6 (`ports/esp32c6`) | ESP32 with PSRAM (`ports/esp32`) | ESP32, 4 MB (`ports/esp32-4mb`) | ESP32-S3 (`ports/esp32s3`) |
+| --- | --- | --- | --- | --- |
+| Tested on | ESP32-C6-DevKitC-1 (8 MB) | ESP32-WROVER-IE N16R8 | ESP32-WROOM-32 dev board (ESP32-D0WDQ6, 4 MB) | ESP32-S3 dev board (ESP32-S3R8, 16 MB flash, CH343 USB-UART) |
+| Desktop link | built-in USB Serial/JTAG (`ports/esp32c6/main/link_usj.c`, 8 KB RX buffer) | UART0, 921600 8N1, via the USB-UART chip (`ports/esp_idf/app/link_uart.c`, 8 KB RX buffer) | the same `link_uart.c` | the same `link_uart.c` (UART0 on GPIO43/44, the board's UART port) |
+| CPU | 1 core, 160 MHz | 2 cores, 240 MHz | 2 cores, 240 MHz | 2 cores, 240 MHz |
+| RAM | 452 KB unified (code in IRAM shares it with the heap) | 180 KB internal data RAM + 4 MB PSRAM (of 8 MB) | 180 KB internal data RAM, no PSRAM | 512 KB internal SRAM + 8 MB Octal PSRAM (all of it mapped) |
+| Screen limit | 80x25 | 256x96 (buffers in PSRAM) | 80x25 | 256x96 (buffers in PSRAM) |
+| Free RAM, desktop and Terminal open | about 113 KB at boot | about 157 KB internal with Wi-Fi up | about 108 KB before Wi-Fi, 75 KB with Wi-Fi up | about 203 KB internal + 7.2 MB PSRAM before Wi-Fi (About, desktop idle) |
+| SSH/SFTP server | yes | yes | no: it needs about 160 KB of internal RAM (its 64 KB heap plus headroom) | yes |
+| Modbus RTU | up to 2 RS-485 lines from the [board configuration](../guide/board-config.md) (`rs485.N.*`) | the same (use UART1/UART2; UART0 is the desktop) | the same | the same |
+| Ethernet | W6100 on SPI when `eth.chip = w6100` | the same; not tested on hardware yet | the same; not tested on hardware yet | the same; not tested on hardware yet |
+| Console keys | none (USB Serial/JTAG) | `console.uart`, `console.tx`, `console.rx`, `console.baud` | the same as ESP32 | the same as ESP32 (defaults TX 43, RX 44) |
+| Flash | 8 MB: 2 x 2.5 MB OTA slots, 2.9 MB `/fs` | 16 MB: 2 x 3 MB OTA slots, 9.9 MB `/fs` | 4 MB: one 2.5 MB app, 1.4 MB `/fs` (the layout of TinyDesk Shell's ESP32 firmware) | 16 MB: 2 x 3 MB OTA slots, 9.9 MB `/fs` (as on the ESP32 with PSRAM) |
+| Software Update, `ota` | yes | yes | no (no second slot): update by flashing | yes |
+| Resets on port open | no | yes, with PuTTY (use the [serial bridge](../guide/terminals.md#esp32-boards-without-resets)) | the same | the UART port has the same auto-reset circuit; not checked with PuTTY yet |
 
 ## Start-up (`app/main.c`)
 
@@ -147,6 +148,11 @@ TinyDesk Shell's SSH heap is taken from PSRAM when SSH first starts (its
 start check then wants 64 KB of internal RAM), and malloc'd blocks over
 4 KB go to PSRAM. About 157 KB of internal RAM is free with Wi-Fi up.
 
+The ESP32-S3 port works like the ESP32 with PSRAM: its
+`ports/esp32s3/main/extram.lf` places the same `.bss` in PSRAM, and blocks
+over 4 KB go there too. With 8 MB of Octal PSRAM, all mapped, and more
+internal RAM, about 203 KB of internal RAM is free at boot.
+
 The 4 MB port has no PSRAM: everything stays in internal RAM, with the
 80x25 screen limit and fewer Wi-Fi buffers (`sdkconfig.defaults`). Its
 static data takes 131 KB of the 180 KB segment. The SSH heap is not
@@ -157,13 +163,13 @@ port fit; SSH itself does not start there for lack of RAM.
 
 | Option | Why |
 | --- | --- |
-| `CONFIG_ESP_CONSOLE_NONE` | UART0 may be an RS-485 line (C6) or is the desktop (ESP32); logs go to the Log Viewer |
+| `CONFIG_ESP_CONSOLE_NONE` | UART0 may be an RS-485 line (C6) or is the desktop (ESP32, ESP32-S3); logs go to the Log Viewer |
 | `CONFIG_BOOTLOADER_APP_ROLLBACK_ENABLE` | OTA trial and rollback |
 | `CONFIG_ESP_HTTPS_OTA_ALLOW_HTTP` | updates from a local HTTP server |
 | `CONFIG_MBEDTLS_DYNAMIC_BUFFER` | TLS buffers only as large as needed (MQTT over TLS in about 17 KB) |
 | `CONFIG_FREERTOS_USE_TRACE_FACILITY`, `CONFIG_FREERTOS_GENERATE_RUN_TIME_STATS` | the Task Manager's task list and CPU % |
 | `CONFIG_FREERTOS_PLACE_FUNCTIONS_INTO_FLASH` | C6: RAM for SSH; ESP32: IRAM for the drivers |
-| `CONFIG_SPIRAM*`, `CONFIG_SPIRAM_ALLOW_BSS_SEG_EXTERNAL_MEMORY` (ESP32 with PSRAM) | PSRAM for malloc and static buffers |
+| `CONFIG_SPIRAM*`, `CONFIG_SPIRAM_ALLOW_BSS_SEG_EXTERNAL_MEMORY` (ESP32 with PSRAM, ESP32-S3; `CONFIG_SPIRAM_MODE_OCT` on the S3) | PSRAM for malloc and static buffers |
 | `CONFIG_ESP_WIFI_*_BUFFER_NUM` (4 MB ESP32) | fewer Wi-Fi buffers in internal RAM |
 
 The TinyDesk component (`ports/esp_idf/components/tinydesk/CMakeLists.txt`)

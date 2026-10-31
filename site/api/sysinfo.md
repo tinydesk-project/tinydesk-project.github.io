@@ -3,7 +3,7 @@
 `td_sysinfo_t` is how a port tells TinyDesk about the platform and hands it optional services: memory and task figures, the system clock and time zone, a filesystem, network control, firmware updates, user accounts and settings storage. The apps only reach the platform through this structure, so they build unchanged on the ESP32 and on the desktop hosts. Every member may be left `NULL` (or 0); the apps then show "n/a", hide a control or show a message.
 
 Header: `include/tinydesk/td_sysinfo.h` (included by `tinydesk/td.h`)
-Sources: `src/td.c` (storage); implementations in `ports/esp_idf/app/main.c`, `net_esp.c`, `ota_esp.c` (shared by the ESP-IDF projects `ports/esp32c6`, `ports/esp32` and `ports/esp32-4mb`), `ports/common/host_main.c` and `ports/common/td_fs_stdio.c`
+Sources: `src/td.c` (storage); implementations in `ports/esp_idf/app/main.c`, `net_esp.c`, `ota_esp.c` (shared by the ESP-IDF projects `ports/esp32c6`, `ports/esp32`, `ports/esp32-4mb` and `ports/esp32s3`), `ports/common/host_main.c` and `ports/common/td_fs_stdio.c`
 
 ## Threading
 

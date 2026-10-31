@@ -155,6 +155,21 @@ The desktop runs on UART0 (the board's USB-UART chip) at **921600 baud
 DTR/RTS lines drive EN and IO0); use the [serial bridge](terminals.md#esp32-boards-without-resets)
 to avoid that.
 
+## ESP32-S3
+
+`ports/esp32s3` is for an ESP32-S3 with 16 MB flash and 8 MB Octal PSRAM
+(e.g. ESP32-S3-DevKitC-1 N16R8): screens up to 256x96, two OTA slots, the
+SSH server. The desktop runs on UART0 at **921600 baud**: connect the
+board's port marked **UART** (its USB-UART chip, often a CH343), not the
+one marked USB.
+
+```bash
+cd ports/esp32s3
+idf.py set-target esp32s3          # once
+idf.py build
+idf.py -p COM19 -b 921600 flash    # Linux: -p /dev/ttyACM0 or /dev/ttyUSB0
+```
+
 ## First steps on the desktop
 
 1. **F10** or a click on **[Start]** opens the start menu; double-click an

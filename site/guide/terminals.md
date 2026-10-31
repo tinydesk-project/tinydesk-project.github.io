@@ -16,7 +16,7 @@ browser window's size.
 1. Close anything that holds the port: PuTTY, `idf.py monitor`, and the
    installer's dialog.
 2. Choose the board you flashed. That sets the speed (921600 for the Desktop
-   edition on a classic ESP32, 115200 otherwise; the ESP32-C6's USB port
+   edition on a classic ESP32 or an ESP32-S3, 115200 otherwise; the ESP32-C6's USB port
    ignores it) and the size (80x25 on the ESP32-C6 and the 4 MB ESP32,
    the whole window elsewhere).
 3. Press **Connect** and pick the port. The desktop draws itself at once.
@@ -34,7 +34,7 @@ query, so the desktop cannot appear there. Use the web terminal instead.
 
 | Setting | Value |
 | --- | --- |
-| Connection type | *Serial*, `COMx`; speed: any value on the ESP32-C6 (USB), **921600** on the classic ESP32 (UART0) |
+| Connection type | *Serial*, `COMx`; speed: any value on the ESP32-C6 (USB), **921600** on the classic ESP32 and the ESP32-S3 (UART0), **115200** for TinyDesk Shell on them |
 | Window | 80x25 or larger; resize freely (the desktop follows, up to the board's limit) |
 | Window → Translation | remote character set **UTF-8** |
 | Terminal → Features | leave "Disable xterm-style mouse reporting" **unticked** |
@@ -74,7 +74,7 @@ changes within a second of resizing the window.
   the same (**Ctrl+-** / **Ctrl+Shift+-** makes the font smaller). Under WSL,
   run it in Windows Terminal.
 * **ESP32 boards:** resize PuTTY or the browser window of the web terminal
-  (size **Fit the window**). The ESP32 with PSRAM follows up to 256x96; the
+  (size **Fit the window**). The ESP32 with PSRAM and the ESP32-S3 follow up to 256x96; the
   ESP32-C6 and the 4 MB ESP32 stay at 80x25 and leave the rest blank.
 
 A maximised window beyond the limit shows the desktop in its top-left corner
