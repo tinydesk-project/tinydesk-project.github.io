@@ -95,6 +95,10 @@ API may still change between minor versions.
   (with its app image and update feed) and
   `tinydesk-shell-<version>-esp32s3-factory.bin`.
 
+Known issue: `ssh start` refuses on the ESP32-C6 with "insufficient
+internal RAM", as in earlier releases. A fix is tested and comes in a
+later release.
+
 ## 0.1.6 (2026-10-18)
 
 * **`peek` and `poke` on the ESP32 boards** (TinyDesk Shell): root can

@@ -21,7 +21,7 @@ and appears as the Terminal app; the desktop runs in the `tinydesk` task.
 | RAM | 452 KB unified (code in IRAM shares it with the heap) | 180 KB internal data RAM + 4 MB PSRAM (of 8 MB) | 180 KB internal data RAM, no PSRAM | 512 KB internal SRAM + 8 MB Octal PSRAM (all of it mapped) |
 | Screen limit | 80x25 | 256x96 (buffers in PSRAM) | 80x25 | 256x96 (buffers in PSRAM) |
 | Free RAM, desktop and Terminal open | about 113 KB at boot | about 157 KB internal with Wi-Fi up | about 108 KB before Wi-Fi, 75 KB with Wi-Fi up | about 203 KB internal + 7.2 MB PSRAM before Wi-Fi (About, desktop idle) |
-| SSH/SFTP server | yes | yes | no: it needs about 160 KB of internal RAM (its 64 KB heap plus headroom) | yes |
+| SSH/SFTP server | not in 0.2.0: `ssh start` refuses (it asks for about 160 KB of free internal RAM); a fix is pending | yes | no: it needs about 160 KB of internal RAM (its 64 KB heap plus headroom) | yes |
 | Modbus RTU | up to 2 RS-485 lines from the [board configuration](../guide/board-config.md) (`rs485.N.*`) | the same (use UART1/UART2; UART0 is the desktop) | the same | the same |
 | Ethernet | W6100 on SPI when `eth.chip = w6100` | the same; not tested on hardware yet | the same; not tested on hardware yet | the same; not tested on hardware yet |
 | Console keys | none (USB Serial/JTAG) | `console.uart`, `console.tx`, `console.rx`, `console.baud` | the same as ESP32 | the same as ESP32 (defaults TX 43, RX 44) |

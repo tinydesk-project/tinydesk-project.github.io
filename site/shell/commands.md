@@ -576,7 +576,7 @@ The heap is in internal RAM on the ESP32-C6; on the boards with PSRAM (classic E
 
 `ssh stop` now works reliably (the listening socket wakes every 0.5 s to see the stop). Before, it could print `ssh: server shutdown timed out.` and block the next `ssh start`.
 
-Start errors: `SSH server already running on port 22.`, `ssh: previous server is still shutting down.`, `ssh: no network interface is connected.`, `ssh: insufficient internal RAM (N bytes free; need at least M before start).`, `ssh: cannot create SSH server task.`, `ssh: server initialization failed. Check tdsh-ssh log above.`, `ssh: invalid port`. The RAM check needs 96 KiB free on the ESP32-C6 and 64 KiB on the classic ESP32, whose 64 KB SSH heap lives in PSRAM (the start message still says "internal heap").
+Start errors: `SSH server already running on port 22.`, `ssh: previous server is still shutting down.`, `ssh: no network interface is connected.`, `ssh: insufficient internal RAM (N bytes free; need at least M before start).`, `ssh: cannot create SSH server task.`, `ssh: server initialization failed. Check tdsh-ssh log above.`, `ssh: invalid port`. The RAM check needs 64 KiB of free internal RAM on boards with PSRAM (the classic ESP32 with PSRAM, the ESP32-S3), whose 64 KB SSH heap lives in PSRAM. Without PSRAM it needs 96 KiB plus the 64 KB heap, about 160 KiB, so in 0.2.0 `ssh start` refuses on the ESP32-C6; a fix is pending.
 
 ### ssh hostkey
 
