@@ -155,11 +155,12 @@ Notes: letters keep the case they arrived in, so Ctrl+A is named `Ctrl+a`. For a
 
 ## Bracketed paste
 
-The core enables bracketed paste (`ESC [ ? 2004 h`), so a terminal that supports it wraps pasted text in `ESC [ 200 ~` ... `ESC [ 201 ~`. Everything between the markers, including escape sequences and control characters, is collected as text and delivered as one `TD_EV_PASTE` event, instead of as thousands of key events. The text is kept in a heap buffer (grown with `realloc`, starting at 256 bytes) only while it arrives and while the event is handled.
+The core enables bracketed paste (`ESC [ ? 2004 h`), so a terminal that supports it wraps pasted text in `ESC [ 200 ~` ... `ESC [ 201 ~`. Everything between the markers, including control characters, is collected as text and delivered as one `TD_EV_PASTE` event, instead of as thousands of key events. The text is kept in a heap buffer (grown with `realloc`, starting at 256 bytes) only while it arrives and while the event is handled.
 
 - At most `TD_PASTE_MAX` bytes are kept; the rest is dropped and the event's `x` is set to 1. `x` is also 1 if the buffer could not be grown.
 - If the end marker never arrives, the paste is delivered anyway once no byte has arrived for `TD_PASTE_TIMEOUT_MS`.
 - An empty paste produces no event.
+- A cursor-position report `ESC [ rows ; cols R` (up to 4 digits each) inside the paste is not text: it is the terminal's answer to a size query that crossed the paste, and is handled as usual (a `TD_EV_RESIZE` when rows > 1). Any other escape sequence is kept as text; terminals do not put raw ESC bytes into pasted text in practice.
 - Terminals without bracketed paste deliver pasted text as ordinary key events.
 
 ### td_paste_text
@@ -288,6 +289,14 @@ Call regularly (the main loop calls it every pass). It:
 - turns a lone ESC older than `TD_ESC_TIMEOUT_MS` into `TD_KEY_ESC`;
 - discards a CSI, SS3 or X10 mouse sequence older than `TD_SEQ_TIMEOUT_MS`;
 - delivers a bracketed paste when no byte has arrived for `TD_PASTE_TIMEOUT_MS`.
+
+### td_input_pasting
+
+```c
+bool td_input_pasting(const td_input_t *p);
+```
+
+True while a bracketed paste is being received (between `ESC [ 200 ~` and the end marker or the paste timeout). The main loop does not send its periodic size query meanwhile.
 
 ### td_input_paste_done
 

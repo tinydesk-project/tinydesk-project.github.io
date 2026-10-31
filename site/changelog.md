@@ -9,6 +9,67 @@ API may still change between minor versions.
 
 ## Unreleased
 
+* **Python scripts with MicroPython:** the new shell command `py` runs a
+  script (`py report.py`), one line (`py -c ...`) or the interactive
+  prompt, in the Terminal, over SSH and in the PC programs. Scripts use
+  TinyDesk's files and paths, and the `tinydesk` module runs shell
+  commands, publishes MQTT messages and reads or writes Modbus registers.
+  The heap is allocated only while a script runs: 512 KB of PSRAM on the
+  ESP32 with PSRAM and the ESP32-S3, 64 KB of internal RAM on the
+  ESP32-C6, and what is free above a 32 KB reserve on the 4 MB ESP32
+  (about 31 KB with Wi-Fi off). Included: `hashlib` (sha256, sha1, md5), `os.urandom`,
+  `asyncio` with `select`, and precompiled `.mpy` files; root can also use
+  `@micropython.native` and `@micropython.viper` on the ESP32, ESP32-S3
+  and ESP32-C6 and in the Linux program (the S3's and the C6's firmware
+  turn off the memory protection that keeps RAM non-executable for it).
+  The prompt's history (Up and Down) is kept in `~/.py_history` from one
+  `py` to the next. See
+  [Python scripts](shell/python.md).
+* **Pins and buses from Python (`machine`):** on the ESP32 boards, root's
+  scripts use `Pin` (with interrupts), `ADC`, `PWM`, `I2C`, `SPI`, `UART`,
+  `SoftI2C`, `SoftSPI`, `time_pulse_us`, `bitstream` and the `neopixel`
+  module. Pins of the board configuration and the desktop's link are
+  refused, strapping pins get a warning, and everything a script opened is
+  closed and reset when it ends. The PC programs import `machine` but have
+  no hardware for it. See [Hardware](shell/python.md#hardware-machine).
+* **Windows from Python (`tdui`):** a script started from the desktop opens
+  windows with labels, buttons, text boxes, check boxes, lists, progress
+  bars and character canvases, shows message boxes, input boxes and popup
+  menus, and handles clicks, keys and timers in Python: a small app without
+  writing C. The desktop makes the windows on its own loop, so a busy
+  script never slows it; the windows close when the script ends, and
+  Ctrl+C in one of them stops it. Scripts can resize, move, maximise and
+  minimise their windows, hear when the user resizes one (`on_resize`),
+  and lists and canvases can follow the new size.
+  See [Windows](shell/python.md#windows-tdui).
+* **The Editor for Python:** a `.py` file gets colours, line numbers,
+  indents after `:`, and the matching bracket shown. **F5** saves and runs
+  it, with the output in a pane under the text (F7 types into it); after
+  an error the line is marked and **F8** goes there. Ctrl+Space suggests
+  names (keywords, built-ins, modules and their functions, the file's
+  words), which can also pop up while typing (right-click →
+  Auto-complete, saved per user). For every file: find (Ctrl+F, F3),
+  replace all (Ctrl+R), go to a line (Ctrl+G), comment lines (Ctrl+/),
+  Tab / Shift+Tab on selected lines and Enter keeping the indent.
+  See [The Editor](guide/using.md#the-editor).
+* **The Editor's buffer follows the file:** it is sized to the file and
+  grows with the text up to 16 KB, instead of taking 16 KB for any file.
+  A small script then leaves enough RAM to run it with F5 on the 4 MB
+  ESP32.
+* **Run `.py` files** from the desktop and the Files app (right-click →
+  Run), as `.tdsh` scripts; they show a `py` icon.
+* **Ctrl+C stops `modbus read -i` in the PC programs** too, as on the
+  boards.
+* **Pastes no longer pick up the size reply:** the desktop's periodic
+  terminal size query could be answered in the middle of a bracketed
+  paste, and the reply (such as `[25;80R`) ended up in the pasted text, in
+  up to one paste in ten of a few KB at 921600 baud. The reply is now taken
+  out of the paste and handled as usual, and the query is not sent while a
+  paste is arriving.
+* **ESP32-C6: long pastes arrive whole.** The USB receive buffer grows from
+  1 KB to 8 KB, as on the other boards: when it filled while the desktop
+  was drawing, the USB driver dropped whole 64-byte packets, and a paste
+  of a few KB could lose some of its text. It costs 7 KB of RAM.
 * **Ports can put their own files on new Desktops:** `td_sysinfo_t` has a
   new optional member `desktop_files`, a list of file names and contents
   that TinyDesk writes next to `Welcome.txt` when a user's Desktop folder
