@@ -7,7 +7,7 @@ that reaches users or changes an API (see [Maintaining these docs](maintaining.m
 Versions follow [Semantic Versioning](https://semver.org/): until 1.0.0 the
 API may still change between minor versions.
 
-## Unreleased
+## 0.2.0 (2026-10-31)
 
 * **Python scripts with MicroPython:** the new shell command `py` runs a
   script (`py report.py`), one line (`py -c ...`) or the interactive
@@ -17,8 +17,9 @@ API may still change between minor versions.
   The heap is allocated only while a script runs: 512 KB of PSRAM on the
   ESP32 with PSRAM and the ESP32-S3, 64 KB of internal RAM on the
   ESP32-C6, and what is free above a 32 KB reserve on the 4 MB ESP32
-  (about 31 KB with Wi-Fi off). Included: `hashlib` (sha256, sha1, md5), `os.urandom`,
-  `asyncio` with `select`, and precompiled `.mpy` files; root can also use
+  (about 31 KB with Wi-Fi off). Included: `hashlib` (sha256, sha1, md5),
+  `os.urandom`, `asyncio` with `select`, and precompiled `.mpy` files;
+  root can also use
   `@micropython.native` and `@micropython.viper` on the ESP32, ESP32-S3
   and ESP32-C6 and in the Linux program (the S3's and the C6's firmware
   turn off the memory protection that keeps RAM non-executable for it).
