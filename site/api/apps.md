@@ -164,7 +164,7 @@ The current user's home folder (the same as `td_session_home()`) and Desktop fol
 void td_desktop_folder_init(void);
 ```
 
-Creates the current user's Desktop folder if it does not exist (with the parents it needs and a `Welcome.txt`), installs the desktop provider and reads the folder. Starts a 3-second timer (on the first call) that re-reads the folder, so files created from the shell appear on their own. Called by the session code at start-up and after every user switch. Does nothing without a filesystem that has `list` and `mkdir`.
+Creates the current user's Desktop folder if it does not exist (with the parents it needs, a `Welcome.txt` and the port's [`desktop_files`](sysinfo.md#files-for-a-new-desktop)), installs the desktop provider and reads the folder. Starts a 3-second timer (on the first call) that re-reads the folder, so files created from the shell appear on their own. Called by the session code at start-up and after every user switch. Does nothing without a filesystem that has `list` and `mkdir`.
 
 ### td_desktop_refresh
 

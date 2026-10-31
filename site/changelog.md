@@ -7,6 +7,18 @@ that reaches users or changes an API (see [Maintaining these docs](maintaining.m
 Versions follow [Semantic Versioning](https://semver.org/): until 1.0.0 the
 API may still change between minor versions.
 
+## Unreleased
+
+* **Ports can put their own files on new Desktops:** `td_sysinfo_t` has a
+  new optional member `desktop_files`, a list of file names and contents
+  that TinyDesk writes next to `Welcome.txt` when a user's Desktop folder
+  is created, for example a port's `Credits.txt`. Written once per user,
+  like `Welcome.txt`; builds that do not set it are unchanged. See
+  [Files for a new Desktop](api/sysinfo.md#files-for-a-new-desktop)
+  (tinydesk #5).
+* **`CONTRIBUTORS.md`** in the `tinydesk` repository lists the people who
+  made TinyDesk and TinyDesk Shell.
+
 ## 0.1.6 (2026-10-18)
 
 * **`peek` and `poke` on the ESP32 boards** (TinyDesk Shell): root can

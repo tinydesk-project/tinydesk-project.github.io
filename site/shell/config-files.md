@@ -21,7 +21,7 @@ On the ESP32 the LittleFS partition `storage` is mounted at `/fs`. On Windows an
 | [`~/.tinydesk_settings`](#tinydesk_settings) | the Settings app, the Date & time dialog | the desktop, at start-up and after every user switch |
 | [`~/.tdshrc.tdsh`](#tdshrctdsh) | TinyDesk Shell (created with comments only), the user | TinyDesk Shell, when the local console starts a session |
 | [`/etc/board.conf`](#etcboardconf) | `board set`, `board init`, the user | TinyDesk Shell and the ports, at start-up |
-| [`~/Desktop`](#the-desktop-folder) | the desktop (created with `Welcome.txt`), the user | the desktop, every 3 s |
+| [`~/Desktop`](#the-desktop-folder) | the desktop (created with `Welcome.txt` and the port's own files), the user | the desktop, every 3 s |
 | [NVS keys](#nvs-keys) | TinyDesk, TinyDesk Shell | TinyDesk, TinyDesk Shell |
 | [Partition tables](#partition-tables) | the build | the bootloader |
 
@@ -261,7 +261,7 @@ rs485.1.de   = 18
 
 Each user's `~/Desktop` holds the files shown as desktop icons (`apps/desktop.c`). The desktop:
 
-- creates `~/Desktop` for the current user if missing (and `/home` and the home folder), and puts a `Welcome.txt` in a new folder;
+- creates `~/Desktop` for the current user if missing (and `/home` and the home folder), and puts a `Welcome.txt` in a new folder, with any files the port adds (such as a `Credits.txt`; see [Files for a new Desktop](../api/sysinfo.md#files-for-a-new-desktop));
 - re-reads the folder every 3 s, so files made from the shell (`touch ~/Desktop/notes.txt`) appear on their own;
 - shows up to 24 entries and hides names starting with `.`;
 - saves new files from the Editor's **Save as** there, and moves dragged files into it.
