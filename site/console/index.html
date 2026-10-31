@@ -58,8 +58,10 @@
         <option value="desktop/esp32c6">Desktop · ESP32-C6</option>
         <option value="desktop/esp32">Desktop · ESP32 + PSRAM (WROVER)</option>
         <option value="desktop/esp32-4mb">Desktop · ESP32, 4 MB (WROOM)</option>
+        <option value="desktop/esp32s3">Desktop · ESP32-S3</option>
         <option value="shell/esp32c6">Shell · ESP32-C6</option>
         <option value="shell/esp32">Shell · ESP32 (any)</option>
+        <option value="shell/esp32s3">Shell · ESP32-S3</option>
         <option value="custom">Other / custom</option>
       </select>
     </label>
@@ -99,15 +101,17 @@
   (function () {
     'use strict';
     /* What each firmware expects on its serial port. The ESP32-C6's USB
-     * Serial/JTAG ignores the speed; the classic ESP32 desktop runs its UART
-     * at 921600, the shell edition at 115200. The C6 and the 4 MB ESP32 draw
+     * Serial/JTAG ignores the speed; the classic ESP32 and ESP32-S3 desktops
+     * run their UART at 921600, the shell editions at 115200. The C6 and the 4 MB ESP32 draw
      * at most 80x25, so their terminal is sized to that. */
     var PRESETS = {
       'desktop/esp32c6':   { baud: 115200, size: '80x25', desktop: true },
       'desktop/esp32':     { baud: 921600, size: 'fit',   desktop: true },
       'desktop/esp32-4mb': { baud: 921600, size: '80x25', desktop: true },
+      'desktop/esp32s3':   { baud: 921600, size: 'fit',   desktop: true },
       'shell/esp32c6':     { baud: 115200, size: 'fit',   desktop: false },
       'shell/esp32':       { baud: 115200, size: 'fit',   desktop: false },
+      'shell/esp32s3':     { baud: 115200, size: 'fit',   desktop: false },
       'custom':            { baud: 115200, size: 'fit',   desktop: true }
     };
     var REDRAW = '\x1b[5000~';          /* TinyDesk's "redraw everything" key */

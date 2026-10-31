@@ -292,7 +292,7 @@ Wi-Fi passwords and the host key are stored in NVS in plain form: the ports' `sd
 
 ## Partition tables
 
-Both ports have two OTA app slots for `ota install` (see [ota](commands.md#ota)).
+The ESP32-C6, ESP32 with PSRAM and ESP32-S3 ports have two OTA app slots for `ota install` (see [ota](commands.md#ota)).
 
 ### ESP32-C6 (`ports/esp32c6/partitions.csv`)
 
@@ -322,4 +322,15 @@ ESP32-WROVER-IE, 16 MB flash.
 | `otadata` | data | ota | `0x610000` | `0x2000` (8 KB) |
 | `storage` | data | littlefs | `0x620000` | `0x9E0000` (9.9 MB) |
 
-In both tables `storage` is the LittleFS partition that TinyDesk Shell mounts at `/fs`.
+### ESP32-S3 (`ports/esp32s3/partitions.csv`)
+
+ESP32-S3 with 16 MB flash and 8 MB Octal PSRAM (e.g. N16R8): the same
+layout as the ESP32 with PSRAM above (two 3 MB OTA slots, `otadata` at
+`0x610000`, a 9.9 MB `storage` at `0x620000`).
+
+TinyDesk Shell on its own uses a smaller layout on the classic ESP32 and the
+ESP32-S3 (`projects/esp32`, `projects/esp32s3` in its repository): one
+2.5 MB `factory` app at `0x10000` and a 1.4 MB `storage` at `0x290000`, so it
+runs on 4 MB boards.
+
+In every table `storage` is the LittleFS partition that TinyDesk Shell mounts at `/fs`.

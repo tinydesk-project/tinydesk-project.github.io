@@ -126,6 +126,7 @@ Hello root, from TinyDesk Shell on esp32.</pre>
       <button class="platform" type="button" data-platform="esp32c6" aria-pressed="true">ESP32-C6</button>
       <button class="platform" type="button" data-platform="esp32" aria-pressed="false">ESP32 + PSRAM (WROVER)</button>
       <button class="platform" type="button" data-platform="esp32-4mb" aria-pressed="false">ESP32, 4 MB (WROOM)</button>
+      <button class="platform" type="button" data-platform="esp32s3" aria-pressed="false">ESP32-S3</button>
       <button class="platform" type="button" data-platform="linux" aria-pressed="false">Linux</button>
       <button class="platform" type="button" data-platform="windows" aria-pressed="false">Windows</button>
       <button class="platform" type="button" data-platform="other" aria-pressed="false">macOS and others</button>
@@ -200,7 +201,7 @@ Hello root, from TinyDesk Shell on esp32.</pre>
       });
 
       var NAME = { desktop: 'TinyDesk Desktop', shell: 'TinyDesk Shell' };
-      var BOARD = { esp32c6: 'an ESP32-C6', esp32: 'an ESP32 with PSRAM', 'esp32-4mb': 'an ESP32 with 4 MB flash' };
+      var BOARD = { esp32c6: 'an ESP32-C6', esp32: 'an ESP32 with PSRAM', 'esp32-4mb': 'an ESP32 with 4 MB flash', esp32s3: 'an ESP32-S3' };
       var NEEDS = {
         desktop: {
           esp32c6: ['8 MB flash (e.g. ESP32-C6-DevKitC-1-N8)',
@@ -210,7 +211,10 @@ Hello root, from TinyDesk Shell on esp32.</pre>
           'esp32-4mb': ['4 MB flash, no PSRAM needed (e.g. ESP32-WROOM-32 DevKitC)',
                         'limits of the small board: screen at most 80x25, no over-the-air updates (update by flashing), ' +
                         'no SSH server (too little RAM; FTP and Telnet work). TinyDesk Shell on the same board has SSH.',
-                        'the board’s USB-UART chip needs its driver (CP210x or CH340)']
+                        'the board’s USB-UART chip needs its driver (CP210x or CH340)'],
+          esp32s3: ['16 MB flash <b>and</b> 8 MB Octal PSRAM (e.g. ESP32-S3-DevKitC-1 N16R8); screens up to 256x96',
+                    'connect the port marked <b>UART</b> (the USB-UART chip, often a CH343), not the one marked USB',
+                    'the board’s USB-UART chip needs its driver (CH343, CH340 or CP210x)']
         },
         shell: {
           esp32c6: ['8 MB flash (e.g. ESP32-C6-DevKitC-1-N8)',
@@ -219,7 +223,10 @@ Hello root, from TinyDesk Shell on esp32.</pre>
                   'the board’s USB-UART chip needs its driver (CP210x or CH340)'],
           'esp32-4mb': ['4 MB flash or more, PSRAM not needed (e.g. ESP32-WROOM-32 DevKitC): the same firmware as for WROVER boards',
                         'the same flash layout as TinyDesk Desktop on this board: switching editions keeps your files',
-                        'the board’s USB-UART chip needs its driver (CP210x or CH340)']
+                        'the board’s USB-UART chip needs its driver (CP210x or CH340)'],
+          esp32s3: ['any ESP32-S3 with 4 MB flash or more; Octal PSRAM is used when the module has it (N16R8, N8R8)',
+                    'connect the port marked <b>UART</b> (the USB-UART chip, often a CH343), not the one marked USB',
+                    'the board’s USB-UART chip needs its driver (CH343, CH340 or CP210x)']
         }
       };
       function password(edition, board) {
@@ -251,8 +258,8 @@ Hello root, from TinyDesk Shell on esp32.</pre>
       function showEsptool(version) {
         var board = state.edition === 'shell' && state.platform === 'esp32-4mb' ? 'esp32' : state.platform;
         var file = 'tinydesk-' + state.edition + '-' + (version || 'VERSION') + '-' + board + '-factory.bin';
-        var chip = state.platform === 'esp32c6' ? 'esp32c6' : 'esp32';
-        var speed = chip === 'esp32' ? ' -b 460800' : '';
+        var chip = state.platform === 'esp32c6' || state.platform === 'esp32s3' ? state.platform : 'esp32';
+        var speed = chip !== 'esp32c6' ? ' -b 460800' : '';
         document.getElementById('esptool-file').innerHTML = '<code>' + file + '</code>';
         document.getElementById('esptool-cmd').textContent =
           'esptool.py --chip ' + chip + ' -p PORT' + speed + ' write_flash 0x0 ' + file;
@@ -340,12 +347,12 @@ Hello root, from TinyDesk Shell on esp32.</pre>
       function readHash() {
         var fromHash = location.hash.replace('#', '').split('/');
         if (NAME[fromHash[0]]) state.edition = fromHash[0];
-        if (['esp32c6', 'esp32', 'esp32-4mb', 'linux', 'windows', 'other'].indexOf(fromHash[1]) >= 0) state.platform = fromHash[1];
+        if (['esp32c6', 'esp32', 'esp32-4mb', 'esp32s3', 'linux', 'windows', 'other'].indexOf(fromHash[1]) >= 0) state.platform = fromHash[1];
       }
       readHash();
 
       /* One manifest per board: ESP Web Tools picks a build by chip family only.
-       * TinyDesk Shell has one ESP32 firmware for every ESP32 board. */
+       * TinyDesk Shell has one classic ESP32 firmware for every classic ESP32 board. */
       function manifestUrl() {
         var board = state.edition === 'shell' && state.platform === 'esp32-4mb' ? 'esp32' : state.platform;
         return 'manifest-' + state.edition + '-' + board + '.json';
@@ -359,7 +366,7 @@ Hello root, from TinyDesk Shell on esp32.</pre>
         Array.prototype.forEach.call(document.querySelectorAll('.platform'), function (b) {
           b.setAttribute('aria-pressed', String(b.dataset.platform === state.platform));
         });
-        var esp = ['esp32c6', 'esp32', 'esp32-4mb'].indexOf(state.platform) >= 0;
+        var esp = ['esp32c6', 'esp32', 'esp32-4mb', 'esp32s3'].indexOf(state.platform) >= 0;
         document.querySelector('[data-show="esp"]').hidden = !esp;
         document.querySelector('[data-show="pc"]').hidden = esp;
         document.getElementById('esptool').hidden = !esp;
@@ -376,7 +383,7 @@ Hello root, from TinyDesk Shell on esp32.</pre>
           document.getElementById('version').hidden = true;
           document.getElementById('nomanifest').hidden = true;
           var selectedManifest = manifestUrl();
-          var selectedChip = state.platform === 'esp32c6' ? 'ESP32-C6' : 'ESP32';
+          var selectedChip = { esp32c6: 'ESP32-C6', esp32s3: 'ESP32-S3' }[state.platform] || 'ESP32';
           inst.setAttribute('manifest', selectedManifest);
           fetch(selectedManifest, { cache: 'no-store' }).then(function (r) { if (!r.ok) throw 0; return r.json(); }).then(function (m) {
             if (!m.version || !m.name || !m.builds || m.builds.length !== 1) throw 0;

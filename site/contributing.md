@@ -65,6 +65,7 @@ The shell's changes are listed in its own `CHANGELOG.md`.
 | Shell tests (Linux, or Windows with MinGW: they build `tdsh.exe`) | `cmake -S third_party/tdsh -B build-shell -G Ninja -DTDSH_BUILD_HOST=ON && cmake --build build-shell && ctest --test-dir build-shell` |
 | ESP32-C6 firmware | `cd ports/esp32c6 && idf.py build` |
 | Classic ESP32 firmware | `cd ports/esp32 && idf.py build` |
+| ESP32-S3 firmware | `cd ports/esp32s3 && idf.py set-target esp32s3 && idf.py build` |
 | Docs | update the pages listed in [Maintaining these docs](maintaining.md) and the [changelog](changelog.md) |
 
 Names, code style, commands, board keys, device paths and release files

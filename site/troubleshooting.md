@@ -23,7 +23,7 @@ on *ASCII-only drawing* in Settings.
 
 **The screen goes blank after resizing the window** (only the parts under
 the mouse come back). Press Ctrl+L or use Start → Redraw screen. The desktop uses at most 80x25 on the ESP32-C6
-and the 4 MB ESP32, 256x96 on the ESP32 with PSRAM and 400x150 in the
+and the 4 MB ESP32, 256x96 on the ESP32 with PSRAM and the ESP32-S3, and 400x150 in the
 Windows and Linux programs; a bigger window keeps the rest blank.
 
 **Mouse clicks do nothing.** PuTTY: leave *Terminal → Features → Disable

@@ -7,7 +7,7 @@ that reaches users or changes an API (see [Maintaining these docs](maintaining.m
 Versions follow [Semantic Versioning](https://semver.org/): until 1.0.0 the
 API may still change between minor versions.
 
-## Unreleased
+## 0.2.0 (2026-10-31)
 
 * **Python scripts with MicroPython:** the new shell command `py` runs a
   script (`py report.py`), one line (`py -c ...`) or the interactive
@@ -17,8 +17,9 @@ API may still change between minor versions.
   The heap is allocated only while a script runs: 512 KB of PSRAM on the
   ESP32 with PSRAM and the ESP32-S3, 64 KB of internal RAM on the
   ESP32-C6, and what is free above a 32 KB reserve on the 4 MB ESP32
-  (about 31 KB with Wi-Fi off). Included: `hashlib` (sha256, sha1, md5), `os.urandom`,
-  `asyncio` with `select`, and precompiled `.mpy` files; root can also use
+  (about 31 KB with Wi-Fi off). Included: `hashlib` (sha256, sha1, md5),
+  `os.urandom`, `asyncio` with `select`, and precompiled `.mpy` files;
+  root can also use
   `@micropython.native` and `@micropython.viper` on the ESP32, ESP32-S3
   and ESP32-C6 and in the Linux program (the S3's and the C6's firmware
   turn off the memory protection that keeps RAM non-executable for it).
@@ -79,6 +80,24 @@ API may still change between minor versions.
   (tinydesk #5).
 * **`CONTRIBUTORS.md`** in the `tinydesk` repository lists the people who
   made TinyDesk and TinyDesk Shell.
+* **ESP32-S3 port** (tinydesk #9, by SanjayG-xls): TinyDesk Desktop on an
+  ESP32-S3 with 16 MB flash and 8 MB Octal PSRAM (e.g.
+  ESP32-S3-DevKitC-1 N16R8), on UART0, the board's USB-UART port, at
+  921600 baud. Screens up to 256x96, two OTA slots with Software Update,
+  the SSH server, and the same `console.*` board keys as the classic ESP32
+  (default pins TX 43, RX 44). Project `ports/esp32s3`; CI builds it.
+* **TinyDesk Shell on the ESP32-S3:** `projects/esp32s3` in TinyDesk Shell
+  runs on any ESP32-S3 with 4 MB flash or more, at 115200 baud, and uses
+  Octal PSRAM when the module has it. `peek` and `poke` know the S3's
+  memory map ([peek, poke](shell/commands.md#peek-poke)).
+* **Install:** the installer and the web terminal offer the ESP32-S3 for
+  both editions; releases carry `tinydesk-desktop-<version>-esp32s3-factory.bin`
+  (with its app image and update feed) and
+  `tinydesk-shell-<version>-esp32s3-factory.bin`.
+
+Known issue: `ssh start` refuses on the ESP32-C6 with "insufficient
+internal RAM", as in earlier releases. A fix is tested and comes in a
+later release.
 
 ## 0.1.6 (2026-10-18)
 

@@ -48,13 +48,14 @@ Versions follow [Semantic Versioning](https://semver.org/); TinyDesk and
 TinyDesk Shell have their own version numbers (both started at 0.1.0).
 
 1. In the `tinydesk` repository set `PROJECT_VER` in
-   `ports/esp32c6/CMakeLists.txt`, `ports/esp32/CMakeLists.txt` and
-   `ports/esp32-4mb/CMakeLists.txt`, and `TD_VERSION` in
+   `ports/esp32c6/CMakeLists.txt`, `ports/esp32/CMakeLists.txt`,
+   `ports/esp32-4mb/CMakeLists.txt` and `ports/esp32s3/CMakeLists.txt`, and `TD_VERSION` in
    `include/tinydesk/td.h`. A new shell version goes in the shell's
    `VERSION` and `TDSH_VERSION` (`include/tdsh.h`) with a `CHANGELOG.md`
    entry there.
-2. Build the five firmware projects (`ports/esp32c6`, `ports/esp32`,
-   `ports/esp32-4mb`, `third_party/tdsh`, `third_party/tdsh/projects/esp32`)
+2. Build the seven firmware projects (`ports/esp32c6`, `ports/esp32`,
+   `ports/esp32-4mb`, `ports/esp32s3`, `third_party/tdsh`,
+   `third_party/tdsh/projects/esp32`, `third_party/tdsh/projects/esp32s3`)
    and try the release locally:
    `python tools/make_release.py --site ../tinydesk-site/site`, then the
    installer with the new images.

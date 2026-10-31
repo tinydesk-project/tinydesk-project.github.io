@@ -31,5 +31,5 @@
 - Connect a real project with MQTT or Modbus
 - Use a UTF-8 terminal with ANSI/VT cursor control and xterm mouse reporting
 - Remote access is opt-in after changing the factory root password
-- Portable C11 core with a four-function port layer: ports for ESP32-C6, ESP32, Linux and Windows
+- Portable C11 core with a four-function port layer: ports for ESP32-C6, ESP32, ESP32-S3, Linux and Windows
 - TinyDesk Shell: the same shell as an app on the desktop, or on its own

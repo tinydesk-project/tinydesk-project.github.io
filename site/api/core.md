@@ -231,7 +231,7 @@ Notes:
 ## Version
 
 ```c
-#define TD_VERSION "0.1.6"
+#define TD_VERSION "0.2.0"
 #define TD_REPO_URL "https://github.com/tinydesk-project/tinydesk"
 #define TD_SHELL_REPO_URL "https://github.com/tinydesk-project/tinydesk-shell"
 ```
@@ -249,7 +249,7 @@ Every static pool in the core is sized in `td_config.h`. Each value except `TD_M
 The host build (top-level `CMakeLists.txt`, used for the Windows and POSIX ports) uses the defaults. The ESP-IDF component (`ports/esp_idf/components/tinydesk/CMakeLists.txt`) is shared by the three ESP-IDF projects (ESP32-C6, ESP32, ESP32 4 MB) and sets `PUBLIC` compile definitions, with different screen limits depending on `CONFIG_SPIRAM`:
 
 - **Without PSRAM** (the ESP32-C6 port): the buffers live in internal RAM, which TinyDesk Shell, Wi-Fi and SSH also need, so the screen is limited to 80x25.
-- **With PSRAM** (the classic ESP32 port on an ESP32-WROVER, `CONFIG_SPIRAM=y`; its TinyDesk statics are placed in PSRAM by `ports/esp32/main/extram.lf`): large enough for a maximised PuTTY.
+- **With PSRAM** (the classic ESP32 port on an ESP32-WROVER and the ESP32-S3 port, `CONFIG_SPIRAM=y`; their TinyDesk statics are placed in PSRAM by `main/extram.lf`): large enough for a maximised PuTTY.
 
 In the table, "ESP-IDF value" lists `no PSRAM / PSRAM` where they differ; "-" means the default is used.
 

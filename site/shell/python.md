@@ -113,7 +113,7 @@ import tinydesk
 
 | Function | What it does |
 |---|---|
-| `tinydesk.version()` | TinyDesk's version, for example `'0.1.6'`. |
+| `tinydesk.version()` | TinyDesk's version, for example `'0.2.0'`. |
 | `tinydesk.shell(line)` | Runs a shell command line in the script's session and returns its exit status. Its output goes where the script's output goes. It starts in the script's current directory; a `cd` in it does not move the shell. |
 | `tinydesk.log(text, level='I')` | Adds a line to the Log Viewer. `level` is `'E'`, `'W'`, `'I'` or `'D'`. |
 | `tinydesk.mqtt_publish(topic, payload, qos=0, retain=False)` | Publishes on the broker the MQTT app or `mqtt connect` connected to. `payload` is a `str` or `bytes`; `qos` is 0 or 1. Raises `OSError` when MQTT is not connected. |

@@ -11,7 +11,7 @@ The real implementation is built when `TD_HAVE_TLS` is defined:
 
 | Build | TLS |
 |---|---|
-| ESP-IDF (ESP32-C6, ESP32) | Always (the `mbedtls` component). |
+| ESP-IDF (ESP32-C6, ESP32, ESP32-S3) | Always (the `mbedtls` component). |
 | Windows, Linux hosts | When CMake finds an mbedTLS 3.x source tree: `TD_MBEDTLS_DIR`, or the mbedTLS inside `$IDF_PATH` or the usual ESP-IDF 5.3.1 install paths. CMake prints `tinydesk: MQTT over TLS with mbedTLS from ...` or `tinydesk: no mbedTLS found, MQTT over TLS disabled`. |
 
 Without `TD_HAVE_TLS`, `td_tls_available()` returns `false`, `td_tls_start()` fails with `TLS is not available in this build`, and the other functions do nothing (`td_tls_handshake()`, `td_tls_send()` and `td_tls_recv()` return `-1`). `td_read_file()` is always available.
