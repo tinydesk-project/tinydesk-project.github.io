@@ -7,6 +7,14 @@ that reaches users or changes an API (see [Maintaining these docs](maintaining.m
 Versions follow [Semantic Versioning](https://semver.org/): until 1.0.0 the
 API may still change between minor versions.
 
+## Unreleased
+
+* **The chip's temperature in System Monitor:** on the ESP32-S3 and the
+  ESP32-C6, the CPU line also shows the chip's own temperature from its
+  built-in sensor (for example `Chip: 47.3 °C`). The classic ESP32 has no
+  such sensor. Ports provide it through the new optional `chip_temp` in
+  `td_sysinfo_t`.
+
 ## 0.2.0 (2026-10-31)
 
 * **Python scripts with MicroPython:** the new shell command `py` runs a
