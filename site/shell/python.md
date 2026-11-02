@@ -363,8 +363,11 @@ How it works:
   does in the Terminal. A script that does not call `tdui.run()` (or keep
   calling `poll()`) ends at once, and so do its windows.
 * **Limits**, so a script cannot crowd out the desktop's own apps: 4
-  windows, 48 widgets (a list counts as 2, for its scrollbar) and 2000
-  canvas cells in all. Past them, `OSError` says which. Labels, buttons and
+  windows, 48 widgets (a list counts as 2, for its scrollbar) and
+  `tdui.MAX_CELLS` canvas cells in all, every page counted: 2000 on the
+  ESP32-C6 and the 4 MB ESP32, 32000 on boards with PSRAM and on the PC (a
+  100x30 canvas is 3000 a page). A canvas has up to 16 pages
+  (`tdui.MAX_PAGES`). Past them, `OSError` says which. Labels, buttons and
   text boxes hold up to 63 bytes, a window title 31.
 
 | Class or function | Notes |
@@ -376,7 +379,8 @@ How it works:
 | `w.textbox(x, y, width, text="", secret=False, on_enter=None, on_change=None)` | `.text`; `on_enter(box)` on Enter, `on_change(box)` after each edit. `secret` shows `*`. |
 | `w.progress(x, y, width, value=0)` | `.value`, 0–100. |
 | `w.list(x, y, w, h, items, on_select=None, on_activate=None)` | `.items` (a list of strings; set it to replace them), `.append(item)`, `.selected`; `on_select(lst)` when the selection moves, `on_activate(lst)` on Enter or a double-click. Up to 1000 items. `w` or `h` 0 or less: to that many cells before the window's right or bottom edge, following resizes. |
-| `w.canvas(x, y, w, h, on_mouse=None)` | A grid of character cells: `put(x, y, text, fg=-1, bg=-1)`, `fill(x, y, w, h, ch=" ", fg=-1, bg=-1)`, `clear()`. Colours are the terminal's 256 palette numbers, -1 the window's own. `on_mouse(canvas, x, y, button, action)`: `action` 0 press, 1 release, 2 drag. `.width`, `.height`; `resize(w, h)` keeps what fits of the picture, `move(x, y)` places it elsewhere in the window. |
+| `w.canvas(x, y, w, h, on_mouse=None, pages=1)` | A grid of character cells: `put(x, y, text, fg=-1, bg=-1)`, `fill(x, y, w, h, ch=" ", fg=-1, bg=-1)`, `clear()`, and `big(x, y, text, fg=-1, bg=-1, scale=1, width=0)` for big characters. Colours are the terminal's 256 palette numbers, -1 the window's own. `on_mouse(canvas, x, y, button, action)`: `action` 0 press, 1 release, 2 drag. `.width`, `.height`; `resize(w, h)` keeps what fits of the picture (on every page), `move(x, y)` places it elsewhere in the window. With `pages`: `draw_to(n)`, `show(n)`, `copy_page(src, dst)`, `.pages`, `.drawing`, `.showing`; see [Fast screens](#fast-screens). |
+| `tdui.big_size(text, scale=1)` | The columns and rows `big()` takes for `text`. |
 | Every widget | `.text`, `.visible`, `.color(fg, bg)`, `.focus()`. |
 | `msgbox(title, text, buttons="OK")` | Buttons separated by `\|`, for example `"Yes\|No"`; returns the number of the one chosen (from 0), -1 for Esc. |
 | `confirm(title, text)` | Yes / No; `True` for Yes. |
@@ -407,10 +411,67 @@ cv = w.canvas(0, 0, 40, 11)
 w.label(0, -1, "drag the corner to resize", width=0)
 
 def grow(win, width, height):
-    cv.resize(width, height - 1)       # within the 2000-cell limit
+    cv.resize(width, height - 1)       # within tdui.MAX_CELLS
 
 w.on_resize = grow
 ```
+
+### Fast screens
+
+Every `put()` and `fill()` is one message to the desktop, which draws what
+has arrived every 10 ms. A screen built from many of them therefore costs
+Python time and appears piece by piece. Two things avoid that:
+
+* **Pages.** `w.canvas(..., pages=n)` keeps `n` pictures of the canvas on
+  the desktop. `draw_to(n)` makes `put()`, `fill()` and `big()` draw into
+  page `n` while the window goes on showing its page; `show(n)` then shows
+  page `n` whole, in one step. Draw each screen of an app into its own page
+  once, and from then on switching screens is one `show()` and updating a
+  screen only touches what changed. `copy_page(src, dst)` copies a picture,
+  for example a background drawn once, or the current screen under a
+  dialog drawn on top of it.
+* **`big()`.** Big characters (digits, A–Z, `- + % / . :` and space; lower
+  case is drawn as upper case) drawn by the desktop with half blocks: 3
+  cells wide and 3 rows high at `scale=1`, 6 x 5 at `scale=2`, up to
+  `scale=4`. One call draws a whole number. With `width`, the text is
+  right-aligned in that many characters and the rest blanked, so `"95"`
+  after `"100"` leaves nothing behind.
+
+```python
+import tdui
+
+PAGES = ("Main", "Details")
+w = tdui.Window("Gauge", 40, 12)
+cv = w.canvas(0, 0, 40, 10, pages=len(PAGES))
+for n, name in enumerate(PAGES):        # each screen drawn once
+    cv.draw_to(n)
+    cv.clear(-1, 17)
+    cv.put(1, 0, name, 15, 17)
+cv.draw_to(0)
+
+value = 0
+
+def tick():                             # a number that changes
+    global value
+    value = (value + 7) % 1000
+    cv.big(2, 3, str(value), 15, 17, scale=2, width=3)
+
+def go(name):
+    n = PAGES.index(name)
+    cv.draw_to(n)                       # updates go to the page shown
+    cv.show(n)
+
+w.button(1, 10, "Main", lambda b: go("Main"))
+w.button(10, 10, "Details", lambda b: go("Details"))
+w.every(500, tick)
+tdui.run()
+```
+
+Measured on an
+ESP32-S3: switching a full-screen 100x30 HMI between six screens took
+60–310 ms of Python time and appeared in pieces when every switch cleared
+and redrew the screen; with a page per screen and `big()` it takes
+33–82 ms and appears at once.
 
 The dialogs wait for the answer, while the script's other windows and
 timers keep working. Each script has its own windows: they are not in the
@@ -419,8 +480,8 @@ start menu, and two scripts cannot run at once (see
 
 Cost: about 14 KB of flash. Nothing in RAM until a script opens a window;
 then about 12 KB of internal RAM for the queues and the window table while
-it runs, plus 6 bytes per canvas cell and the list items, all freed when it
-ends.
+it runs, plus 6 bytes per canvas cell on every page (in PSRAM on boards
+that have it) and the list items, all freed when it ends.
 
 ## Memory
 

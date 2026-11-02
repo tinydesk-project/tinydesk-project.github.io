@@ -9,6 +9,20 @@ API may still change between minor versions.
 
 ## Unreleased
 
+* **Fast Python screens:** a `tdui` canvas can keep up to 16 pages on the
+  desktop (`w.canvas(..., pages=n)`): a script draws into a hidden page
+  with `draw_to()` and shows it whole with `show()`, so switching screens
+  is one step instead of a redraw that appears piece by piece;
+  `copy_page()` copies a picture. `canvas.big()` draws big characters
+  (digits, letters, `- + % / . :`) on the desktop in one call, and
+  `put()`/`fill()` cost less Python time. On an ESP32-S3 a full-screen
+  100x30 HMI now switches screens in 33–82 ms instead of 60–310 ms.
+* **Bigger Python canvases:** a script's `tdui` canvases may now cover
+  32000 cells in all, every page counted, on boards with PSRAM (the
+  ESP32-S3 and the ESP32 with PSRAM) and in the PC programs, enough for
+  ten full-screen 100x30 pages; still 2000 on the ESP32-C6 and the 4 MB
+  ESP32. `tdui.MAX_CELLS` tells a script the limit of the board it runs
+  on.
 * **The chip's temperature in System Monitor:** on the ESP32-S3 and the
   ESP32-C6, the CPU line also shows the chip's own temperature from its
   built-in sensor (for example `Chip: 47.3 °C`). The classic ESP32 has no
