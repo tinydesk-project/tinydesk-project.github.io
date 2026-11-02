@@ -17,6 +17,8 @@ protocols. The C tools are built with the host build (`cmake --build build`).
 | `tools/serve_bin.py` | serve a firmware `.bin` over HTTP for OTA updates |
 | `tools/micropython/gen.sh` | regenerate the MicroPython sources in `third_party/micropython` |
 | `tools/make_ui_sheet.py` | the example sprite sheet of UI pieces for Python windows (`examples/python/ui_sheet.ppm`) |
+| `tools/make_ui_skin.py` | the example skin of smooth buttons, tabs and panels for pictures (`examples/python/ui_skin.ppm`) |
+| `tools/make_lcd_font_big.py` | the CrowPanel's larger LCD fonts (`lcd.font` 20, 24, 32) from Terminus Font |
 | `tools/make_kbd_layouts.py` | regenerate the USB keyboard layouts (`ports/esp_idf/app/usb_hid_layouts.h`) |
 | `ports/esp32c6/build.ps1` | build and flash the C6 with the right ESP-IDF on Windows |
 
@@ -215,3 +217,28 @@ digits, punctuation and the extra ISO key left of Z) without Shift, with
 Shift and with AltGr. Dead keys type their accent. To add a layout, add it
 to the script, run it, and add its code to `usb.kbd_layout` in
 [Board configuration](guide/board-config.md#usb-keyboard-and-mouse-esp32-s3).
+
+## make_ui_skin.py
+
+```bash
+python tools/make_ui_skin.py
+```
+
+Writes `examples/python/ui_skin.ppm` (256 x 128): eight 64 x 64 pieces for
+[pictures](shell/python.md#pictures-and-pixels): a button, the button
+pressed, a tab, the active tab, a panel and red, green and grey buttons,
+with gradients, a rim and a lit top edge. They are drawn four times larger
+and averaged, so the round corners are smooth; outside them is magenta,
+loaded as transparent. Draw them with a nine-slice border of 16.
+
+## make_lcd_font_big.py
+
+```bash
+python tools/make_lcd_font_big.py Uni2-TerminusBold20x10.psf.gz Uni2-VGA16.psf.gz > ports/crowpanel7/main/font10x20.c
+```
+
+Makes a larger font for the CrowPanel's LCD from a Terminus Font console
+font (PSF, from console-setup; SIL Open Font License, see
+`ports/crowpanel7/main/OFL-Terminus.txt`), with the block characters drawn
+to fill the cell exactly and the few characters Terminus lacks taken from
+the 8 x 16 font.

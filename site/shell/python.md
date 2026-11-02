@@ -497,6 +497,7 @@ pixels it covers:
 | `cv.image(img, x, y, w=0, h=0, src=None)` | an image, or its part `src=(sx, sy, sw, sh)`; `w`, `h` stretch or shrink it |
 | `cv.nine(img, x, y, w, h, border, src=None)` | an image (or part) as a `w` x `h` panel: corners of `border` pixels as they are, edges and middle stretched |
 | `cv.pixels(x, y, w, h, data, rgb=False, dither=True)` | `w * h` palette numbers from `bytes`, or with `rgb` three bytes (red, green, blue) a pixel |
+| `cv.draw_text(x, y, text, color, bg=tdui.CLEAR, scale=1, small=False)` | text in pixels: an 8 x 16 font (ASCII and Latin-1, so `°` too), `scale` 1 to 8 times; `small`: the 3 x 5 font of `big()` |
 
 Coordinates are pixels. Colours are palette numbers (`tdui.rgb(r, g, b)`
 finds the nearest). A cell drawn in shows its four pixels from then on;
@@ -509,6 +510,69 @@ picture: `cv.put(2, 1, "Start", 231, tdui.CLEAR)`. Pixels follow pages:
 How a cell shows its pixels is the user's **Settings → Sizes →
 Pictures**: two (Normal, upper half blocks) or all four (Fine, quadrant
 characters; needs a font that has them, such as Cascadia Mono).
+
+**Big text.** `draw_text()` draws in pixels, so text can be any size and
+colour and stand on a picture: at `scale=1` a character of the 8 x 16
+font is 4 cells wide and 8 high, at `scale=2` twice that.
+`tdui.text_size(text, scale, small)` gives its size in pixels, for
+centring. With Normal pictures a cell shows one of its two pixel columns,
+which thin letters lose: use the small font at `scale=2` or more there, or
+Fine pictures. `big()` (half blocks, cells) remains the cheapest for big
+digits on plain colours.
+
+**Buttons.** `cv.button(x, y, w, h, text, on_click, ...)` puts a button
+drawn in pixels on a canvas (cells `x`, `y`, `w` x `h`). It is rounded
+(`radius` pixels) in `color`, `down` while held and with an outline in
+`rim`, or a piece of a sprite sheet stretched to its size (`sheet`, `src`,
+`src_down`, `border`); its text is cell text standing on it, or pixel text
+with `scale`. The canvas handles the press: the button looks down while
+the mouse button is held on it and calls `on_click(button)` when it is let
+go there. `button.text = "..."` changes the text, `button.draw()` draws it
+again (after a background was drawn over it), `button.enabled = False`
+ignores clicks, `button.remove()` forgets it. Every look is a few desktop
+calls, nothing per pixel.
+
+```python
+ok = cv.button(2, 10, 12, 3, "OK", lambda b: print("OK"),
+               rim=tdui.rgb(170, 210, 255))                  # rounded, in colours
+cv.button(16, 10, 12, 3, "Quit", lambda b: w.close(),
+          sheet=sheet, src=(0, 0, 16, 16), src_down=(16, 0, 16, 16))
+cv.draw_text(4, 2, "21.5°C", tdui.rgb(255, 220, 0), scale=1)
+```
+
+**Pictures at the screen's own resolution.** `cv.picture(img, x, y, w, h,
+src=None, border=0, text="", fg=231, scale=0)` puts an image (or its part
+`src`, nine-slice with `border` > 0) over cells `x`, `y`, `w` x `h`, drawn
+by the terminal in real pixels: smooth round corners, gradients and
+shadows, like an LCD panel's UI (a Nextion's, say). `text` is a label
+drawn into the picture in colour `fg` (`scale` 1: the 8 x 16 font, sharp;
+0: as large as fits). Terminals that can show pictures:
+
+| Terminal | Pictures |
+|---|---|
+| The CrowPanel's LCD | yes, at its 800 x 480 pixels |
+| The web terminal | yes (Sixel, xterm.js's image add-on) |
+| Windows Terminal 1.22+, xterm `-ti vt340`, WezTerm, foot | yes (Sixel) |
+| PuTTY, the Windows console | no: the canvas's pixels show the same, made smaller |
+
+TinyDesk asks the terminal at every setup whether it has Sixel and how
+big its cells are in pixels, and draws the pictures to that size; a
+picture is sent once, and again only when it changes or something was
+drawn over it. Drawing over a picture's cells (text, fills, pixels)
+removes it. `cv.button(..., sheet=..., src=..., src_down=...)` makes its
+button a picture with its text in it. `tools/make_ui_skin.py` makes an
+example skin of glossy buttons, tabs and panels (`ui_skin.ppm`, 64 x 64
+pieces with smooth corners, for a nine-slice border of 16):
+
+```python
+skin = tdui.Image.load("ui_skin.ppm", key=(255, 0, 255))
+BUTTON, DOWN = (0, 0, 64, 64), (64, 0, 64, 64)
+cv.button(2, 10, 14, 3, "START", start, sheet=skin, src=BUTTON, src_down=DOWN, border=16, scale=1)
+cv.picture(skin, 20, 10, 14, 3, src=(128, 64, 64, 64), border=16, text="OK", fg=16, scale=1)
+```
+
+Over a serial line a picture costs a few KB (a 12 x 3-cell button about
+5 KB), sent once; on the CrowPanel nothing goes over a line.
 
 **Images** are pictures the desktop keeps for the script and draws into
 canvases:

@@ -9,6 +9,37 @@ API may still change between minor versions.
 
 ## Unreleased
 
+* **Pictures at the screen's own resolution:** a Python app's
+  `canvas.picture()` (and buttons from a sprite sheet) are drawn by the
+  terminal in real pixels, as Sixel graphics: smooth corners, gradients and
+  sharp labels, like an LCD panel's UI. TinyDesk asks every terminal
+  whether it has Sixel and how big its cells are; the web terminal (with
+  xterm.js's image add-on), Windows Terminal and the CrowPanel's LCD show
+  them, PuTTY shows the same in block pixels. A picture is sent once and
+  again only when something drew over it. New `td_picture.h` (Sixel
+  encoder, picture list), a DCS hook and Sixel answers in `td_vterm_t`, and
+  `tools/make_ui_skin.py` for a skin of glossy buttons, tabs and panels.
+* **Full-size file system:** a board whose LittleFS was made for a
+  smaller partition (after the Shell firmware, say) now grows it to the
+  whole partition at start, keeping its files; an ESP32-S3 used 1.9 MB of
+  its 9.9 MB.
+* **Bigger text in the web terminal:** a **Text** size (14 to 32 px) for
+  the size **Fit the window**, kept by the browser, and an **80 × 24**
+  size. The desktop gets fewer, larger cells, so all text grows and stays
+  sharp. See [Terminals](guide/terminals.md#web-terminal-in-the-browser).
+* **Round shapes look the same on both sides:** a rounded rectangle on a
+  Python canvas (`rect(..., radius)`, `button()`) is rounded in whole
+  cells, so its left and right ends match with Normal pictures (one pixel
+  column per cell shown) as with Fine.
+* **Recycle Bin:** deleting on the desktop or in Files moves the file or
+  folder to the user's Recycle Bin (`~/.trash`), and the new **Recycle
+  Bin** app restores it where it was (making missing folders, and
+  `name (2)` when the name is taken), deletes it for good or empties the
+  bin. The bin has a size limit (off, 256 KB to 64 MB, 1 MB by default;
+  the oldest items go first) and can delete items after 1, 7, 30 or 90
+  days; both are saved per user (bytes 17 and 18 of the settings file).
+  **Delete for good** in the menus (Shift+Del in Files) deletes at once.
+  New `td_trash_*()` in `td_apps.h` and `td_date_time()`.
 * **USB keyboard and mouse on the ESP32-S3:** with `usb.host = 1` in the
   [board configuration](guide/board-config.md#usb-keyboard-and-mouse-esp32-s3),
   the board reads a keyboard and mouse set (one USB receiver; no hubs yet)
@@ -56,8 +87,12 @@ API may still change between minor versions.
   asked; the file is decoded in C on the script's task and handed to the
   desktop whole, so no Python runs per pixel. Images and pixels share
   `tdui.MAX_PIXELS` (2 MB with PSRAM and on the PC, 16 KB otherwise).
-  `tools/make_ui_sheet.py` makes an example sprite sheet of buttons, a
-  panel and an LED, used by `examples/python/pixels_demo.py`. See
+  `draw_text()` writes text in pixels in an 8 x 16 font (ASCII and
+  Latin-1) or a 3 x 5 one, 1 to 8 times as big, and `canvas.button()`
+  makes buttons drawn in pixels, rounded in colours or from a sprite sheet,
+  that look pressed while held. `tools/make_ui_sheet.py` makes an example
+  sprite sheet of buttons, a panel and an LED, used by
+  `examples/python/pixels_demo.py`. See
   [Pictures and pixels](shell/python.md#pictures-and-pixels).
 * **The settings file grows to 20 bytes:** the picture detail moves to
   byte 16 (see [~/.tinydesk_settings](shell/config-files.md#tinydesk_settings)).

@@ -220,6 +220,36 @@ const td_stats_t *td_stats(void);
 | `dropped_frames` | Frames the link did not accept completely. |
 | `link_up` | False while writes are being dropped. |
 
+## Pictures
+
+```c
+#include "tinydesk/td_picture.h"
+bool td_term_images(void);
+void td_term_cell_px(int *w, int *h);
+void td_picture_add(int x, int y, int cols, int rows, uint32_t id, td_picture_render_fn render, void *user);
+```
+
+Pictures are drawn by the terminal at its own resolution, as Sixel
+graphics, over a rectangle of cells. At every terminal setup the core asks
+`ESC [ c` (device attributes: 4 means Sixel) and `ESC [ 16 t` (a cell's
+size in pixels); `td_term_images()` is true when both came back. A window
+adds its pictures from `on_draw` with `td_picture_add()` and leaves the
+cells under them blank in colour 0 on 0; `render` fills `cols * cell_w` x
+`rows * cell_h` palette indexes when the picture is sent. After the cells
+of a frame, the core sends a picture that is new (another `id`), or whose
+cells were sent in this frame (something was drawn over them), saving and
+restoring the cursor around it; one whose cells are not the blanks it
+expects (a menu over it) is not sent. Without Sixel nothing is sent and
+the cells show what the window drew there. Python's `canvas.picture()`
+uses this (see [Python scripts](../shell/python.md#pictures-and-pixels)).
+
+`td_sixel_encode()` turns palette indexes into Sixel data (colours as RGB
+percentages, runs compressed) and `td_palette_rgb()` gives a palette
+colour's RGB. The terminal emulator (`td_vterm_t`) hands DCS strings to an
+optional `dcs` hook and answers `ESC [ c` with Sixel and `ESC [ 16 t` with
+its cell size when its owner sets `sixel`, `cell_w` and `cell_h`: the
+CrowPanel's LCD decodes Sixel that way.
+
 ## Host clipboard (OSC 52)
 
 ```c

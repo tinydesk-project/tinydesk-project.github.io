@@ -19,6 +19,7 @@ On the ESP32 the LittleFS partition `storage` is mounted at `/fs`. On Windows an
 |---|---|---|
 | [`~/mqtt.conf`](#mqttconf) | `mqtt config init`, the MQTT app's **Config...** button, the Editor | `mqtt connect`, `mqtt config show`, the MQTT app |
 | [`~/.tinydesk_settings`](#tinydesk_settings) | the Settings app, the Date & time dialog | the desktop, at start-up and after every user switch |
+| [`~/.trash`](#trash) | Files and the Desktop (deleting), the Recycle Bin | the Recycle Bin |
 | [`~/.tdshrc.tdsh`](#tdshrctdsh) | TinyDesk Shell (created with comments only), the user | TinyDesk Shell, when the local console starts a session |
 | [`/etc/board.conf`](#etcboardconf) | `board set`, `board init`, the user | TinyDesk Shell and the ports, at start-up |
 | [`~/Desktop`](#the-desktop-folder) | the desktop (created with `Welcome.txt` and the port's own files), the user | the desktop, every 3 s |
@@ -178,7 +179,9 @@ typedef struct {
     uint8_t editor;
     uint8_t win_size;
     uint8_t picture_detail;
-    uint8_t reserved2[3];
+    uint8_t trash_size;
+    uint8_t trash_keep;
+    uint8_t reserved2[1];
 } settings_blob_t;
 ```
 
@@ -198,7 +201,9 @@ typedef struct {
 | 14 | 1 | `editor` | Bit 0: the Editor's suggestions pop up while typing (Auto-complete) | |
 | 15 | 1 | `win_size` | Window frames: `0` small, `1` medium, `2` large | small |
 | 16 | 1 | `picture_detail` | Pictures: `0` Normal (two pixels per cell), `1` Fine (four) | Normal |
-| 17 | 3 | `reserved2` | Written as 0 | |
+| 17 | 1 | `trash_size` | Recycle Bin size: `0` 1 MB, `1` off, `2` 256 KB, `3` 4 MB, `4` 16 MB, `5` 64 MB | 1 MB |
+| 18 | 1 | `trash_keep` | Recycle Bin: delete items after `0` never, `1` 1 day, `2` 7 days, `3` 30 days, `4` 90 days | never |
+| 19 | 1 | `reserved2` | Written as 0 | |
 
 Older versions wrote only the first 8 bytes (magic to `hide_icons`). Any file of 8 bytes or more with the right magic is accepted: the missing fields of a shorter one read as 0, and bytes past the 20 that this version knows are ignored. In every newer field, 0 means the default: 24-hour clock, day-month-year dates, clock shown, medium icons, start menu and taskbar, small window frames, and Normal pictures. In `hide_icons`, 0 (also in blobs saved before icons existed) means icons are shown.
 
@@ -213,6 +218,26 @@ When a user's settings are applied (at start-up and after each user switch), the
 The current code writes only the per-user file; nothing writes the device defaults any more.
 
 ---
+
+## ~/.trash
+
+The user's Recycle Bin, written by `apps/trash.c` (see [Using the
+desktop](../guide/using.md#recycle-bin)). Each deleted item has a folder
+of its own named after the time it was deleted (`1793600000-0`), holding
+the file or folder under its own name and a text file `.tdtrash`:
+
+```text
+path=/fs/root/Desktop/notes.txt
+time=1793600000
+size=417
+dir=0
+```
+
+`path` is where it was (a real path), `time` when it was deleted (UTC
+seconds; 0 when the clock was not set), `size` its bytes (a folder's
+files added up), `dir` 1 for a folder. A folder without `.tdtrash` counts
+as the oldest item with no size. Deleting the folder of an item deletes it
+for good; the Recycle Bin shows what the folders say.
 
 ## ~/.tdshrc.tdsh
 

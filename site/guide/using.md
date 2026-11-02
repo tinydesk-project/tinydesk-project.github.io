@@ -197,6 +197,37 @@ this time only (held through the reset, BOOT starts the chip's download
 mode instead). Turn kiosk mode off for good with `board unset kiosk.app`.
 See [Board configuration](board-config.md#kiosk-mode).
 
+## Recycle Bin
+
+Deleting a file or folder on the desktop or in Files (**Delete** in the
+right-click menu, or the Del key in Files) asks *"Move ... to the Recycle
+Bin?"* and moves it there, so it can be put back. **Delete for good** in
+the same menus (Shift+Del in Files) deletes it at once, as before. The
+shell's `rm` always deletes at once.
+
+Open **Recycle Bin** (`\/` on the desktop) to see what is in it: name,
+the folder it came from, when it was deleted and its size, newest first.
+
+* **Restore** (or Enter, or a double-click) puts the selected item back
+  where it was. Folders that are gone are made again; if the name is taken
+  by now, it comes back as `name (2).txt`.
+* **Delete** deletes the selected item for good, **Empty bin** everything.
+* **Size** is how much the bin holds: Off, 256 KB, 1 MB (the default),
+  4, 16 or 64 MB. When it is full, the oldest items are deleted to make
+  room; something bigger than the bin is offered to be deleted for good
+  instead. Off: deleting deletes for good.
+* **Delete after** empties out items older than 1, 7, 30 or 90 days
+  (never, by default), once the board's clock is set. It is checked when
+  the desktop starts, every hour and after each delete.
+
+Each user has their own bin, `~/.trash`, and their own size and time
+(saved with their settings). A deleted item only moves within the file
+system, so the space is freed when it leaves the bin, not before; on a
+board with little flash, keep the size small or empty the bin now and
+then. A user other than root only ever restores into their home. Files
+are kept as `~/.trash/<id>/<name>` with a small `.tdtrash` record next to
+them (see [Files and settings](../shell/config-files.md#trash)).
+
 ## Clipboard (copy and paste with the PC)
 
 * **PC to TinyDesk:** paste in the terminal as usual (PuTTY: Shift+Insert or

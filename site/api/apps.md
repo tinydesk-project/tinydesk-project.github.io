@@ -89,12 +89,41 @@ show its welcome box in kiosk mode.
 `td_pyui_running()` is true from a script's first `tdui` request until its
 windows are gone after it ends.
 
+## Recycle bin
+
+```c
+td_trash_result_t td_trash_put(const char *path, bool is_dir);
+void td_trash_ask_delete(const char *path, bool is_dir, bool for_good, void (*done)(void));
+void td_trash_purge(void);
+const char *td_trash_restore(const char *id, char *where, int where_cap);
+void td_trash_delete(const char *id);
+void td_trash_empty(void);
+
+td_trash_prefs_t *td_trash_prefs(void);   /* .size, .keep: codes */
+uint32_t td_trash_limit(void);
+const char *td_trash_size_name(int code);
+const char *td_trash_keep_name(int code);
+int td_trash_next_size(int code);
+```
+
+`apps/trash.c`: the current user's bin, `~/.trash` (through `td_sysinfo()->fs`, which needs `list`, `read`, `write`, `mkdir`, `rename`, `remove` and `exists`). Each item is a folder of its own, `~/.trash/<id>/`, with the file or folder under its own name and a `.tdtrash` record; there is no index. Paths are real paths, as Files and the Desktop use.
+
+| Function | Meaning |
+|---|---|
+| `td_trash_put` | Moves the file or folder into the bin (a rename, so it needs no space) and applies the limits. `TD_TRASH_OFF` when the bin is off or the path is inside it, `TD_TRASH_TOO_BIG` when it is bigger than the size limit, `TD_TRASH_FAILED` when the move failed; the item is left as it was in those cases. |
+| `td_trash_ask_delete` | The confirmation Files and the Desktop show: *Move ... to the Recycle Bin?*, or *Delete ... for good?* when `for_good`, when the bin is off or the item is too big for it (saying so). Does it, shows an error box if that failed, then calls `done`. |
+| `td_trash_purge` | Applies the limits: items older than the user's time go (only while the clock is set), then the oldest until the bin fits its size. Called after each `td_trash_put()`, by `td_settings_apply_saved()` (so after every user switch) and by an hourly timer. |
+| `td_trash_restore` | Puts item `id` back: to the recorded path, making missing folders and picking `name (2)` when it is taken. For users other than root a path outside their home is not trusted: the item goes into the home. `NULL`, or a message. |
+| `td_trash_delete`, `td_trash_empty` | One item, or the whole bin, for good. |
+| `td_trash_prefs` | The user's size code (`0` 1 MB, the default; `1` off; `2` 256 KB; `3` 4 MB; `4` 16 MB; `5` 64 MB) and keep code (`0` for ever; `1`, `2`, `3`, `4`: 1, 7, 30, 90 days), saved by `td_settings_save()` (bytes 17 and 18). `td_trash_limit()` is the size in bytes (0: off). |
+
 ## Built-in apps
 
 | App | Glyph | Source | What it does |
 |---|---|---|---|
 | Terminal | `>_` | `apps/terminal.c` | Runs the port's text program (normally TinyDesk Shell) through a `td_term_backend_t` with a VT100 emulator ([vterm.md](vterm.md)); scrollback with Shift+PgUp/PgDn and the wheel. The program keeps running while the window is closed. |
-| Files | `[]` | `apps/files.c` | Browses the port's filesystem: open files in the Editor (pictures in the Image Viewer), create files and folders, rename, delete, drag and drop. Non-root users stay inside their home. |
+| Files | `[]` | `apps/files.c` | Browses the port's filesystem: open files in the Editor (pictures in the Image Viewer), create files and folders, rename, delete (into the Recycle Bin, or for good), drag and drop. Non-root users stay inside their home. |
+| Recycle Bin | `\/` | `apps/trash.c` | What Files and the Desktop deleted, per user: restore, delete for good, empty; the bin's size limit and its time limit ([Recycle bin](#recycle-bin)). |
 | Editor | `¶_` | `apps/editor.c`, `apps/editor_py.c` | Text editor for one file at a time (up to `TD_EDITOR_MAX`, 16384 bytes; the text buffer is allocated while open, sized to the file plus 1 KB and grown with the text; bigger files open read-only), with selection, undo/redo, the clipboard, find and replace, go to a line and Ctrl+S save; Python files get colours, line numbers, F5 Run with an output pane (the Terminal's session, through `td_terminal_draw_view()`), the error line from the traceback, and suggestions (`td_editor_prefs()`). While open it also keeps the undo history: `TD_EDITOR_UNDO` bytes of text (6144) and `TD_EDITOR_UNDO_OPS` records of 20 bytes each (128), about 8.7 KB, plus 256 bytes for a line's colours, and 2 KB of program output after the first Run. A build can set all three, for example `-DTD_EDITOR_MAX=8192 -DTD_EDITOR_UNDO=2048 -DTD_EDITOR_UNDO_OPS=32`. Keys: [Using the desktop](../guide/using.md#the-editor). |
 | Network | `((` | `apps/network.c` | Wi-Fi and Ethernet status, Wi-Fi scan / connect / forget, the Telnet remote-desktop switch and the SSH/SFTP and FTP servers, through `td_sysinfo()->net`. |
 | MQTT | `MQ` | `apps/mqtt.c` | Connects to a broker, subscribes, publishes and lists messages; shares the connection with the `mqtt` shell command ([mqtt.md](mqtt.md)). |
@@ -588,6 +617,6 @@ The desktop side of Python's [`tdui` module](../shell/python.md#windows-tdui) (`
 | `td_pyui_image_new` | script | A `td_pyui_image_t` of `w` x `h` palette indexes (colour 0), with a transparency mask when asked, in one block; `NULL` without memory or outside 1..4096. `td_pyui_image_bytes()` is what it counts against the budget. |
 | `td_pyui_send_image` | script | Sends `TD_PYUI_IMAGE` (a new image under id) or `TD_PYUI_IMAGE_DATA` (pixels for a canvas or image at a, b) with the image's pointer; the desktop owns it from then on and frees it. Without a desktop to take it, it is freed here. Waits while the queue is full, calling `wait`. |
 
-**Pixels.** A canvas has 2 x 2 pixels to a cell in a layer under its cells (`TD_PYUI_RECT`, `_LINE`, `_CIRCLE`, `_GRADIENT`, `_DRAW_IMAGE`, `_IMAGE_DATA` draw into it or into an image). The layer is allocated by the first pixel drawn and counted against the pixel budget; a cell drawn in becomes a pixel cell, and `win_draw` turns its four pixels into a character with `td_canvas_quad_cell()` (Fine pictures) or an upper half block. `TD_PYUI_CLEAR` (-2) as a background lets text stand on the pixels. Images are decoded and converted on the script's task (`_tdui.image_load()`, through `td_image_load()` and `td_rgb256_dither()`), so the desktop's loop never waits for a file; the desktop frees any image still in the queue when a script ends.
+**Pixels.** A canvas has 2 x 2 pixels to a cell in a layer under its cells (`TD_PYUI_RECT`, `_LINE`, `_CIRCLE`, `_GRADIENT`, `_DRAW_IMAGE`, `_IMAGE_DATA` and `_PTEXT`, text in the 8 x 16 font of `td_pyui_glyph()` (`apps/pyui_font.c`, printable ASCII and Latin-1 from the Uni2-VGA16 console font, MIT) or the 3 x 5 one of `TD_PYUI_BIG`, draw into it or into an image). The layer is allocated by the first pixel drawn and counted against the pixel budget; a cell drawn in becomes a pixel cell, and `win_draw` turns its four pixels into a character with `td_canvas_quad_cell()` (Fine pictures) or an upper half block. `TD_PYUI_CLEAR` (-2) as a background lets text stand on the pixels. Images are decoded and converted on the script's task (`_tdui.image_load()`, through `td_image_load()` and `td_rgb256_dither()`), so the desktop's loop never waits for a file; the desktop frees any image still in the queue when a script ends.
 
 One script at a time uses them, as MicroPython runs one script at a time.

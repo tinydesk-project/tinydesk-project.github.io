@@ -21,6 +21,17 @@ browser window's size.
    the whole window elsewhere).
 3. Press **Connect** and pick the port. The desktop draws itself at once.
 
+**Bigger text:** with the size **Fit the window**, **Text** sets the font
+size (14 to 32 px, remembered by the browser). A larger font gives the
+desktop fewer, larger cells, so everything on it grows and stays sharp; a
+fixed size (such as **80 × 24**) uses the largest font that fits instead.
+In PuTTY the same is Window → Appearance → Font.
+
+**Pictures:** the web terminal shows Sixel graphics, so a Python app's
+pictures (buttons and panels at full resolution, `canvas.picture()`) look
+as on an LCD panel. So does Windows Terminal (1.22 or later); PuTTY shows
+them in block pixels.
+
 DTR and RTS are released when the port opens, so an ESP32 dev board is not
 reset. The buttons send keys the browser keeps for itself (F10, F6, F11,
 Ctrl+Q); **Redraw** repaints the whole screen. Add `?renderer=webgl` to the
