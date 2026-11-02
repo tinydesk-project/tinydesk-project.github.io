@@ -539,6 +539,12 @@ bool td_pyui_send(const td_pyui_msg_t *m, const char *text);
 int td_pyui_recv(td_pyui_msg_t *m, char *text, int cap);
 void td_pyui_detach_begin(void);
 bool td_pyui_detach_done(void);
+
+bool td_pyui_pixels_take(long bytes);
+void td_pyui_pixels_give(long bytes);
+td_pyui_image_t *td_pyui_image_new(int w, int h, bool mask);
+long td_pyui_image_bytes(const td_pyui_image_t *img);
+void td_pyui_send_image(uint8_t op, uint16_t id, int a, int b, td_pyui_image_t *img, void (*wait)(void));
 ```
 
 The desktop side of Python's [`tdui` module](../shell/python.md#windows-tdui) (`apps/pyui.c`). A script runs on the shell's task and must not call the window manager, so the two talk through two queues, each with one writer and one reader: requests (`TD_PYUI_OPEN`, `TD_PYUI_ADD`, `TD_PYUI_TEXT`, ...) from the script, events (`TD_PYUI_EV_CLICK`, `TD_PYUI_EV_CHANGE`, `TD_PYUI_EV_CLOSE`, ...) back to it. Each message is a `td_pyui_msg_t` (operation, flags, the object's number, its window, six small integers) followed by up to `TD_PYUI_TEXT_MAX` bytes of text; `td_apps.h` lists the operations and what their fields mean. The script numbers the windows and widgets itself, so no request waits for an answer.
@@ -551,5 +557,10 @@ The desktop side of Python's [`tdui` module](../shell/python.md#windows-tdui) (`
 | `td_pyui_recv` | script | 1 and the next event, or 0 when there is none. Text longer than `cap - 1` bytes is cut; it is always `'\0'`-terminated. |
 | `td_pyui_detach_begin` | script | The script is ending: on its next tick the desktop closes every window, dialog and menu the script opened. |
 | `td_pyui_detach_done` | script | True once the desktop has let go; the queues are then freed. Call it until it returns true. |
+| `td_pyui_pixels_take`, `td_pyui_pixels_give` | both | Reserve and return bytes of `TD_PYUI_MAX_PIXELS` (16384, 2097152 with PSRAM and on the PC), shared by a script's images and its canvases' pixel layers. `take` is false when they do not fit. |
+| `td_pyui_image_new` | script | A `td_pyui_image_t` of `w` x `h` palette indexes (colour 0), with a transparency mask when asked, in one block; `NULL` without memory or outside 1..4096. `td_pyui_image_bytes()` is what it counts against the budget. |
+| `td_pyui_send_image` | script | Sends `TD_PYUI_IMAGE` (a new image under id) or `TD_PYUI_IMAGE_DATA` (pixels for a canvas or image at a, b) with the image's pointer; the desktop owns it from then on and frees it. Without a desktop to take it, it is freed here. Waits while the queue is full, calling `wait`. |
+
+**Pixels.** A canvas has 2 x 2 pixels to a cell in a layer under its cells (`TD_PYUI_RECT`, `_LINE`, `_CIRCLE`, `_GRADIENT`, `_DRAW_IMAGE`, `_IMAGE_DATA` draw into it or into an image). The layer is allocated by the first pixel drawn and counted against the pixel budget; a cell drawn in becomes a pixel cell, and `win_draw` turns its four pixels into a character with `td_canvas_quad_cell()` (Fine pictures) or an upper half block. `TD_PYUI_CLEAR` (-2) as a background lets text stand on the pixels. Images are decoded and converted on the script's task (`_tdui.image_load()`, through `td_image_load()` and `td_rgb256_dither()`), so the desktop's loop never waits for a file; the desktop frees any image still in the queue when a script ends.
 
 One script at a time uses them, as MicroPython runs one script at a time.

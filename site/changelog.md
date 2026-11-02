@@ -9,6 +9,20 @@ API may still change between minor versions.
 
 ## Unreleased
 
+* **Pictures and pixels in Python windows (`tdui`):** a canvas has 2 x 2
+  pixels to a cell under its text. One call draws a rectangle (with round
+  corners), line, circle, dithered gradient, an image, part of one (a
+  sprite sheet) or a nine-slice panel of any size, and text with the
+  background `tdui.CLEAR` stands on the picture. `tdui.Image.load()`
+  reads PPM, PGM and BMP files, scaled and with a transparent colour if
+  asked; the file is decoded in C on the script's task and handed to the
+  desktop whole, so no Python runs per pixel. Images and pixels share
+  `tdui.MAX_PIXELS` (2 MB with PSRAM and on the PC, 16 KB otherwise).
+  `tools/make_ui_sheet.py` makes an example sprite sheet of buttons, a
+  panel and an LED, used by `examples/python/pixels_demo.py`. See
+  [Pictures and pixels](shell/python.md#pictures-and-pixels).
+* **The settings file grows to 20 bytes:** the picture detail moves to
+  byte 16 (see [~/.tinydesk_settings](shell/config-files.md#tinydesk_settings)).
 * **Fast Python screens:** a `tdui` canvas can keep up to 16 pages on the
   desktop (`w.canvas(..., pages=n)`): a script draws into a hidden page
   with `draw_to()` and shows it whole with `show()`, so switching screens

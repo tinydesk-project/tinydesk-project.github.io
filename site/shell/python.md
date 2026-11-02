@@ -473,6 +473,94 @@ ESP32-S3: switching a full-screen 100x30 HMI between six screens took
 and redrew the screen; with a page per screen and `big()` it takes
 33–82 ms and appears at once.
 
+### Pictures and pixels
+
+A canvas also has pixels: **2 x 2 to a cell** (`cv.pwidth` x `cv.pheight`
+in all), in a layer under its cells. Pictures, shapes and panels are
+drawn by the desktop in C, so each of these is **one call**, however many
+pixels it covers:
+
+| Call | Draws |
+|---|---|
+| `cv.rect(x, y, w, h, color, radius=0, outline=False)` | a rectangle; `radius` rounds its corners |
+| `cv.line(x0, y0, x1, y1, color)` | a line |
+| `cv.circle(x, y, r, color, outline=False)` | a circle |
+| `cv.gradient(x, y, w, h, (r, g, b), (r, g, b), across=False)` | from one colour to another, top to bottom (`across`: left to right), dithered |
+| `cv.image(img, x, y, w=0, h=0, src=None)` | an image, or its part `src=(sx, sy, sw, sh)`; `w`, `h` stretch or shrink it |
+| `cv.nine(img, x, y, w, h, border, src=None)` | an image (or part) as a `w` x `h` panel: corners of `border` pixels as they are, edges and middle stretched |
+| `cv.pixels(x, y, w, h, data, rgb=False, dither=True)` | `w * h` palette numbers from `bytes`, or with `rgb` three bytes (red, green, blue) a pixel |
+
+Coordinates are pixels. Colours are palette numbers (`tdui.rgb(r, g, b)`
+finds the nearest). A cell drawn in shows its four pixels from then on;
+`put()` or `fill()` there shows text again. Text with the background
+**`tdui.CLEAR`** stands on the pixels (its cell gets the colour most of
+them have), and a blank with `CLEAR` shows them, so labels sit on a
+picture: `cv.put(2, 1, "Start", 231, tdui.CLEAR)`. Pixels follow pages:
+`draw_to()` picks the page they go to, and `copy_page()` copies them.
+
+How a cell shows its pixels is the user's **Settings → Sizes →
+Pictures**: two (Normal, upper half blocks) or all four (Fine, quadrant
+characters; needs a font that has them, such as Cascadia Mono).
+
+**Images** are pictures the desktop keeps for the script and draws into
+canvases:
+
+```python
+sheet = tdui.Image.load("ui.ppm", key=(255, 0, 255), dither=False)
+photo = tdui.Image.load("/root/plant.ppm", w=60)   # 60 pixels wide, shape kept
+blank = tdui.Image(32, 32, tdui.CLEAR)              # transparent; draw into it
+blank.circle(16, 16, 12, tdui.rgb(255, 200, 0))
+```
+
+`Image.load()` reads PPM and PGM (binary or text) and BMP files. The
+file is decoded in C on the script's own task, scaled to `w` x `h` if
+given (only one: the other keeps the shape) and turned into palette
+colours, dithered unless `dither=False` (dithering is for photos and
+gradients; flat UI pieces look best without it). `key=(r, g, b)` makes that
+colour transparent. An image has the same drawing calls as a canvas, so a
+script can compose one (`CLEAR` makes pixels transparent there), and
+`img.free()` lets the desktop forget it before the script ends.
+
+**A sprite sheet is the fastest way to a UI of pictures:** load one small
+image with every piece in it once, then each button, panel or icon is one
+`image()` or `nine()` call with its `src`, at any size. A pressed button
+is another piece of the sheet drawn over it. `tools/make_ui_sheet.py`
+makes an example sheet (buttons, a panel, an LED), and
+`examples/python/pixels_demo.py` in the `tinydesk` repository uses it:
+
+```python
+import tdui
+
+BUTTON, DOWN = (0, 0, 16, 16), (16, 0, 16, 16)
+sheet = tdui.Image.load("ui_sheet.ppm", key=(255, 0, 255), dither=False)
+w = tdui.Window("Pixels", 40, 10)
+
+def on_mouse(c, x, y, button, action):
+    if 2 <= x < 14 and 6 <= y < 9 and action in (0, 1):
+        c.nine(sheet, 4, 12, 24, 6, 4, src=DOWN if action == 0 else BUTTON)
+        c.put(6, 7, "Press me", 231, tdui.CLEAR)
+
+cv = w.canvas(0, 0, 40, 10, on_mouse=on_mouse)
+cv.gradient(0, 0, cv.pwidth, cv.pheight, (20, 40, 110), (250, 150, 90))
+cv.nine(sheet, 4, 12, 24, 6, 4, src=BUTTON)          # cells 2..13, 6..8
+cv.put(6, 7, "Press me", 231, tdui.CLEAR)
+tdui.run()
+```
+
+Speed: the script never handles single pixels. A picture crosses to the
+desktop as one pointer, a drawing call is one small message, and the
+window turns each cell's pixels into a character only when it draws. What
+the terminal gets is, as always, only the cells that changed; a cell of
+pixels takes a few more bytes than one of text (two colours), so a
+full-screen picture is the slowest thing to send. Draw it once, into a
+page, and change only what changes.
+
+Images and pixel layers share a budget, `tdui.MAX_PIXELS` bytes (a byte a
+pixel, another for an image with transparency; a canvas's pixel layer is
+4 bytes a cell on every page, taken when its first pixel is drawn): 2 MB
+on boards with PSRAM and in the PC programs, 16 KB on the ESP32-C6 and the
+4 MB ESP32. Beyond it, `OSError`.
+
 The dialogs wait for the answer, while the script's other windows and
 timers keep working. Each script has its own windows: they are not in the
 start menu, and two scripts cannot run at once (see
@@ -481,7 +569,8 @@ start menu, and two scripts cannot run at once (see
 Cost: about 14 KB of flash. Nothing in RAM until a script opens a window;
 then about 12 KB of internal RAM for the queues and the window table while
 it runs, plus 6 bytes per canvas cell on every page (in PSRAM on boards
-that have it) and the list items, all freed when it ends.
+that have it), the list items, and the images and pixel layers (see
+[Pictures and pixels](#pictures-and-pixels)), all freed when it ends.
 
 ## Memory
 

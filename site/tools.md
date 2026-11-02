@@ -16,6 +16,7 @@ protocols. The C tools are built with the host build (`cmake --build build`).
 | `tools/make_source_zip.py` | the whole project (code, shell, site) in one zip |
 | `tools/serve_bin.py` | serve a firmware `.bin` over HTTP for OTA updates |
 | `tools/micropython/gen.sh` | regenerate the MicroPython sources in `third_party/micropython` |
+| `tools/make_ui_sheet.py` | the example sprite sheet of UI pieces for Python windows (`examples/python/ui_sheet.ppm`) |
 | `ports/esp32c6/build.ps1` | build and flash the C6 with the right ESP-IDF on Windows |
 
 ## serial_bridge.py
@@ -187,3 +188,15 @@ function to the `tinydesk` module (any new `MP_QSTR_` name), or to move to
 another MicroPython release, and commit the result. It needs make, gcc and
 python3 on x86-64: Linux, or WSL on Windows. `tools/micropython/README.md`
 has the details.
+
+## make_ui_sheet.py
+
+```bash
+python tools/make_ui_sheet.py
+```
+
+Writes `examples/python/ui_sheet.ppm`, a 64 x 16 sprite sheet for
+[Python windows](shell/python.md#pictures-and-pixels): a button, the same
+button pressed, a panel and an LED, 16 x 16 pixels each on magenta, which
+scripts load as transparent (`key=(255, 0, 255)`). Change the pieces in the
+script to make your own look.
