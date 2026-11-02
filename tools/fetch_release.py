@@ -145,7 +145,7 @@ def verify(folder):
                 sys.exit("empty manifest: %s; nothing was changed" % name)
             for build in builds:
                 parts = build.get("parts", [])
-                if build.get("chipFamily") not in ("ESP32", "ESP32-C6") or not parts:
+                if build.get("chipFamily") not in ("ESP32", "ESP32-C6", "ESP32-S3") or not parts:
                     sys.exit("invalid build: %s; nothing was changed" % name)
                 for part in parts:
                     path = part.get("path", "")

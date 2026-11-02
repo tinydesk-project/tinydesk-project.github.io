@@ -1,3 +1,5 @@
+<p class="cover-logo"><img src="images/tinydesk-logo.png" alt="TinyDesk logo: the letters TD in blue pixels, with TinyDesk written in binary below"></p>
+
 # TinyDesk <small>v0.1.5 · Developer preview</small>
 
 > A tiny board. A real desktop. Inside your terminal.
@@ -29,5 +31,5 @@
 - Connect a real project with MQTT or Modbus
 - Use a UTF-8 terminal with ANSI/VT cursor control and xterm mouse reporting
 - Remote access is opt-in after changing the factory root password
-- Portable C11 core with a four-function port layer: ports for ESP32-C6, ESP32-S3, ESP32, Linux and Windows
+- Portable C11 core with a four-function port layer: ports for ESP32-C6, ESP32, ESP32-S3, Linux and Windows
 - TinyDesk Shell: the same shell as an app on the desktop, or on its own

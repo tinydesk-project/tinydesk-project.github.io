@@ -3,7 +3,7 @@
 `td_sysinfo_t` is how a port tells TinyDesk about the platform and hands it optional services: memory and task figures, the system clock and time zone, a filesystem, network control, firmware updates, user accounts and settings storage. The apps only reach the platform through this structure, so they build unchanged on the ESP32 and on the desktop hosts. Every member may be left `NULL` (or 0); the apps then show "n/a", hide a control or show a message.
 
 Header: `include/tinydesk/td_sysinfo.h` (included by `tinydesk/td.h`)
-Sources: `src/td.c` (storage); implementations in `ports/esp_idf/app/main.c`, `net_esp.c`, `ota_esp.c` (shared by the ESP-IDF projects `ports/esp32c6`, `ports/esp32s3`, `ports/esp32` and `ports/esp32-4mb`), `ports/common/host_main.c` and `ports/common/td_fs_stdio.c`
+Sources: `src/td.c` (storage); implementations in `ports/esp_idf/app/main.c`, `net_esp.c`, `ota_esp.c` (shared by the ESP-IDF projects `ports/esp32c6`, `ports/esp32`, `ports/esp32-4mb` and `ports/esp32s3`), `ports/common/host_main.c` and `ports/common/td_fs_stdio.c`
 
 ## Threading
 
@@ -52,6 +52,7 @@ typedef struct {
     uint32_t (*psram_total)(void);
     int (*task_count)(void);
     int (*cpu_mhz)(void);
+    bool (*chip_temp)(int *tenths_c);
     int (*tasks)(td_task_info_t *out, int max);
 
     bool (*time_now)(int64_t *utc);
@@ -76,6 +77,7 @@ typedef struct {
     const td_fs_ops_t *fs;
 
     const char *extra;
+    const td_desktop_file_t *desktop_files;
 } td_sysinfo_t;
 ```
 
@@ -90,6 +92,7 @@ typedef struct {
 | `psram_free`, `psram_total` | `MALLOC_CAP_SPIRAM` (0 on the C6, which has none) | not set |
 | `task_count` | `uxTaskGetNumberOfTasks()` | not set |
 | `cpu_mhz` | `CONFIG_ESP_DEFAULT_CPU_FREQ_MHZ` | not set |
+| `chip_temp` | the built-in temperature sensor (`temperature_sensor_*`), on the ESP32-S3 and ESP32-C6; not set on the classic ESP32, which has none | not set |
 | `tasks` | `uxTaskGetSystemState()`, only when FreeRTOS trace facility and run-time stats are enabled | not set |
 | `time_now` | `time()`, false before it is set | `time()` |
 | `time_set` | `settimeofday()` | not set |
@@ -101,6 +104,7 @@ typedef struct {
 | `settings_load`, `settings_save` | NVS namespace `"tinydesk"`, key `"settings"` | file `tinydesk_settings.bin` in the working directory |
 | `fs` | `td_fs_stdio("/fs")`, TinyDesk Shell's LittleFS mount point | `td_fs_stdio("<cwd>/tinydesk_fs")` |
 | `extra` | `"Shell:     TinyDesk Shell <version>"` | the same with `TD_WITH_TDSH` |
+| `desktop_files` | not set | not set |
 
 ### Identification
 
@@ -113,6 +117,54 @@ typedef struct {
 
 The strings are read when About draws; they must stay valid.
 
+### Files for a new Desktop
+
+`desktop_files` lists files the port puts on every new Desktop, for example
+the board's credits or notes. When a user's `~/Desktop` folder is created
+(the first time that user's desktop starts), TinyDesk writes `Welcome.txt`
+and then these files into it. Like `Welcome.txt`, they are written once per
+user: Desktops that already exist do not get them, and a user may change or
+delete them. Builds that leave `desktop_files` `NULL` get only `Welcome.txt`.
+
+```c
+typedef struct {
+    const char *name;   /* "Credits.txt"; NULL ends the list */
+    const char *text;   /* the file's contents */
+} td_desktop_file_t;
+```
+
+The array ends with an entry whose `name` is `NULL`. A name must be a plain
+file name: entries with `/` or `\`, an empty name, `.`, `..` or a `NULL`
+`text` are skipped. The array and the strings must stay valid; they are read
+again whenever a new user's Desktop is created.
+
+```c
+static const td_desktop_file_t s_desk_files[] = {
+    {"Credits.txt",
+     "MyBoard port of TinyDesk\n"
+     "\n"
+     "Port:      Jane Doe (https://github.com/janedoe)\n"
+     "Testing:   Sam Roe\n"
+     "\n"
+     "TinyDesk:  https://github.com/tinydesk-project/tinydesk\n"
+     "           (its contributors: CONTRIBUTORS.md)\n"},
+    {NULL, NULL},
+};
+...
+s_info.desktop_files = s_desk_files;
+```
+
+A suggested format for a port's `Credits.txt`, in plain text so it opens in
+the Editor and reads well on an 80-column screen:
+
+- first line: what this is, such as `MyBoard port of TinyDesk`;
+- a blank line, then one line per person or group: the role, padded to a
+  column, then the name and, if they like, a link;
+- a blank line, then where the port and TinyDesk come from.
+
+Keep lines under 78 characters. The file is a starting point for the user,
+not a licence notice: licence texts stay in the port's repository.
+
 ### Memory and CPU
 
 | Member | Used by | Meaning |
@@ -123,6 +175,7 @@ The strings are read when About draws; they must stay valid.
 | `psram_free`, `psram_total` | About, System Monitor, Task Manager | External RAM (PSRAM) on the heap. Leave `psram_total` `NULL` or return 0 when there is none. When `psram_total()` returns non-zero, `psram_free` must be set too: the apps call it without checking. |
 | `task_count` | System Monitor | Number of tasks or threads. |
 | `cpu_mhz` | System Monitor, Task Manager | CPU clock. |
+| `chip_temp` | System Monitor | The chip's own temperature (its die, not the room) in tenths of a degree Celsius; return false when it cannot be read. |
 | `tasks` | Task Manager | Fill up to `max` entries of `out` and return how many. See below. |
 
 With external RAM (`psram_total` non-zero), the three heap figures must cover internal RAM only. It is the scarce part (task stacks, DMA buffers, the SSH server's start check), and the apps show internal RAM and PSRAM separately.
@@ -201,11 +254,10 @@ typedef struct {
     int (*write)(const char *path, const char *data, int len);
     int (*rename)(const char *from, const char *to);
     int (*exists)(const char *path);
-    int (*read_at)(const char *path, uint32_t offset, char *buf, int cap);
 } td_fs_ops_t;
 ```
 
-Minimal file access for Files, the Editor, the Image Viewer, the Desktop folder, per-user settings and the MQTT app's saved configuration. Paths are real paths: `root` followed by the path the shell sees (`"/fs" + "/root/Desktop/a.txt"`). Paths passed in are at most about 160 bytes.
+Minimal file access for Files, the Editor, the Desktop folder, per-user settings and the MQTT app's saved configuration. Paths are real paths: `root` followed by the path the shell sees (`"/fs" + "/root/Desktop/a.txt"`). Paths passed in are at most about 160 bytes.
 
 | Member | Required | What it must do |
 |---|---|---|
@@ -217,9 +269,8 @@ Minimal file access for Files, the Editor, the Image Viewer, the Desktop folder,
 | `remove` | yes | Delete a file, or a folder with everything in it. Return 0 on success. |
 | `rename` | yes | Rename or move a file or folder. Return 0 on success. Should fail rather than overwrite an existing target. |
 | `exists` | no | Return 1 if the path exists, else 0. Used to refuse names that are taken; without it, `rename` and `write` decide. |
-| `read_at` | no | Read up to `cap` bytes starting `offset` bytes into the file and return the byte count (0 at or after the end), or -1 on error. The Image Viewer reads pictures in parts with it, so a file larger than the RAM can be shown; without it the viewer says "This system cannot read files in parts." |
 
-The apps check `fs` and a few members (Files checks `list`, the Editor `read` and `write`), but Files and the Desktop menus then call `write`, `mkdir`, `remove` and `rename` without checking, so implement all members except `exists` and `read_at`. All calls are made on the UI task and should finish in milliseconds; a flash filesystem is fine.
+The apps check `fs` and a few members (Files checks `list`, the Editor `read` and `write`), but Files and the Desktop menus then call `write`, `mkdir`, `remove` and `rename` without checking, so implement all members except `exists`. All calls are made on the UI task and should finish in milliseconds; a flash filesystem is fine.
 
 ### td_fs_stdio
 
@@ -229,7 +280,7 @@ Every port uses the same implementation on top of the C library and `<dirent.h>`
 const td_fs_ops_t *td_fs_stdio(const char *root);
 ```
 
-Declared in `ports/common/td_fs_stdio.h`. Returns a static table (one per program; a second call replaces the root). `root` is copied into a 128-byte buffer, so longer paths are cut. Behaviour: `remove` deletes folders recursively up to 8 levels deep; `rename` refuses to overwrite an existing target; `write` writes the whole file in one `fopen("wb")`; `read_at` opens the file, seeks and reads for every call; `mkdir` uses mode 0755 (`_mkdir` on Windows); entries whose `stat()` fails are listed as files of size 0.
+Declared in `ports/common/td_fs_stdio.h`. Returns a static table (one per program; a second call replaces the root). `root` is copied into a 128-byte buffer, so longer paths are cut. Behaviour: `remove` deletes folders recursively up to 8 levels deep; `rename` refuses to overwrite an existing target; `write` writes the whole file in one `fopen("wb")`; `mkdir` uses mode 0755 (`_mkdir` on Windows); entries whose `stat()` fails are listed as files of size 0.
 
 ## Network
 

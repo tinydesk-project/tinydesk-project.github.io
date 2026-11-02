@@ -26,7 +26,7 @@ endwhile
 | `tdsh run ~/tools` | A folder runs its `main.tdsh` (created, empty, if it is missing). |
 | `tdsh run ~/logger.tdsh --bg` | Runs it in the background and returns at once (`[tdsh-bg] started …`). On the ESP32 it is its own task with a 32 KB stack. |
 | `~/.tdshrc.tdsh` | Each user's startup script on the ESP32 boards. It runs when the local console starts as that user (the board's console, or the desktop's Terminal window), for example to join Wi-Fi with `wificonnect`. An empty one is created on the first start. The PC programs do not run it. |
-| Desktop: right-click → **Run** | Opens the Terminal and runs `tdsh run "<file>"` there. Double-click opens the script in the Editor instead. See [Using the desktop](../guide/using.md#shell-scripts-tdsh). |
+| Desktop: right-click → **Run** | Opens the Terminal and runs `tdsh run "<file>"` there. Double-click opens the script in the Editor instead, where **F5** saves and runs it with the output under the text. See [Using the desktop](../guide/using.md#shell-scripts-tdsh). |
 
 A script started with `tdsh run` gets a copy of the caller's session: it
 sees its variables, user and current folder, but what it changes (variables,

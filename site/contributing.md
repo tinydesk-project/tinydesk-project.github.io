@@ -4,7 +4,7 @@
 
 | Repository | Content | Licence |
 | --- | --- | --- |
-| [`tinydesk`](https://github.com/tinydesk-project/tinydesk) | the desktop core (`src/`, `include/`), apps, protocols, the ESP-IDF and host ports, tools | MIT |
+| [`tinydesk`](https://github.com/tinydesk-project/tinydesk) | the desktop core (`src/`, `include/`), apps, protocols, the ESP-IDF and host ports, tools | MIT; MicroPython in `third_party/micropython` is MIT too |
 | [`tinydesk-shell`](https://github.com/tinydesk-project/tinydesk-shell) | TinyDesk Shell (`tdsh`): the portable shell core, its ESP-IDF services (Wi-Fi, Ethernet, SSH, FTP, SMB, users, board configuration) and its POSIX host port | MIT; third-party parts (wolfSSH GPLv3, ...) keep their licences |
 | [`tinydesk-project.github.io`](https://github.com/tinydesk-project/tinydesk-project.github.io) | these pages, the web installer and the web terminal (plain static files, published with GitHub Pages) | MIT; the scripts and styles it loads from CDNs (Docsify, xterm.js, ESP Web Tools) keep their licences |
 
@@ -16,6 +16,10 @@ API has the prefix `tdsh_`.
 The shell does not depend on the desktop. It builds and runs on its own
 (its root is an ESP32-C6 ESP-IDF project, and `-DTDSH_BUILD_HOST=ON`
 builds the host port and tests on Linux).
+
+The people who made TinyDesk and TinyDesk Shell are listed in
+[`CONTRIBUTORS.md`](https://github.com/tinydesk-project/tinydesk/blob/main/CONTRIBUTORS.md);
+add yourself in your pull request.
 
 ## Getting the code
 
@@ -61,6 +65,7 @@ The shell's changes are listed in its own `CHANGELOG.md`.
 | Shell tests (Linux, or Windows with MinGW: they build `tdsh.exe`) | `cmake -S third_party/tdsh -B build-shell -G Ninja -DTDSH_BUILD_HOST=ON && cmake --build build-shell && ctest --test-dir build-shell` |
 | ESP32-C6 firmware | `cd ports/esp32c6 && idf.py build` |
 | Classic ESP32 firmware | `cd ports/esp32 && idf.py build` |
+| ESP32-S3 firmware | `cd ports/esp32s3 && idf.py set-target esp32s3 && idf.py build` |
 | Docs | update the pages listed in [Maintaining these docs](maintaining.md) and the [changelog](changelog.md) |
 
 Names, code style, commands, board keys, device paths and release files

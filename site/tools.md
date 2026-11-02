@@ -15,6 +15,7 @@ protocols. The C tools are built with the host build (`cmake --build build`).
 | `tools/make_release.py` | package a release: factory images, web installer manifests, PC programs, checksums |
 | `tools/make_source_zip.py` | the whole project (code, shell, site) in one zip |
 | `tools/serve_bin.py` | serve a firmware `.bin` over HTTP for OTA updates |
+| `tools/micropython/gen.sh` | regenerate the MicroPython sources in `third_party/micropython` |
 | `ports/esp32c6/build.ps1` | build and flash the C6 with the right ESP-IDF on Windows |
 
 ## serial_bridge.py
@@ -92,8 +93,9 @@ python tools/make_release.py [--site ../tinydesk-site/site] [--out dist] [--allo
 
 Packages both [editions](guide/install.md#editions) for people without a
 toolchain. Run it after building the ESP-IDF projects: `ports/esp32c6`,
-`ports/esp32` and `ports/esp32-4mb` (TinyDesk Desktop, required),
-`third_party/tdsh` and `third_party/tdsh/projects/esp32` (TinyDesk Shell,
+`ports/esp32`, `ports/esp32-4mb` and `ports/esp32s3` (TinyDesk Desktop, required),
+`third_party/tdsh`, `third_party/tdsh/projects/esp32` and
+`third_party/tdsh/projects/esp32s3` (TinyDesk Shell,
 left out with a note when not built). For each board it merges what
 `idf.py flash` writes (`build/flash_args`) into one factory image and
 writes `dist/tinydesk-<version>/`:
@@ -165,3 +167,23 @@ Serves a firmware image on the local network (standard library only) and
 re-reads it on every request, so a rebuild is served at once. On the board:
 Software Update, URL `http://<pc>:8000/tinydesk.bin`, or
 `ota install http://<pc>:8000/tinydesk.bin`.
+
+## micropython/gen.sh
+
+```bash
+git clone --depth 1 --branch v1.29.0 https://github.com/micropython/micropython.git /tmp/micropython
+tools/micropython/gen.sh /tmp/micropython
+```
+
+Regenerates `third_party/micropython`, the interpreter behind
+[`py`](shell/python.md): it copies the sources TinyDesk builds from a
+MicroPython checkout and generates the headers that depend on TinyDesk's
+configuration (the qstr table, the built-in modules, the root pointers),
+and compiles the Python part of `asyncio`, and TinyDesk's `neopixel` and
+`tdui`, into
+the firmware with `mpy-cross`, which it builds in the checkout. Run it after changing
+`ports/common/python/mpconfigport.h` or `manifest.py`, after adding a
+function to the `tinydesk` module (any new `MP_QSTR_` name), or to move to
+another MicroPython release, and commit the result. It needs make, gcc and
+python3 on x86-64: Linux, or WSL on Windows. `tools/micropython/README.md`
+has the details.

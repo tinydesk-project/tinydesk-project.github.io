@@ -9,6 +9,25 @@ API may still change between minor versions.
 
 ## Unreleased
 
+* **Fast Python screens:** a `tdui` canvas can keep up to 16 pages on the
+  desktop (`w.canvas(..., pages=n)`): a script draws into a hidden page
+  with `draw_to()` and shows it whole with `show()`, so switching screens
+  is one step instead of a redraw that appears piece by piece;
+  `copy_page()` copies a picture. `canvas.big()` draws big characters
+  (digits, letters, `- + % / . :`) on the desktop in one call, and
+  `put()`/`fill()` cost less Python time. On an ESP32-S3 a full-screen
+  100x30 HMI now switches screens in 33–82 ms instead of 60–310 ms.
+* **Bigger Python canvases:** a script's `tdui` canvases may now cover
+  32000 cells in all, every page counted, on boards with PSRAM (the
+  ESP32-S3 and the ESP32 with PSRAM) and in the PC programs, enough for
+  ten full-screen 100x30 pages; still 2000 on the ESP32-C6 and the 4 MB
+  ESP32. `tdui.MAX_CELLS` tells a script the limit of the board it runs
+  on.
+* **The chip's temperature in System Monitor:** on the ESP32-S3 and the
+  ESP32-C6, the CPU line also shows the chip's own temperature from its
+  built-in sensor (for example `Chip: 47.3 °C`). The classic ESP32 has no
+  such sensor. Ports provide it through the new optional `chip_temp` in
+  `td_sysinfo_t`.
 * **Pixel canvas:** apps can draw pixels (`td_canvas.h`): each cell
   shows two, as an upper half block with two colours, so it works in
   every terminal TinyDesk runs in and only changed cells are sent. On
@@ -20,7 +39,7 @@ API may still change between minor versions.
   the Image Viewer, Pixels and any canvas (`td_canvas_fit()`,
   `td_canvas_detail()`). Needs a font with the quadrants, such as
   Cascadia Mono; PuTTY's default Courier New lacks them. Saved per user
-  (byte 14 of `~/.tinydesk_settings`). vtshot draws block characters as
+  (byte 16 of `~/.tinydesk_settings`). vtshot draws block characters as
   rectangles in its SVG pictures.
 * **Pixels** app: an animated plasma and the palette with pictures per
   second, to see what a terminal link can show (up to 24 full-screen
@@ -44,12 +63,111 @@ API may still change between minor versions.
   is set up again and cleared. On the ESP32-C6 a write waits up to
   150 ms (was 20 ms), so a slow terminal paces the board instead of
   losing frames.
-* **New port: ESP32-S3 with PSRAM** (`ports/esp32s3`): the desktop on the
-  chip's built-in USB port (the ESP32-C6's link, now shared as
-  `ports/esp_idf/app/link_usj.c`), octal PSRAM, 16 MB flash with two
-  update slots, screen up to 256x96. Tested on an ESP32-S3R8. No official
-  release images yet. About names the chip ("ESP32-S3"), and the UI
-  task gets the larger stack on every Xtensa chip.
+
+## 0.2.0 (2026-10-31)
+
+* **Python scripts with MicroPython:** the new shell command `py` runs a
+  script (`py report.py`), one line (`py -c ...`) or the interactive
+  prompt, in the Terminal, over SSH and in the PC programs. Scripts use
+  TinyDesk's files and paths, and the `tinydesk` module runs shell
+  commands, publishes MQTT messages and reads or writes Modbus registers.
+  The heap is allocated only while a script runs: 512 KB of PSRAM on the
+  ESP32 with PSRAM and the ESP32-S3, 64 KB of internal RAM on the
+  ESP32-C6, and what is free above a 32 KB reserve on the 4 MB ESP32
+  (about 31 KB with Wi-Fi off). Included: `hashlib` (sha256, sha1, md5),
+  `os.urandom`, `asyncio` with `select`, and precompiled `.mpy` files;
+  root can also use
+  `@micropython.native` and `@micropython.viper` on the ESP32, ESP32-S3
+  and ESP32-C6 and in the Linux program (the S3's and the C6's firmware
+  turn off the memory protection that keeps RAM non-executable for it).
+  The prompt's history (Up and Down) is kept in `~/.py_history` from one
+  `py` to the next. See
+  [Python scripts](shell/python.md).
+* **Pins and buses from Python (`machine`):** on the ESP32 boards, root's
+  scripts use `Pin` (with interrupts), `ADC`, `PWM`, `I2C`, `SPI`, `UART`,
+  `SoftI2C`, `SoftSPI`, `time_pulse_us`, `bitstream` and the `neopixel`
+  module. Pins of the board configuration and the desktop's link are
+  refused, strapping pins get a warning, and everything a script opened is
+  closed and reset when it ends. The PC programs import `machine` but have
+  no hardware for it. See [Hardware](shell/python.md#hardware-machine).
+* **Windows from Python (`tdui`):** a script started from the desktop opens
+  windows with labels, buttons, text boxes, check boxes, lists, progress
+  bars and character canvases, shows message boxes, input boxes and popup
+  menus, and handles clicks, keys and timers in Python: a small app without
+  writing C. The desktop makes the windows on its own loop, so a busy
+  script never slows it; the windows close when the script ends, and
+  Ctrl+C in one of them stops it. Scripts can resize, move, maximise and
+  minimise their windows, hear when the user resizes one (`on_resize`),
+  and lists and canvases can follow the new size.
+  See [Windows](shell/python.md#windows-tdui).
+* **The Editor for Python:** a `.py` file gets colours, line numbers,
+  indents after `:`, and the matching bracket shown. **F5** saves and runs
+  it, with the output in a pane under the text (F7 types into it); after
+  an error the line is marked and **F8** goes there. Ctrl+Space suggests
+  names (keywords, built-ins, modules and their functions, the file's
+  words), which can also pop up while typing (right-click →
+  Auto-complete, saved per user). For every file: find (Ctrl+F, F3),
+  replace all (Ctrl+R), go to a line (Ctrl+G), comment lines (Ctrl+/),
+  Tab / Shift+Tab on selected lines and Enter keeping the indent.
+  See [The Editor](guide/using.md#the-editor).
+* **The Editor's buffer follows the file:** it is sized to the file and
+  grows with the text up to 16 KB, instead of taking 16 KB for any file.
+  A small script then leaves enough RAM to run it with F5 on the 4 MB
+  ESP32.
+* **Run `.py` files** from the desktop and the Files app (right-click →
+  Run), as `.tdsh` scripts; they show a `py` icon.
+* **Ctrl+C stops `modbus read -i` in the PC programs** too, as on the
+  boards.
+* **Pastes no longer pick up the size reply:** the desktop's periodic
+  terminal size query could be answered in the middle of a bracketed
+  paste, and the reply (such as `[25;80R`) ended up in the pasted text, in
+  up to one paste in ten of a few KB at 921600 baud. The reply is now taken
+  out of the paste and handled as usual, and the query is not sent while a
+  paste is arriving.
+* **ESP32-C6: long pastes arrive whole.** The USB receive buffer grows from
+  1 KB to 8 KB, as on the other boards: when it filled while the desktop
+  was drawing, the USB driver dropped whole 64-byte packets, and a paste
+  of a few KB could lose some of its text. It costs 7 KB of RAM.
+* **Ports can put their own files on new Desktops:** `td_sysinfo_t` has a
+  new optional member `desktop_files`, a list of file names and contents
+  that TinyDesk writes next to `Welcome.txt` when a user's Desktop folder
+  is created, for example a port's `Credits.txt`. Written once per user,
+  like `Welcome.txt`; builds that do not set it are unchanged. See
+  [Files for a new Desktop](api/sysinfo.md#files-for-a-new-desktop)
+  (tinydesk #5).
+* **`CONTRIBUTORS.md`** in the `tinydesk` repository lists the people who
+  made TinyDesk and TinyDesk Shell.
+* **ESP32-S3 port** (tinydesk #9, by SanjayG-xls): TinyDesk Desktop on an
+  ESP32-S3 with 16 MB flash and 8 MB Octal PSRAM (e.g.
+  ESP32-S3-DevKitC-1 N16R8), on UART0, the board's USB-UART port, at
+  921600 baud. Screens up to 256x96, two OTA slots with Software Update,
+  the SSH server, and the same `console.*` board keys as the classic ESP32
+  (default pins TX 43, RX 44). Project `ports/esp32s3`; CI builds it.
+* **TinyDesk Shell on the ESP32-S3:** `projects/esp32s3` in TinyDesk Shell
+  runs on any ESP32-S3 with 4 MB flash or more, at 115200 baud, and uses
+  Octal PSRAM when the module has it. `peek` and `poke` know the S3's
+  memory map ([peek, poke](shell/commands.md#peek-poke)).
+* **Install:** the installer and the web terminal offer the ESP32-S3 for
+  both editions; releases carry `tinydesk-desktop-<version>-esp32s3-factory.bin`
+  (with its app image and update feed) and
+  `tinydesk-shell-<version>-esp32s3-factory.bin`.
+
+Known issue: `ssh start` refuses on the ESP32-C6 with "insufficient
+internal RAM", as in earlier releases. A fix is tested and comes in a
+later release.
+
+## 0.1.6 (2026-10-18)
+
+* **`peek` and `poke` on the ESP32 boards** (TinyDesk Shell): root can
+  read RAM, ROM, PSRAM and the GPIO, IO_MUX and eFuse registers, and
+  write the GPIO output registers; `peek -l` lists the ranges. See
+  [Commands](shell/commands.md#peek-poke) (tinydesk-shell #1).
+* **Scripts that run out of memory while loading say so**
+  (TinyDesk Shell): `uscript: <file>:<line>: not enough memory to load
+  the script` instead of returning with no output (tinydesk-shell #2).
+* **TinyDesk Shell builds on macOS** (tinydesk-shell #5).
+* **About** shows the TinyDesk Shell repository's address in full; it was
+  cut off at the window's edge.
 * **nano with UTF-8 text** (TinyDesk Shell): the cursor, Backspace and
   Delete work by character instead of by byte, so text such as `Привет`
   or `日本語` is no longer cut into broken bytes; Up and Down keep the

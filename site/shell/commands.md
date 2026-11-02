@@ -1,6 +1,6 @@
 # Shell commands
 
-This page lists the shell commands that TinyDesk adds to TinyDesk Shell (`mqtt`, `modbus`, `ota`) and the shell commands that matter most on the desktop: `board`, `hwtest`, `lan`, `ssh`, `ftp` and the Wi-Fi commands. `help` in the Terminal lists all commands.
+This page lists the shell commands that TinyDesk adds to TinyDesk Shell (`mqtt`, `modbus`, `py`, `ota`) and the shell commands that matter most on the desktop: `board`, `hwtest`, `lan`, `ssh`, `ftp` and the Wi-Fi commands. `help` in the Terminal lists all commands.
 
 Commands run on the TinyDesk Shell task: in the desktop's Terminal window (the local console), or in an SSH or Telnet session. Their output goes to that session.
 
@@ -14,14 +14,16 @@ Examples use `$` as the prompt of any user and `#` for root.
 |---|---|---|---|
 | `mqtt` | `ports/common/td_proto_cmds.c` | all | any user |
 | `modbus` | `ports/common/td_proto_cmds.c` | all (RTU where the board configuration has RS-485 lines) | any user |
-| `ota` | `ports/esp_idf/app/ota_esp.c` | ESP32-C6, ESP32-S3, ESP32 | root |
-| `ssh` | TinyDesk Shell | ESP32-C6, ESP32-S3, ESP32 | `status`, `hostkey`: any user; `hostkey new`: root; `start`, `stop`, `restart`: root, or any user on the local console |
-| `ftp` | TinyDesk Shell | ESP32-C6, ESP32-S3, ESP32 | as `ssh` (no `hostkey`) |
-| `board` | TinyDesk Shell (`tdsh_commands_espidf.c`) | ESP32-C6, ESP32-S3, ESP32 | `show`, `get`: any user; `set`, `unset`, `init`, `save`: root |
-| `hwtest` | TinyDesk Shell | ESP32-C6, ESP32-S3, ESP32 (pins from the board configuration) | root |
-| `lan` | TinyDesk Shell | ESP32-C6, ESP32-S3, ESP32 (only with `eth.chip = w6100`) | as in TinyDesk Shell |
-| `networks`, `wifiadd`, `wifiremove`, `wificonnect` | TinyDesk Shell | ESP32-C6, ESP32-S3, ESP32 | any user, with per-user networks |
-| `network` | TinyDesk Shell | ESP32-C6, ESP32-S3, ESP32 | showing: any user; changing `mode` or `autowifi`: root |
+| `py` | `ports/common/python/td_py.c` | all | any user |
+| `ota` | `ports/esp_idf/app/ota_esp.c` | ESP32-C6, ESP32 | root |
+| `ssh` | TinyDesk Shell | ESP32-C6, ESP32 | `status`, `hostkey`: any user; `hostkey new`: root; `start`, `stop`, `restart`: root, or any user on the local console |
+| `ftp` | TinyDesk Shell | ESP32-C6, ESP32 | as `ssh` (no `hostkey`) |
+| `board` | TinyDesk Shell (`tdsh_commands_espidf.c`) | ESP32-C6, ESP32 | `show`, `get`: any user; `set`, `unset`, `init`, `save`: root |
+| `hwtest` | TinyDesk Shell | ESP32-C6, ESP32 (pins from the board configuration) | root |
+| `lan` | TinyDesk Shell | ESP32-C6, ESP32 (only with `eth.chip = w6100`) | as in TinyDesk Shell |
+| `networks`, `wifiadd`, `wifiremove`, `wificonnect` | TinyDesk Shell | ESP32-C6, ESP32 | any user, with per-user networks |
+| `network` | TinyDesk Shell | ESP32-C6, ESP32 | showing: any user; changing `mode` or `autowifi`: root |
+| `peek`, `poke` | TinyDesk Shell (regions in `tdsh_platform_espidf.c`) | ESP32-C6, ESP32, ESP32-S3 | root |
 
 Exit status, as the code returns it: 0 success, 1 failure, 2 usage error.
 
@@ -259,7 +261,7 @@ addresses start at 0; values in decimal or 0x hex.
 -n times reads that often (default 10; 0 = until Ctrl+C in the Terminal window).
 ```
 
-On a device without RS-485 lines (classic ESP32, Windows, Linux) the second device line reads `for Modbus RTU (not available here).`
+On a device without RS-485 lines (classic ESP32 or ESP32-S3 without `rs485.*` settings, Windows, Linux) the second device line reads `for Modbus RTU (not available here).`
 
 Who: any user.
 
@@ -387,9 +389,41 @@ Errors: `modbus: bad port`, `modbus: bind: ...` (port in use), `modbus: count mu
 
 ---
 
+## py
+
+MicroPython: runs a Python script (source or a precompiled `.mpy` file),
+one line of code, or the interactive prompt. See
+[Python scripts](python.md) for the files, modules, `asyncio`, the
+`tinydesk` module, native code and memory.
+
+Help line: `py [-m KB] [FILE [ARG...] | -c CODE [ARG...]]`
+
+```
+usage: py                    interactive prompt (Ctrl+D leaves)
+       py FILE [ARG...]      run a script (.py or .mpy)
+       py -c CODE [ARG...]   run CODE
+       py -m KB ...          heap size in KB
+```
+
+```
+# py ~/report.py today
+# py -c "import time; print(time.localtime())"
+(2026, 10, 27, 18, 40, 12, 1, 300)
+```
+
+Exit status: the script's (`sys.exit(n)` gives *n*), 1 after an uncaught
+exception, 130 after Ctrl+C, 2 for a usage error or a missing script.
+Ctrl+C in the Terminal window stops the script. One script runs at a time
+on a device.
+
+Who: any user; machine code (`@micropython.native`, `@micropython.viper`,
+`.mpy` files with machine code) and the hardware (`machine`: pins and
+buses) only root. Windows (`tdui`) only for a script started from the
+desktop's own console (the Terminal window, the Editor, Run).
+
 ## ota
 
-Firmware update (OTA). Available on the ESP32-C6 and the classic ESP32 ports (both build `ports/esp_idf/app/ota_esp.c`). Who: **root only** (`TDSH_CMD_ROOT_ONLY`).
+Firmware update (OTA). Available on the ESP32-C6, the classic ESP32 with PSRAM and the ESP32-S3 ports (they build `ports/esp_idf/app/ota_esp.c`). Who: **root only** (`TDSH_CMD_ROOT_ONLY`).
 
 Help line: `ota <status|official|notify|check|install|cancel|restart|rollback> ...`
 
@@ -538,11 +572,11 @@ $ ssh stop
 SSH/SFTP server stopped.
 ```
 
-The heap is in internal RAM on the ESP32-C6; on the classic ESP32 it is in PSRAM and the two lines say `private 64 KiB PSRAM heap` and `private PSRAM heap`.
+The heap is in internal RAM on the ESP32-C6; on the boards with PSRAM (classic ESP32, ESP32-S3) it is in PSRAM and the two lines say `private 64 KiB PSRAM heap` and `private PSRAM heap`.
 
 `ssh stop` now works reliably (the listening socket wakes every 0.5 s to see the stop). Before, it could print `ssh: server shutdown timed out.` and block the next `ssh start`.
 
-Start errors: `SSH server already running on port 22.`, `ssh: previous server is still shutting down.`, `ssh: no network interface is connected.`, `ssh: insufficient internal RAM (N bytes free; need at least M before start).`, `ssh: cannot create SSH server task.`, `ssh: server initialization failed. Check tdsh-ssh log above.`, `ssh: invalid port`. The RAM check needs 96 KiB free on the ESP32-C6 and 64 KiB on the classic ESP32, whose 64 KB SSH heap lives in PSRAM (the start message still says "internal heap").
+Start errors: `SSH server already running on port 22.`, `ssh: previous server is still shutting down.`, `ssh: no network interface is connected.`, `ssh: insufficient internal RAM (N bytes free; need at least M before start).`, `ssh: cannot create SSH server task.`, `ssh: server initialization failed. Check tdsh-ssh log above.`, `ssh: invalid port`. The RAM check needs 64 KiB of free internal RAM on boards with PSRAM (the classic ESP32 with PSRAM, the ESP32-S3), whose 64 KB SSH heap lives in PSRAM. Without PSRAM it needs 96 KiB plus the 64 KB heap, about 160 KiB, so in 0.2.0 `ssh start` refuses on the ESP32-C6; a fix is pending.
 
 ### ssh hostkey
 
@@ -676,6 +710,66 @@ Saved in /etc/board.conf. Restart to apply.
 ```
 
 Errors: `board: permission denied: root required`, `board: keys are a-z 0-9 . _ - and values one line without #`, `board: /etc/board.conf already exists (edit it with nano)`. Exit status 0, 1 on an error, 2 for usage.
+
+## peek, poke
+
+Read and write memory: RAM, ROM and hardware registers. Root only. The
+commands come from TinyDesk Shell; the firmware lists the address ranges
+they may use, and everything else is refused.
+
+```
+usage:
+  peek -l                               the regions
+  peek [-w 8|16|32] <address>           one value, printed alone: 0x00001234
+  peek [-w 8|16|32] <address> <count>   count values, 16 bytes per line
+  poke [-w 8|16|32] <address> <value>   write one value
+```
+
+Accesses are 32-bit unless `-w` says otherwise; addresses, counts and
+values are decimal or `0x` hexadecimal. One value prints alone, so a
+script can use it: `MAC=$(peek 0x3ff5a004)`.
+
+| Region | ESP32 | ESP32-C6 | ESP32-S3 | Widths | Access |
+|---|---|---|---|---|---|
+| `gpio_out`: GPIO output and output-enable registers | `0x3ff44004`-`0x3ff44037` | `0x60091004`-`0x60091037` | `0x60004004`-`0x60004037` | 32 | read/write |
+| `gpio`: all GPIO registers | `0x3ff44000`-`0x3ff445cf` | `0x60091000`-`0x600916ff` | `0x60004000`-`0x600046ff` | 32 | read |
+| `io_mux` | `0x3ff49000`-`0x3ff49093` | `0x60090000`-`0x600900ff` | `0x60009000`-`0x600090ff` | 32 | read |
+| `efuse` | `0x3ff5a000`-`0x3ff5a1ff` | `0x600b0800`-`0x600b09ff` | `0x60007000`-`0x600071ff` | 32 | read |
+| internal RAM: `dram`, `sram` | `0x3ffae000`-`0x3fffffff` | `0x40800000`-`0x4087ffff` | `0x3fc88000`-`0x3fcfffff` (`sram`) | 8 16 32 | read |
+| RTC / LP RAM: `rtc_slow`, `lp_ram` | `0x50000000`-`0x50001fff` | `0x50000000`-`0x50003fff` | `0x50000000`-`0x50001fff` (`rtc_slow`) | 8 16 32 | read |
+| mask ROM: `rom` | `0x40000000`-`0x4005ffff`, 32-bit only | `0x40000000`-`0x4004ffff`, 8 16 32 | `0x40000000`-`0x4005ffff`, 32-bit only | | read |
+| ROM data: `rom_data` | `0x3ff90000`-`0x3ff9ffff` | - | - | 8 16 32 | read |
+| `psram` | `0x3f800000`, up to 4 MB (boards with PSRAM) | - | - (mapped through the MMU at run time) | 8 16 32 | read |
+
+RAM is read-only because the firmware lives there; `poke` writes only the
+GPIO output registers. In all three chips they start at the GPIO block's base
+(`0x3ff44000` on the ESP32, `0x60091000` on the ESP32-C6, `0x60004000` on
+the ESP32-S3): `OUT` + 0x04,
+`OUT_W1TS` + 0x08 sets bits, `OUT_W1TC` + 0x0c clears them, `ENABLE` +
+0x20, `ENABLE_W1TS` + 0x24 and `ENABLE_W1TC` + 0x28 (the `1` registers
+from + 0x10 and + 0x2c are GPIO 32 and up). A bit is a GPIO number.
+
+```
+# peek 0x3ff5a004 2              (ESP32: the eFuse words with the MAC address)
+0x3ff5a004: 0cad4560 00fe9038
+# peek 0x60007044 2              (ESP32-S3: the same, MAC 7c:4f:ad:bb:55:44)
+0x60007044: adbb5544 00007c4f
+# poke 0x3ff44024 0x4             (GPIO2 becomes an output)
+# poke 0x3ff44008 0x4             (GPIO2 high)
+# poke 0x3ff4400c 0x4             (GPIO2 low)
+```
+
+`poke` drives real pins: a pin the board uses (RS-485, SD card, Ethernet,
+the console) stops working until the next restart, and a pin wired to
+something that drives it back can be damaged. Check the
+[board configuration](../guide/board-config.md) first.
+
+Refused with exit status 1: a misaligned address, an address outside the
+regions, a dump across a region's end, a width the region does not allow
+(`peek: rom does not allow 8-bit access`), a `poke` outside `gpio_out`
+(`poke: dram is read-only`) and a value too wide for the width. Exit
+status 2 for usage. The Windows and Linux programs list no regions, so
+they do not have the commands.
 
 ---
 

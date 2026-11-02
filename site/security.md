@@ -6,7 +6,7 @@ what protects what, and where the limits are.
 ## Physical access
 
 * The board's own console (USB Serial/JTAG on the ESP32-C6, UART0 on the
-  ESP32) opens the desktop as the **boot user without a password**, and
+  ESP32 and the ESP32-S3) opens the desktop as the **boot user without a password**, and
   `rootrecover` there sets a new root password. Whoever holds the board
   (or its cable) is root.
 * Flash is **not encrypted** and **secure boot is off**: with esptool anyone

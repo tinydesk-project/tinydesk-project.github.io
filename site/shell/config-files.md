@@ -21,7 +21,7 @@ On the ESP32 the LittleFS partition `storage` is mounted at `/fs`. On Windows an
 | [`~/.tinydesk_settings`](#tinydesk_settings) | the Settings app, the Date & time dialog | the desktop, at start-up and after every user switch |
 | [`~/.tdshrc.tdsh`](#tdshrctdsh) | TinyDesk Shell (created with comments only), the user | TinyDesk Shell, when the local console starts a session |
 | [`/etc/board.conf`](#etcboardconf) | `board set`, `board init`, the user | TinyDesk Shell and the ports, at start-up |
-| [`~/Desktop`](#the-desktop-folder) | the desktop (created with `Welcome.txt`), the user | the desktop, every 3 s |
+| [`~/Desktop`](#the-desktop-folder) | the desktop (created with `Welcome.txt` and the port's own files), the user | the desktop, every 3 s |
 | [NVS keys](#nvs-keys) | TinyDesk, TinyDesk Shell | TinyDesk, TinyDesk Shell |
 | [Partition tables](#partition-tables) | the build | the bootloader |
 
@@ -160,7 +160,7 @@ The file may hold passwords. The parser wipes its copy of the file after reading
 
 ## ~/.tinydesk_settings
 
-The desktop settings of one user, written by `apps/settings.c` as soon as something changes in the Settings app or the Date & time dialog. It is a 16-byte binary blob:
+The desktop settings of one user, written by `apps/settings.c` as soon as something changes in the Settings app or the Date & time dialog. It is a 20-byte binary blob:
 
 ```c
 typedef struct {
@@ -175,8 +175,10 @@ typedef struct {
     uint8_t icon_size;
     uint8_t menu_size;
     uint8_t bar_size;
-    uint8_t picture_detail;
+    uint8_t editor;
     uint8_t reserved[1];
+    uint8_t picture_detail;
+    uint8_t reserved2[3];
 } settings_blob_t;
 ```
 
@@ -193,10 +195,12 @@ typedef struct {
 | 11 | 1 | `icon_size` | Desktop icons: `0` medium, `1` small, `2` large | medium |
 | 12 | 1 | `menu_size` | Start menu: same codes | medium |
 | 13 | 1 | `bar_size` | Taskbar: same codes | medium |
-| 14 | 1 | `picture_detail` | Pictures: `0` Normal (two pixels per cell), `1` Fine (four) | Normal |
+| 14 | 1 | `editor` | Bit 0: the Editor's suggestions pop up while typing (Auto-complete) | |
 | 15 | 1 | `reserved` | Written as 0 | |
+| 16 | 1 | `picture_detail` | Pictures: `0` Normal (two pixels per cell), `1` Fine (four) | Normal |
+| 17 | 3 | `reserved2` | Written as 0 | |
 
-Older versions wrote only the first 8 bytes (magic to `hide_icons`). A file of 8 to 15 bytes with the right magic is accepted, and the missing fields read as 0. In every newer field, 0 means the default: 24-hour clock, day-month-year dates, clock shown, medium icons, start menu and taskbar, and Normal pictures. In `hide_icons`, 0 (also in blobs saved before icons existed) means icons are shown.
+Older versions wrote only the first 8 bytes (magic to `hide_icons`). Any file of 8 bytes or more with the right magic is accepted: the missing fields of a shorter one read as 0, and bytes past the 20 that this version knows are ignored. In every newer field, 0 means the default: 24-hour clock, day-month-year dates, clock shown, medium icons, start menu and taskbar, and Normal pictures. In `hide_icons`, 0 (also in blobs saved before icons existed) means icons are shown.
 
 ### Where the settings come from
 
@@ -263,7 +267,7 @@ rs485.1.de   = 18
 
 Each user's `~/Desktop` holds the files shown as desktop icons (`apps/desktop.c`). The desktop:
 
-- creates `~/Desktop` for the current user if missing (and `/home` and the home folder), and puts a `Welcome.txt` in a new folder;
+- creates `~/Desktop` for the current user if missing (and `/home` and the home folder), and puts a `Welcome.txt` in a new folder, with any files the port adds (such as a `Credits.txt`; see [Files for a new Desktop](../api/sysinfo.md#files-for-a-new-desktop));
 - re-reads the folder every 3 s, so files made from the shell (`touch ~/Desktop/notes.txt`) appear on their own;
 - shows up to 24 entries and hides names starting with `.`;
 - saves new files from the Editor's **Save as** there, and moves dragged files into it.
@@ -294,7 +298,7 @@ Wi-Fi passwords and the host key are stored in NVS in plain form: the ports' `sd
 
 ## Partition tables
 
-Both ports have two OTA app slots for `ota install` (see [ota](commands.md#ota)).
+The ESP32-C6, ESP32 with PSRAM and ESP32-S3 ports have two OTA app slots for `ota install` (see [ota](commands.md#ota)).
 
 ### ESP32-C6 (`ports/esp32c6/partitions.csv`)
 
@@ -324,4 +328,15 @@ ESP32-WROVER-IE, 16 MB flash.
 | `otadata` | data | ota | `0x610000` | `0x2000` (8 KB) |
 | `storage` | data | littlefs | `0x620000` | `0x9E0000` (9.9 MB) |
 
-In both tables `storage` is the LittleFS partition that TinyDesk Shell mounts at `/fs`.
+### ESP32-S3 (`ports/esp32s3/partitions.csv`)
+
+ESP32-S3 with 16 MB flash and 8 MB Octal PSRAM (e.g. N16R8): the same
+layout as the ESP32 with PSRAM above (two 3 MB OTA slots, `otadata` at
+`0x610000`, a 9.9 MB `storage` at `0x620000`).
+
+TinyDesk Shell on its own uses a smaller layout on the classic ESP32 and the
+ESP32-S3 (`projects/esp32`, `projects/esp32s3` in its repository): one
+2.5 MB `factory` app at `0x10000` and a 1.4 MB `storage` at `0x290000`, so it
+runs on 4 MB boards.
+
+In every table `storage` is the LittleFS partition that TinyDesk Shell mounts at `/fs`.

@@ -13,7 +13,6 @@
 - API reference
   - [Core and main loop](/api/core.md)
   - [Screen and drawing](/api/screen.md)
-  - [Pixel canvas](/api/canvas.md)
   - [Input and events](/api/input.md)
   - [Window manager](/api/wm.md)
   - [Widgets](/api/widgets.md)
@@ -27,10 +26,11 @@
 - Shell
   - [Commands](/shell/commands.md)
   - [Scripts (.tdsh)](/shell/scripting.md)
+  - [Python scripts (py)](/shell/python.md)
   - [Configuration files](/shell/config-files.md)
 - Ports
   - [Architecture and porting](/ports/overview.md)
-  - [ESP-IDF ports (ESP32-C6, ESP32-S3, ESP32)](/ports/esp.md)
+  - [ESP-IDF ports (ESP32-C6, ESP32, ESP32 4 MB, ESP32-S3)](/ports/esp.md)
   - [Desktop hosts (Windows, Linux)](/ports/host.md)
 - [Tools](/tools.md)
 - [Changelog](/changelog.md)
