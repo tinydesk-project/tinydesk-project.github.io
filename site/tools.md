@@ -16,6 +16,7 @@ protocols. The C tools are built with the host build (`cmake --build build`).
 | `tools/make_source_zip.py` | the whole project (code, shell, site) in one zip |
 | `tools/serve_bin.py` | serve a firmware `.bin` over HTTP for OTA updates |
 | `tools/micropython/gen.sh` | regenerate the MicroPython sources in `third_party/micropython` |
+| `tools/make_kbd_layouts.py` | regenerate the USB keyboard layouts (`ports/esp_idf/app/usb_hid_layouts.h`) |
 | `ports/esp32c6/build.ps1` | build and flash the C6 with the right ESP-IDF on Windows |
 
 ## serial_bridge.py
@@ -186,3 +187,17 @@ function to the `tinydesk` module (any new `MP_QSTR_` name), or to move to
 another MicroPython release, and commit the result. It needs make, gcc and
 python3 on x86-64: Linux, or WSL on Windows. `tools/micropython/README.md`
 has the details.
+
+## make_kbd_layouts.py
+
+```bash
+python tools/make_kbd_layouts.py
+```
+
+Writes `ports/esp_idf/app/usb_hid_layouts.h`, the keyboard layouts of the
+[USB keyboard](guide/using.md#usb-keyboard-and-mouse-esp32-s3) on the
+ESP32-S3: for each layout, the character of each of 54 keys (letters,
+digits, punctuation and the extra ISO key left of Z) without Shift, with
+Shift and with AltGr. Dead keys type their accent. To add a layout, add it
+to the script, run it, and add its code to `usb.kbd_layout` in
+[Board configuration](guide/board-config.md#usb-keyboard-and-mouse-esp32-s3).

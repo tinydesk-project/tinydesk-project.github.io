@@ -453,18 +453,22 @@ void td_wm_set_start_menu_size(td_ui_size_t size);
 td_ui_size_t td_wm_start_menu_size(void);
 void td_wm_set_taskbar_size(td_ui_size_t size);
 td_ui_size_t td_wm_taskbar_size(void);
+void td_wm_set_window_size(td_ui_size_t size);
+td_ui_size_t td_wm_window_size(void);
+int td_wm_title_rows(void);                        /* 1, or 2 with large frames */
 const char *td_ui_size_name(td_ui_size_t size);   /* "Small", "Medium", "Large" */
 ```
 
-Three independent size settings. All default to `TD_UI_MEDIUM`; values outside the enum are treated as `TD_UI_MEDIUM`. The Settings app stores them per user (see `td_settings_save()` in [apps.md](apps.md#settings)).
+Four independent size settings. The first three default to `TD_UI_MEDIUM`, the window frames to `TD_UI_SMALL`; values outside the enum are treated as the default. The Settings app stores them per user (see `td_settings_save()` in [apps.md](apps.md#settings)).
 
 | Setting | Small | Medium | Large | Fallback |
 |---|---|---|---|---|
 | Desktop icons | One line per icon: glyph and name (21-column slots). | 4 x 3 box with the glyph, name on up to two lines (12 x 6 slots). | 8 x 5 double-framed box, one wider name line (16 x 7 slots). | When the icons do not all fit on the desktop at the chosen size, the next smaller size that fits is drawn. `td_wm_icon_size()` still returns the chosen size. |
 | Start menu | Names only. | Glyph and name. | Glyph and name with a blank row per item. | When the large menu is taller than the desktop, it uses one row per item. |
+| Window frames | One title row, buttons `[-][x]`, a 2-column resize corner. | Buttons `[ - ][ x ]` and a 4-column resize corner, easier to hit with a mouse. | As medium, with a two-row title bar; the title and buttons on its lower row. | None. |
 | Taskbar | One row; the time only (with a `parts` clock); titles cut to 8 columns; no user name. | One row; the clock `text`; titles cut to 14 columns. | Two rows; glyph and title (18 columns); the time over the date; a line under each button (bright for the focused window, dim for others, none for minimised ones). | None. |
 
-Changing the taskbar size changes the desktop height: open windows are clamped to it again and an open menu is closed. `td_ui_size_name()` returns `"Small"`, `"Medium"` or `"Large"` (anything unknown gives `"Medium"`).
+Changing the taskbar size changes the desktop height: open windows are clamped to it again and an open menu is closed. The window frame size changes the frame of every framed window: the client area starts `td_wm_title_rows()` rows below the window's top, `td_win_create()` adds the extra title row to the requested height, and changing the size makes open windows taller or shorter by the difference, so client areas keep their size. Code that sizes a window from its client area adds `td_wm_title_rows() + 1` rows for the frame. `td_ui_size_name()` returns `"Small"`, `"Medium"` or `"Large"` (anything unknown gives `"Medium"`).
 
 ## Themes
 
@@ -628,8 +632,9 @@ The window manager looks at every key first. In this order:
 |---|---|
 | F10 (no modifiers) | Opens or closes the start menu, always, even in `TD_WIN_RAW_KEYS` windows. |
 | any key while a menu is open | Goes to the menu (Up, Down, Home, End, Enter, Esc, F10); nothing else sees it. |
-| F6 (no modifiers), Alt+Tab | Cycles the windows: the top window goes to the bottom. Does nothing while a modal dialog is open. |
+| F6 (no modifiers), Alt+Tab | Cycles the windows: the top window goes to the bottom. Alt+Shift+Tab goes the other way: the bottom visible window comes to the top. Does nothing while a modal dialog is open. |
 | Ctrl+L | Resends the terminal setup and redraws the whole screen (`td_full_redraw()`). In a `TD_WIN_RAW_KEYS` window the key is then also passed to `on_event` (the Terminal forwards it to the shell). |
+| any key with `TD_MOD_SUPER` | The Windows-key shortcuts, never passed on (ignored while a modal dialog is open): Up maximises a `TD_WIN_RESIZABLE` window; Down restores a maximised window, otherwise minimises; Left / Right make a resizable window fill that half of the desktop; D minimises every window, or, when all are minimised, shows them again; E, R and I launch Files, Terminal and Settings (`td_app_launch()`). Only a keyboard the board reads itself sends Super (see [input.md](input.md)). |
 | Ctrl+Q, Alt+F4 | `td_win_request_close()` on the focused window, in every window. Alt+F4 only arrives where the terminal passes it through. |
 | no window focused | The arrow keys and Enter move between and open desktop icons; Enter (with no icon selected) or Esc opens the start menu. |
 | F11 (no modifiers) | Toggles full screen for the focused window if it has `TD_WIN_RESIZABLE`. |
@@ -681,6 +686,22 @@ bool td_wm_mouse_pos(int *x, int *y);
 ```
 
 Last known mouse position in screen cells. Returns `false` (and leaves `*x`, `*y` alone) before the first mouse event. Use it for hover effects in `on_draw`; the frame is recomposed when the pointer moves onto a different element.
+
+### td_wm_set_pointer
+
+```c
+void td_wm_set_pointer(bool on);
+```
+
+Draws the mouse pointer: a `▲` in the cell under it, black on light backgrounds and white on dark ones. Off by default, because a terminal's mouse needs no pointer. A port turns it on for a mouse the terminal does not show, such as a USB mouse on the ESP32-S3 (on while one is plugged in). May be called from any task.
+
+### td_wm_screen_size
+
+```c
+void td_wm_screen_size(int *cols, int *rows);
+```
+
+The screen size in cells, taskbar included (`td_wm_desktop_rows()` is the part above the taskbar).
 
 ## Used by the core
 

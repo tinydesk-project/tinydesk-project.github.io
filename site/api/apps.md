@@ -77,7 +77,9 @@ void weather_register(void) { td_app_register(&s_app); }
 | System Monitor | `▄█` | `apps/sysmon.c` | Live heap and PSRAM bars, task count, CPU clock, the chip's temperature (where the port sets `chip_temp`), uptime and tinydesk's own frame and link statistics. |
 | Task Manager | `▐▌` | `apps/taskmgr.c` | Lists the open windows (switch to one, end it) and, where the port can list them, the system tasks with state, priority, core, CPU share and free stack. |
 | Log Viewer | `≡≡` | `apps/logview.c` | Shows the log ring buffer filled by `td_log_append()` with level colours. |
-| Settings | `☼ ` | `apps/settings.c` | Theme, ASCII / UTF-8 mode, desktop pattern and icons, icon / start menu / taskbar sizes; saved per user. |
+| Settings | `☼ ` | `apps/settings.c` | Theme, ASCII / UTF-8 mode, desktop pattern and icons, icon / start menu / taskbar / window frame sizes; saved per user. |
+| Mouse | `^ ` | `apps/mouse.c` | Only with `td_sysinfo()->mouse`: speed, acceleration and precision of a mouse the board reads itself, with targets to try them on; root only for changes. |
+| Keyboard | `Kb` | `apps/keyboard.c` | Only with `td_sysinfo()->keyboard`: layout, repeat delay and rate of a keyboard the board reads itself, with a text box to try them in; root only for changes. |
 | Software Update | `↑ ` | `apps/update.c` | Shows the installed firmware and installs a new one from a URL or a file, with progress and roll-back, through `td_sysinfo()->ota`. Only root may install. |
 | Counter | `+1` | `apps/counter.c` | The minimal example app: a label, two buttons, a checkbox and a one-second tick. |
 | About | `i ` | `apps/about.c` | Name, version, platform, chip, SDK version, free heap and uptime. |
@@ -237,7 +239,7 @@ Installs functions that serialise access to the log buffer when several tasks wr
 
 ## Settings
 
-Each user's settings are stored in `~/.tinydesk_settings` (through `td_sysinfo()->fs`): theme, ASCII mode, desktop pattern, icons shown, clock format, date format, clock shown, and the icon, start menu and taskbar sizes. The file format is private to `apps/settings.c`. A user without that file gets the device defaults: the first 8 bytes of the blob loaded with `td_sysinfo()->settings_load` (theme, ASCII mode, pattern, icons; written by older versions), or the built-in defaults (Dark theme, light-shade pattern, icons shown).
+Each user's settings are stored in `~/.tinydesk_settings` (through `td_sysinfo()->fs`): theme, ASCII mode, desktop pattern, icons shown, clock format, date format, clock shown, and the icon, start menu, taskbar and window frame sizes. The file format is private to `apps/settings.c`. A user without that file gets the device defaults: the first 8 bytes of the blob loaded with `td_sysinfo()->settings_load` (theme, ASCII mode, pattern, icons; written by older versions), or the built-in defaults (Dark theme, light-shade pattern, icons shown).
 
 ### td_settings_apply_saved
 
@@ -245,7 +247,7 @@ Each user's settings are stored in `~/.tinydesk_settings` (through `td_sysinfo()
 void td_settings_apply_saved(void);
 ```
 
-Loads the current user's settings as described above and applies them: `td_theme_set()`, ASCII mode (with a full redraw if it changed), `td_desktop_set_pattern()`, `td_desktop_set_icons()`, the clock preferences and the three UI sizes. Called by `td_session_init()` and `td_session_switch()`.
+Loads the current user's settings as described above and applies them: `td_theme_set()`, ASCII mode (with a full redraw if it changed), `td_desktop_set_pattern()`, `td_desktop_set_icons()`, the clock preferences and the four UI sizes. Called by `td_session_init()` and `td_session_switch()`.
 
 ### td_settings_save
 

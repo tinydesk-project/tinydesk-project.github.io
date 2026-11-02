@@ -78,6 +78,9 @@ typedef struct {
 
     const char *extra;
     const td_desktop_file_t *desktop_files;
+
+    const td_mouse_ops_t *mouse;        /* NULL: no Mouse app */
+    const td_keyboard_ops_t *keyboard;  /* NULL: no Keyboard app */
 } td_sysinfo_t;
 ```
 
@@ -105,6 +108,7 @@ typedef struct {
 | `fs` | `td_fs_stdio("/fs")`, TinyDesk Shell's LittleFS mount point | `td_fs_stdio("<cwd>/tinydesk_fs")` |
 | `extra` | `"Shell:     TinyDesk Shell <version>"` | the same with `TD_WITH_TDSH` |
 | `desktop_files` | not set | not set |
+| `mouse`, `keyboard` | the ESP32-S3 with `usb.host = 1` (`usb_hid.c`); not set elsewhere | not set |
 
 ### Identification
 
@@ -463,3 +467,51 @@ The ESP port reads `update-desktop-<board>.json` from the web installer's site (
 When `ota` is set, the first six members must be set; the app calls them without checking. The app only lets root start, cancel or roll back; everyone can look.
 
 Implementation: `ports/esp_idf/app/ota_esp.c` (`ota_esp_ops()`), shared with the `ota` shell command. An update is written to the slot that is not running, checked (image format, chip, SHA-256) and made the boot slot. HTTPS is checked against the ESP-IDF certificate bundle. The new version runs on trial after the restart until `ota_esp_boot_ok()` confirms it (30 s after start-up, or on a requested restart); a crash before that makes the bootloader go back. The hosts have no `ota`.
+
+### Mouse and keyboard
+
+A port whose board reads a mouse or keyboard itself (not through the
+terminal), such as the ESP32-S3 with a USB keyboard and mouse, sets `mouse`
+and `keyboard`. The Mouse and Keyboard apps are only registered when they
+are set, so they must be in place before `td_apps_register_all()`.
+
+```c
+typedef struct {
+    int speed;       /* percent; 100: 8 mouse counts a column, 16 a row */
+    int accel;       /* percent; 0: none, 100: fast moves go up to 4 times as far */
+    int precision;   /* percent; 0: none, 100: slow moves go 0.4 times as far */
+} td_mouse_settings_t;
+
+typedef struct {
+    bool (*status)(char *buf, int cap);   /* what is attached; false: nothing */
+    void (*get)(td_mouse_settings_t *s);
+    bool (*set)(const td_mouse_settings_t *s);   /* apply and save */
+} td_mouse_ops_t;
+
+typedef struct {
+    int layout;      /* index for layout_name() */
+    int delay_ms;    /* before a held key repeats */
+    int rate;        /* repeats a second */
+} td_keyboard_settings_t;
+
+typedef struct {
+    bool (*status)(char *buf, int cap);
+    void (*get)(td_keyboard_settings_t *s);
+    bool (*set)(const td_keyboard_settings_t *s);
+    const char *(*layout_name)(int i);    /* NULL past the last layout */
+} td_keyboard_ops_t;
+```
+
+| Member | Meaning |
+|---|---|
+| `status` | Writes what is attached (for example `"USB mouse 04ca:00bd, with its wheel"`) and returns `true`; `false` when nothing is plugged in. The apps call it once a second. |
+| `get` | The settings in use. |
+| `set` | Applies the settings at once and saves them; returns `false` when saving failed (they still apply). The ESP32-S3 saves them in `/etc/board.conf` (`usb.*`, see [Board configuration](../guide/board-config.md#usb-keyboard-and-mouse-esp32-s3)). |
+| `layout_name` | The name of layout `i` (`"US (English)"`, `"German"`...), `NULL` for `i` past the last. |
+
+The keys and mouse themselves reach TinyDesk as the bytes a terminal
+would send (mixed into the port's `link_read()`), so the rest of TinyDesk
+does not know where they came from. The one difference is the Windows key,
+which arrives as `TD_MOD_SUPER` (see [input.md](input.md)). A port that
+draws no pointer of its own calls `td_wm_set_pointer(true)` while a mouse
+is attached.

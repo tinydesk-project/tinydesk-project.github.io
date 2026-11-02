@@ -5,7 +5,7 @@
 | Key | Effect |
 | --- | --- |
 | F10, or click **[Start]** | start menu |
-| F6 or Alt+Tab | next window |
+| F6 or Alt+Tab | next window (Alt+Shift+Tab: the previous one) |
 | Tab / Shift+Tab | next / previous widget in a window |
 | F11 | full screen for the focused window (useful for `nano` in the Terminal) |
 | Esc | close a dialog; with no window focused, Enter or Esc opens the start menu |
@@ -15,6 +15,30 @@
 
 In the Terminal every key goes to the shell except F6, F10, F11 and Ctrl+Q.
 Shift+PgUp/PgDn and the mouse wheel scroll back.
+
+### Windows-key shortcuts (USB keyboard)
+
+A keyboard plugged into the board itself ([USB keyboard and
+mouse](#usb-keyboard-and-mouse-esp32-s3)) adds the shortcuts a PC desktop
+has. They only come from that keyboard: the PC never sees its keys, and a
+terminal such as PuTTY cannot send the Windows key, so nothing is taken
+from the PC's own Win+... and Alt+Tab. F6 and the other keys above work
+as before.
+
+| Key | Effect |
+| --- | --- |
+| Windows key (pressed and let go alone), Ctrl+Esc | start menu |
+| Alt+Tab / Alt+Shift+Tab | next / previous window |
+| Alt+F4 | close the focused window, like Ctrl+Q |
+| Win+Up | maximise |
+| Win+Down | restore a maximised window, otherwise minimise |
+| Win+Left / Win+Right | fill the left / right half of the screen |
+| Win+D | minimise every window; again: bring them back |
+| Win+E | Files |
+| Win+R | Terminal |
+| Win+I | Settings |
+
+The window shortcuts do nothing while a dialog is open.
 
 ## Mouse
 
@@ -55,17 +79,50 @@ echo 'wificonnect; ssh start' > ~/Desktop/online.tdsh    # a script on the deskt
 
 ## Sizes (Settings → Sizes)
 
-Each user picks Small / Medium / Large for three things:
+Each user picks Small / Medium / Large for four things:
 
-| | Small | Medium (default) | Large |
+| | Small | Medium | Large |
 | --- | --- | --- | --- |
-| Desktop icons | one line: glyph + name | 4x3 box, two label lines | 8x5 double box, one wide label line |
-| Start menu | names | glyph + name | glyph + name, two rows per item |
-| Taskbar | short buttons, time only | one row | two rows: glyph + title buttons, time over date |
+| Desktop icons | one line: glyph + name | 4x3 box, two label lines (default) | 8x5 double box, one wide label line |
+| Start menu | names | glyph + name (default) | glyph + name, two rows per item |
+| Taskbar | short buttons, time only | one row (default) | two rows: glyph + title buttons, time over date |
+| Windows | `[-][x]` buttons (default) | wider `[ - ][ x ]` buttons and resize corner | the same with a two-row title bar |
+
+Larger window frames are easier to hit with a mouse on a big screen.
+Windows grow by the title bar's extra row, so what is inside keeps its
+size.
 
 If the chosen icon size does not fit all icons on the screen, the next
 smaller one is used; a large start menu that would not fit uses one row per
 item. See [Window manager](../api/wm.md#ui-sizes).
+
+## USB keyboard and mouse (ESP32-S3)
+
+An ESP32-S3 board can read a keyboard and mouse itself, on the chip's own
+USB port (the board's second USB-C socket, marked "USB" rather than
+"UART"). The terminal on the PC still shows the desktop; the board draws a
+**▲ pointer** for the USB mouse, and its wheel works.
+
+* Turn it on with `usb.host = 1` in the [board
+  configuration](board-config.md#usb-keyboard-and-mouse-esp32-s3) and
+  restart.
+* **One device:** ESP-IDF 5.3 has no USB hub support, so use a keyboard
+  and mouse set with one receiver (tested: a Dell wireless set). A hub or
+  two separate devices do not work yet.
+* **5 V for the device:** the port must power what is plugged in. On the
+  ESP32-S3-DevKitC-1 and similar boards, close the solder pads marked
+  **USB-OTG** (they connect the board's 5 V to the USB socket).
+* The PC's keyboard and mouse keep working at the same time.
+
+Two apps appear on the desktop while `usb.host = 1`; changes apply at once
+and are saved in `/etc/board.conf` (root only):
+
+* **Mouse:** pointer speed, acceleration (fast moves go further) and
+  precision (slow moves go less far, for aiming at small things), each with
+  a bar to click or drag and `-` / `+` buttons, and targets to try them on.
+* **Keyboard:** the layout (US, UK, German, French, Spanish; AltGr works
+  in those that use it), the repeat delay and rate, and a text box to try
+  them in. Caps Lock and Num Lock work as on a PC.
 
 ## Clipboard (copy and paste with the PC)
 
@@ -110,8 +167,9 @@ It edits one file of up to 16 KB at a time (bigger files open read-only).
 | Ctrl+S | save (a new file is saved on the Desktop) |
 | Esc, Ctrl+W, Ctrl+Q | close; asks about unsaved changes |
 
-The right-click menu has the same commands, and turns the line numbers on
-or off.
+The mouse wheel scrolls 3 lines; **Ctrl+wheel** scrolls half a page (in
+the output pane too). The right-click menu has the same commands, and
+turns the line numbers on or off.
 
 ### Python files
 

@@ -274,7 +274,8 @@ print(i2c.scan())                                 # addresses that answer
   the pins in the [board configuration](../guide/board-config.md)
   (`console.*`, `rs485.*`, `eth.*`, `sd.*`), the desktop's link (UART0 on
   GPIO1 and 3 on the classic ESP32 and GPIO43 and 44 on the ESP32-S3
-  unless `console.*` says otherwise; USB on GPIO12 and 13 of the ESP32-C6),
+  unless `console.*` says otherwise; USB on GPIO12 and 13 of the ESP32-C6;
+  the ESP32-S3's own USB port, GPIO19 and 20, with `usb.host = 1`),
   and the pins the chip keeps (flash, and PSRAM on the ESP32 with PSRAM and
   the ESP32-S3: GPIO26–37 there).
 * **Strapping pins** (ESP32: 0, 2, 5, 12, 15; ESP32-S3: 0, 3, 45, 46;

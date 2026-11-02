@@ -27,7 +27,7 @@ typedef struct {
 |---|---|
 | `type` | Event type (below). |
 | `key` | `TD_EV_KEY`: a Unicode code point or a `TD_KEY_*` code. 0 for other types. |
-| `mods` | Modifier bits `TD_MOD_SHIFT`, `TD_MOD_ALT`, `TD_MOD_CTRL` (keys and mouse). |
+| `mods` | Modifier bits `TD_MOD_SHIFT`, `TD_MOD_ALT`, `TD_MOD_CTRL` (keys and mouse), `TD_MOD_SUPER` (keys). |
 | `x`, `y` | `TD_EV_MOUSE`: 0-based cell coordinates (absolute in the queue; the window manager makes them client-relative before calling `on_event`). `TD_EV_RESIZE`: `x` = columns, `y` = rows reported by the terminal. `TD_EV_PASTE`: `x` is 1 if the paste was cut short, else 0. |
 | `button` | `TD_EV_MOUSE`: a `TD_BUTTON_*` value. |
 | `action` | `TD_EV_MOUSE`: a `TD_MOUSE_*` value. |
@@ -47,7 +47,10 @@ typedef struct {
 #define TD_MOD_SHIFT 0x01u
 #define TD_MOD_ALT   0x02u
 #define TD_MOD_CTRL  0x04u
+#define TD_MOD_SUPER 0x08u   /* the Windows key */
 ```
+
+`TD_MOD_SUPER` (the Windows key) only comes from a keyboard the board reads itself, such as a [USB keyboard on the ESP32-S3](../guide/using.md#usb-keyboard-and-mouse-esp32-s3): terminals on a PC keep that key for the PC. The window manager uses it for its [Windows-key shortcuts](wm.md#keyboard).
 
 Ctrl+letter arrives as the **lower-case** letter with `TD_MOD_CTRL` (Ctrl+S is `key == 's'`, `mods == TD_MOD_CTRL`). Test modifiers with `==` when you want exactly that combination, or with `&` when extra modifiers are acceptable.
 
@@ -94,9 +97,10 @@ Special keys are numbered above the Unicode range (U+10FFFF), so `key < TD_KEY_B
 | `ESC [ A/B/C/D`, `ESC O A/B/C/D` | Up, Down, Right, Left |
 | `ESC [ H/F`, `ESC O H/F` | Home, End |
 | `ESC O P/Q/R/S`, `ESC [ P/Q/R/S` | F1..F4 |
-| `ESC [ 1 ; m X` (X one of the letters above) | That key with modifiers from `m` (xterm style: `m - 1` = Shift 1, Alt 2, Ctrl 4), for example `ESC [ 1 ; 5 A` = Ctrl+Up. |
+| `ESC [ 1 ; m X` (X one of the letters above) | That key with modifiers from `m` (xterm style: `m - 1` = Shift 1, Alt 2, Ctrl 4, Super 8), for example `ESC [ 1 ; 5 A` = Ctrl+Up, `ESC [ 1 ; 9 A` = Super+Up. |
 | `ESC [ n ~` and `ESC [ n ; m ~` | 1/7 Home, 2 Insert, 3 Delete, 4/8 End, 5 PgUp, 6 PgDn, 11..15 F1..F5, 17..21 F6..F10, 23/24 F11/F12; `m` as above. |
-| `ESC [ Z` | `TD_KEY_TAB` + `TD_MOD_SHIFT` (Shift+Tab) |
+| `ESC [ Z`, `ESC [ 1 ; m Z` | `TD_KEY_TAB` + `TD_MOD_SHIFT` (Shift+Tab), with the modifiers from `m` added (`ESC [ 1 ; 4 Z` = Alt+Shift+Tab). |
+| `ESC [ 27 ; m ; c ~` | The character `c` (decimal; letters lower-cased) with modifiers from `m`: xterm's *modifyOtherKeys* form, for example `ESC [ 27 ; 9 ; 101 ~` = Super+E. |
 | `ESC [ 200 ~` ... `ESC [ 201 ~` | One `TD_EV_PASTE` (see [Bracketed paste](#bracketed-paste)). |
 
 Gotchas:

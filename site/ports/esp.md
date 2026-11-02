@@ -25,6 +25,7 @@ and appears as the Terminal app; the desktop runs in the `tinydesk` task.
 | Modbus RTU | up to 2 RS-485 lines from the [board configuration](../guide/board-config.md) (`rs485.N.*`) | the same (use UART1/UART2; UART0 is the desktop) | the same | the same |
 | Ethernet | W6100 on SPI when `eth.chip = w6100` | the same; not tested on hardware yet | the same; not tested on hardware yet | the same; not tested on hardware yet |
 | Console keys | none (USB Serial/JTAG) | `console.uart`, `console.tx`, `console.rx`, `console.baud` | the same as ESP32 | the same as ESP32 (defaults TX 43, RX 44) |
+| USB keyboard and mouse | no (the USB port is the desktop's link) | no (no USB) | no | yes, on the chip's own USB port with `usb.host = 1` (`ports/esp_idf/app/usb_hid.c`; ESP-IDF's USB host library and `espressif/usb_host_hid`; one device, no hubs) |
 | Flash | 8 MB: 2 x 2.5 MB OTA slots, 2.9 MB `/fs` | 16 MB: 2 x 3 MB OTA slots, 9.9 MB `/fs` | 4 MB: one 2.5 MB app, 1.4 MB `/fs` (the layout of TinyDesk Shell's ESP32 firmware) | 16 MB: 2 x 3 MB OTA slots, 9.9 MB `/fs` (as on the ESP32 with PSRAM) |
 | Software Update, `ota` | yes | yes | no (no second slot): update by flashing | yes |
 | Resets on port open | no | yes, with PuTTY (use the [serial bridge](../guide/terminals.md#esp32-boards-without-resets)) | the same | the UART port has the same auto-reset circuit; not checked with PuTTY yet |
@@ -47,9 +48,13 @@ and appears as the Terminal app; the desktop runs in the `tinydesk` task.
    (`td_py_register_shell_command`, with the same Ctrl+C check through
    `td_py_set_break_check`), `ota`.
 5. `td_mb_set_serial(board_rtu_lines())`.
-6. The `tinydesk` task: `hal_mux_init()`, `td_init()`, apps, Terminal
+6. On the ESP32-S3, `usb_hid_start()` when `usb.host = 1`: the USB host
+   and HID tasks, and `mouse` / `keyboard` in `td_sysinfo_t`. Their keys
+   and mouse reports go into a small ring that `link_read()` reads after the
+   UART.
+7. The `tinydesk` task: `hal_mux_init()`, `td_init()`, apps, Terminal
    backend, `td_step()` loop (priority above the shell).
-7. A 30 s timer confirms a freshly installed firmware (OTA trial), and
+8. A 30 s timer confirms a freshly installed firmware (OTA trial), and
    `telnet_start()` opens port 23.
 
 ## Shared components
