@@ -155,7 +155,7 @@ not); **Stop** in the menu and Ctrl+C in the pane work everywhere.
 | Network | Wi-Fi scan/connect/forget, Ethernet status, SSH/FTP servers, Telnet switch |
 | MQTT | connect (config file or URL, TLS), subscribe, publish, message log |
 | Modbus | read/write coils and registers over TCP or RTU, repeat at an interval, built-in TCP server |
-| System Monitor | RAM (internal and PSRAM), tasks, CPU, frame time, serial traffic, screen size |
+| System Monitor | RAM (internal and PSRAM), tasks, CPU and, on the ESP32-S3 and ESP32-C6, the chip's temperature, frame time, serial traffic, screen size |
 | Task Manager | open windows (switch to / end) and system tasks with CPU %, state, stack |
 | Log Viewer | the system log (root) |
 | Settings | theme (Dark by default, or Classic), ASCII mode, icons, sizes, desktop pattern (light shade by default), links to Network / Date & time / Software update |

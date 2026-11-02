@@ -52,6 +52,7 @@ typedef struct {
     uint32_t (*psram_total)(void);
     int (*task_count)(void);
     int (*cpu_mhz)(void);
+    bool (*chip_temp)(int *tenths_c);
     int (*tasks)(td_task_info_t *out, int max);
 
     bool (*time_now)(int64_t *utc);
@@ -91,6 +92,7 @@ typedef struct {
 | `psram_free`, `psram_total` | `MALLOC_CAP_SPIRAM` (0 on the C6, which has none) | not set |
 | `task_count` | `uxTaskGetNumberOfTasks()` | not set |
 | `cpu_mhz` | `CONFIG_ESP_DEFAULT_CPU_FREQ_MHZ` | not set |
+| `chip_temp` | the built-in temperature sensor (`temperature_sensor_*`), on the ESP32-S3 and ESP32-C6; not set on the classic ESP32, which has none | not set |
 | `tasks` | `uxTaskGetSystemState()`, only when FreeRTOS trace facility and run-time stats are enabled | not set |
 | `time_now` | `time()`, false before it is set | `time()` |
 | `time_set` | `settimeofday()` | not set |
@@ -173,6 +175,7 @@ not a licence notice: licence texts stay in the port's repository.
 | `psram_free`, `psram_total` | About, System Monitor, Task Manager | External RAM (PSRAM) on the heap. Leave `psram_total` `NULL` or return 0 when there is none. When `psram_total()` returns non-zero, `psram_free` must be set too: the apps call it without checking. |
 | `task_count` | System Monitor | Number of tasks or threads. |
 | `cpu_mhz` | System Monitor, Task Manager | CPU clock. |
+| `chip_temp` | System Monitor | The chip's own temperature (its die, not the room) in tenths of a degree Celsius; return false when it cannot be read. |
 | `tasks` | Task Manager | Fill up to `max` entries of `out` and return how many. See below. |
 
 With external RAM (`psram_total` non-zero), the three heap figures must cover internal RAM only. It is the scarce part (task stacks, DMA buffers, the SSH server's start check), and the apps show internal RAM and PSRAM separately.

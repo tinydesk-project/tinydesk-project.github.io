@@ -74,7 +74,7 @@ void weather_register(void) { td_app_register(&s_app); }
 | Network | `((` | `apps/network.c` | Wi-Fi and Ethernet status, Wi-Fi scan / connect / forget, the Telnet remote-desktop switch and the SSH/SFTP and FTP servers, through `td_sysinfo()->net`. |
 | MQTT | `MQ` | `apps/mqtt.c` | Connects to a broker, subscribes, publishes and lists messages; shares the connection with the `mqtt` shell command ([mqtt.md](mqtt.md)). |
 | Modbus | `MB` | `apps/modbus.c` | Reads and writes coils and registers over Modbus TCP or RTU, optionally repeated, and switches the Modbus TCP server ([modbus.md](modbus.md)). |
-| System Monitor | `▄█` | `apps/sysmon.c` | Live heap and PSRAM bars, task count, CPU clock, uptime and tinydesk's own frame and link statistics. |
+| System Monitor | `▄█` | `apps/sysmon.c` | Live heap and PSRAM bars, task count, CPU clock, the chip's temperature (where the port sets `chip_temp`), uptime and tinydesk's own frame and link statistics. |
 | Task Manager | `▐▌` | `apps/taskmgr.c` | Lists the open windows (switch to one, end it) and, where the port can list them, the system tasks with state, priority, core, CPU share and free stack. |
 | Log Viewer | `≡≡` | `apps/logview.c` | Shows the log ring buffer filled by `td_log_append()` with level colours. |
 | Settings | `☼ ` | `apps/settings.c` | Theme, ASCII / UTF-8 mode, desktop pattern and icons, icon / start menu / taskbar sizes; saved per user. |

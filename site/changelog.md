@@ -23,6 +23,11 @@ API may still change between minor versions.
   ten full-screen 100x30 pages; still 2000 on the ESP32-C6 and the 4 MB
   ESP32. `tdui.MAX_CELLS` tells a script the limit of the board it runs
   on.
+* **The chip's temperature in System Monitor:** on the ESP32-S3 and the
+  ESP32-C6, the CPU line also shows the chip's own temperature from its
+  built-in sensor (for example `Chip: 47.3 °C`). The classic ESP32 has no
+  such sensor. Ports provide it through the new optional `chip_temp` in
+  `td_sysinfo_t`.
 
 ## 0.2.0 (2026-10-31)
 
