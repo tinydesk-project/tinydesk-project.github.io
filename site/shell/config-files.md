@@ -176,7 +176,7 @@ typedef struct {
     uint8_t menu_size;
     uint8_t bar_size;
     uint8_t editor;
-    uint8_t reserved[1];
+    uint8_t win_size;
     uint8_t picture_detail;
     uint8_t reserved2[3];
 } settings_blob_t;
@@ -196,11 +196,11 @@ typedef struct {
 | 12 | 1 | `menu_size` | Start menu: same codes | medium |
 | 13 | 1 | `bar_size` | Taskbar: same codes | medium |
 | 14 | 1 | `editor` | Bit 0: the Editor's suggestions pop up while typing (Auto-complete) | |
-| 15 | 1 | `reserved` | Written as 0 | |
+| 15 | 1 | `win_size` | Window frames: `0` small, `1` medium, `2` large | small |
 | 16 | 1 | `picture_detail` | Pictures: `0` Normal (two pixels per cell), `1` Fine (four) | Normal |
 | 17 | 3 | `reserved2` | Written as 0 | |
 
-Older versions wrote only the first 8 bytes (magic to `hide_icons`). Any file of 8 bytes or more with the right magic is accepted: the missing fields of a shorter one read as 0, and bytes past the 20 that this version knows are ignored. In every newer field, 0 means the default: 24-hour clock, day-month-year dates, clock shown, medium icons, start menu and taskbar, and Normal pictures. In `hide_icons`, 0 (also in blobs saved before icons existed) means icons are shown.
+Older versions wrote only the first 8 bytes (magic to `hide_icons`). Any file of 8 bytes or more with the right magic is accepted: the missing fields of a shorter one read as 0, and bytes past the 20 that this version knows are ignored. In every newer field, 0 means the default: 24-hour clock, day-month-year dates, clock shown, medium icons, start menu and taskbar, small window frames, and Normal pictures. In `hide_icons`, 0 (also in blobs saved before icons existed) means icons are shown.
 
 ### Where the settings come from
 

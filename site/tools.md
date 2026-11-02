@@ -17,6 +17,7 @@ protocols. The C tools are built with the host build (`cmake --build build`).
 | `tools/serve_bin.py` | serve a firmware `.bin` over HTTP for OTA updates |
 | `tools/micropython/gen.sh` | regenerate the MicroPython sources in `third_party/micropython` |
 | `tools/make_ui_sheet.py` | the example sprite sheet of UI pieces for Python windows (`examples/python/ui_sheet.ppm`) |
+| `tools/make_kbd_layouts.py` | regenerate the USB keyboard layouts (`ports/esp_idf/app/usb_hid_layouts.h`) |
 | `ports/esp32c6/build.ps1` | build and flash the C6 with the right ESP-IDF on Windows |
 
 ## serial_bridge.py
@@ -77,7 +78,7 @@ Runs the complete host desktop (apps and TinyDesk Shell) against a simulated
 terminal and prints text screenshots. Actions: `size=COLSxROWS` (first
 only), `wait=MS`, `type=TEXT`, `key=NAME` (Enter Esc Tab BTab arrows Home
 End PgUp PgDn Del Bksp F1..F12 CtrlA..CtrlZ), `click=X,Y`, `rclick=X,Y`,
-`drag=X1,Y1,X2,Y2`, `move=X,Y`, `wheel=X,Y,up|down`, `shot`, `stats`, and
+`hold=X,Y,MS` (the left button held for MS milliseconds), `drag=X1,Y1,X2,Y2`, `move=X,Y`, `wheel=X,Y,up|down`, `shot`, `stats`, and
 `save=FILE`, which writes everything the desktop sent so far, for
 `vtshot FILE COLS ROWS --svg out.svg`.
 Screen rows in its output start one line down (the first line is a border).
@@ -200,3 +201,17 @@ Writes `examples/python/ui_sheet.ppm`, a 64 x 16 sprite sheet for
 button pressed, a panel and an LED, 16 x 16 pixels each on magenta, which
 scripts load as transparent (`key=(255, 0, 255)`). Change the pieces in the
 script to make your own look.
+
+## make_kbd_layouts.py
+
+```bash
+python tools/make_kbd_layouts.py
+```
+
+Writes `ports/esp_idf/app/usb_hid_layouts.h`, the keyboard layouts of the
+[USB keyboard](guide/using.md#usb-keyboard-and-mouse-esp32-s3) on the
+ESP32-S3: for each layout, the character of each of 54 keys (letters,
+digits, punctuation and the extra ISO key left of Z) without Shift, with
+Shift and with AltGr. Dead keys type their accent. To add a layout, add it
+to the script, run it, and add its code to `usb.kbd_layout` in
+[Board configuration](guide/board-config.md#usb-keyboard-and-mouse-esp32-s3).

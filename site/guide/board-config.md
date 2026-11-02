@@ -202,6 +202,38 @@ deletes all files on the board:
 `esptool.py --chip esp32 erase_region 0x620000 0x9E0000` (`--chip esp32s3`
 on the ESP32-S3, which has the same layout).
 
+### USB keyboard and mouse (ESP32-S3)
+
+Read by `ports/esp_idf/app/usb_hid.c` at start-up. Only the ESP32-S3
+port has these keys; see [Using the
+desktop](using.md#usb-keyboard-and-mouse-esp32-s3) for what to plug in.
+The Mouse and Keyboard apps change all but `usb.host`.
+
+| Key | Default | Meaning |
+| --- | --- | --- |
+| `usb.host` | 0 | 1: read a USB keyboard and mouse on the chip's own USB port (GPIO19/20). |
+| `usb.mouse_speed` | 100 | Pointer speed in percent (100: 8 mouse counts move one column, 16 one row). |
+| `usb.mouse_accel` | 100 | Acceleration in percent: at 100 fast moves go up to 4 times as far; 0 turns it off. |
+| `usb.mouse_precision` | 50 | Slow moves in percent: at 50 they go 0.7 times as far, at 100 0.4 times; 0 turns it off. |
+| `usb.kbd_layout` | `us` | Keyboard layout: `us`, `uk`, `de`, `fr` or `es`. |
+| `usb.kbd_delay` | 500 | Milliseconds before a held key repeats. |
+| `usb.kbd_rate` | 30 | Repeats a second. |
+
+```text
+# board set usb.host 1
+# reboot
+```
+
+### Kiosk mode
+
+Read by `ports/esp_idf/app/main.c` at start-up, on every board. See
+[Using the desktop](using.md#kiosk-mode).
+
+| Key | Default | Meaning |
+| --- | --- | --- |
+| `kiosk.app` | (none) | A Python `tdui` script (`.py` or `.mpy`, a shell path such as `/root/hmi.py`) that runs full screen instead of the desktop. Empty or missing: the normal desktop. |
+| `kiosk.maint_pin` | 0 (GPIO9 on the ESP32-C6): the BOOT button | The button that asks for a maintenance start: held low for 0.2 s within 1.5 s of the start, the board starts without kiosk mode this time. -1: no maintenance start. Only read when `kiosk.app` is set; the start then waits those 1.5 s. |
+
 ## Choosing pins
 
 | Chip | Avoid | Notes |
@@ -209,7 +241,7 @@ on the ESP32-S3, which has the same layout).
 | ESP32-C6 | GPIO12/13 (USB D-/D+, the desktop's port), GPIO24-30 (flash on most modules) | UART0 and UART1 are free for RS-485: the console is USB Serial/JTAG. GPIO4/5 are used by `hwtest uart` (LP UART loopback). |
 | ESP32-S3 | GPIO26-32 (flash), GPIO33-37 (octal PSRAM on R8 chips and modules), GPIO19/20 (USB D-/D+, the desktop's port), GPIO43/44 (UART0, the USB-UART chip on most boards) | Every UART is free for RS-485: the console is USB Serial/JTAG. Strapping pins (0, 3, 45, 46) need care at boot. For Ethernet, SPI2's IO MUX pins are MISO 13, MOSI 11, SCLK 12, CS 10 (`eth.spi_host = 1`). |
 | ESP32 | GPIO6-11 (flash), GPIO16/17 (PSRAM on WROVER modules), GPIO1/3 (UART0, the desktop) | Use UART1 and UART2 for RS-485. GPIO34-39 are inputs only: fine for `eth.int` or RX, not for TX, DE or CS. Strapping pins (0, 2, 5, 12, 15) need care at boot. |
-| ESP32-S3 | GPIO19/20 (USB), GPIO26-32 (flash), GPIO33-37 (Octal PSRAM on R8 modules), GPIO43/44 (UART0, the desktop) | Use UART1 and UART2 for RS-485. Strapping pins (0, 3, 45, 46) need care at boot. |
+| ESP32-S3 | GPIO19/20 (USB; taken by `usb.host = 1`), GPIO26-32 (flash), GPIO33-37 (Octal PSRAM on R8 modules), GPIO43/44 (UART0, the desktop) | Use UART1 and UART2 for RS-485. Strapping pins (0, 3, 45, 46) need care at boot. |
 
 The examples in `board.example.conf` are illustrations, not a tested
 product. Check them against your board's schematic.

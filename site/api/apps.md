@@ -64,6 +64,31 @@ static const td_app_t s_app = { "Weather", launch, "~ " };
 void weather_register(void) { td_app_register(&s_app); }
 ```
 
+## Kiosk mode
+
+```c
+void td_kiosk_start(void);
+bool td_kiosk_active(void);
+bool td_pyui_running(void);
+```
+
+`td_kiosk_start()` (called by `td_apps_register_all()`) does nothing unless
+the port set `td_sysinfo()->kiosk_app`. Then it turns on
+`td_wm_set_kiosk()`, puts a full-screen status window behind the app
+("Starting ...", or that the app is not running) and types `py <app>` into
+the Terminal's shell 1.5 s later. A 100 ms timer starts the app again 5 s
+after its `tdui` windows are gone (`td_pyui_running()` is false). Its hook
+asks for root's password (`td_sysinfo()->authenticate`) on a 5-second
+press on the top-right corner (4 x 2 cells), F10 three times within 2 s,
+or Ctrl+Alt+Delete, in a modal window with an on-screen keyboard (a
+keyboard types too; three wrong passwords pause it for 30 s). The right
+password turns kiosk mode off until the next restart; the app keeps
+running. `td_kiosk_active()` is true until then. The host desktop does not
+show its welcome box in kiosk mode.
+
+`td_pyui_running()` is true from a script's first `tdui` request until its
+windows are gone after it ends.
+
 ## Built-in apps
 
 | App | Glyph | Source | What it does |
@@ -77,7 +102,9 @@ void weather_register(void) { td_app_register(&s_app); }
 | System Monitor | `▄█` | `apps/sysmon.c` | Live heap and PSRAM bars, task count, CPU clock, the chip's temperature (where the port sets `chip_temp`), uptime and tinydesk's own frame and link statistics. |
 | Task Manager | `▐▌` | `apps/taskmgr.c` | Lists the open windows (switch to one, end it) and, where the port can list them, the system tasks with state, priority, core, CPU share and free stack. |
 | Log Viewer | `≡≡` | `apps/logview.c` | Shows the log ring buffer filled by `td_log_append()` with level colours. |
-| Settings | `☼ ` | `apps/settings.c` | Theme, ASCII / UTF-8 mode, desktop pattern and icons, icon / start menu / taskbar sizes, picture detail ([canvas](canvas.md#picture-detail)); saved per user. |
+| Settings | `☼ ` | `apps/settings.c` | Theme, ASCII / UTF-8 mode, desktop pattern and icons, icon / start menu / taskbar / window frame sizes, picture detail ([canvas](canvas.md#picture-detail)); saved per user. |
+| Mouse | `^ ` | `apps/mouse.c` | Only with `td_sysinfo()->mouse`: speed, acceleration and precision of a mouse the board reads itself, with targets to try them on; root only for changes. |
+| Keyboard | `Kb` | `apps/keyboard.c` | Only with `td_sysinfo()->keyboard`: layout, repeat delay and rate of a keyboard the board reads itself, with a text box to try them in; root only for changes. |
 | Software Update | `↑ ` | `apps/update.c` | Shows the installed firmware and installs a new one from a URL or a file, with progress and roll-back, through `td_sysinfo()->ota`. Only root may install. |
 | Counter | `+1` | `apps/counter.c` | The minimal example app: a label, two buttons, a checkbox and a one-second tick. |
 | Pixels | `▀▄` | `apps/pixels.c` | The [pixel canvas](canvas.md) demo: an animated plasma and the 256-colour palette (Space switches, P pauses), with pictures per second and the link's KB/s. Its canvas follows the window and is allocated while it is open. |
@@ -273,7 +300,7 @@ Installs functions that serialise access to the log buffer when several tasks wr
 
 ## Settings
 
-Each user's settings are stored in `~/.tinydesk_settings` (through `td_sysinfo()->fs`): theme, ASCII mode, desktop pattern, icons shown, clock format, date format, clock shown, the icon, start menu and taskbar sizes, and the picture detail. The file format is private to `apps/settings.c`. A user without that file gets the device defaults: the first 8 bytes of the blob loaded with `td_sysinfo()->settings_load` (theme, ASCII mode, pattern, icons; written by older versions), or the built-in defaults (Dark theme, light-shade pattern, icons shown).
+Each user's settings are stored in `~/.tinydesk_settings` (through `td_sysinfo()->fs`): theme, ASCII mode, desktop pattern, icons shown, clock format, date format, clock shown, the icon, start menu, taskbar and window frame sizes, and the picture detail. The file format is private to `apps/settings.c`. A user without that file gets the device defaults: the first 8 bytes of the blob loaded with `td_sysinfo()->settings_load` (theme, ASCII mode, pattern, icons; written by older versions), or the built-in defaults (Dark theme, light-shade pattern, icons shown).
 
 ### td_settings_apply_saved
 
@@ -281,7 +308,7 @@ Each user's settings are stored in `~/.tinydesk_settings` (through `td_sysinfo()
 void td_settings_apply_saved(void);
 ```
 
-Loads the current user's settings as described above and applies them: `td_theme_set()`, ASCII mode (with a full redraw if it changed), `td_desktop_set_pattern()`, `td_desktop_set_icons()`, the clock preferences, the three UI sizes and `td_canvas_set_detail()`. Called by `td_session_init()` and `td_session_switch()`.
+Loads the current user's settings as described above and applies them: `td_theme_set()`, ASCII mode (with a full redraw if it changed), `td_desktop_set_pattern()`, `td_desktop_set_icons()`, the clock preferences, the four UI sizes and `td_canvas_set_detail()`. Called by `td_session_init()` and `td_session_switch()`.
 
 ### td_settings_save
 

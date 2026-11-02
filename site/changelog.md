@@ -9,6 +9,44 @@ API may still change between minor versions.
 
 ## Unreleased
 
+* **USB keyboard and mouse on the ESP32-S3:** with `usb.host = 1` in the
+  [board configuration](guide/board-config.md#usb-keyboard-and-mouse-esp32-s3),
+  the board reads a keyboard and mouse set (one USB receiver; no hubs yet)
+  on the chip's own USB port, next to the terminal's keyboard and mouse.
+  The desktop draws a ▲ pointer for it, and the wheel works. The new
+  **Mouse** app sets the speed, acceleration and precision, and the
+  **Keyboard** app the layout (US, UK, German, French, Spanish) and key
+  repeat; both are only there with such a keyboard and mouse. Ports
+  provide them through the new optional `mouse` and `keyboard` in
+  `td_sysinfo_t`.
+* **Windows-key shortcuts:** from a USB keyboard on the board, the
+  Windows key opens the start menu, Win+arrows maximise, minimise and snap
+  windows to half the screen, Win+D shows the desktop, Win+E, Win+R and
+  Win+I open Files, the Terminal and Settings, and Alt+Shift+Tab goes to
+  the previous window. A PC terminal cannot send these keys, so they never
+  clash with the PC's own; F6 and the other keys are unchanged. The input
+  parser has a new modifier, `TD_MOD_SUPER`, and reads `ESC [ 27 ; m ; c ~`
+  and `ESC [ 1 ; m Z`.
+* **Window frame sizes:** Settings → Sizes → Windows makes the title bar
+  buttons and the resize corner wider (Medium) and the title bar two rows
+  high (Large), for the mouse on big screens; Small stays the default.
+  New `td_wm_set_window_size()`, `td_wm_window_size()` and
+  `td_wm_title_rows()`, plus `td_wm_screen_size()` and
+  `td_wm_set_pointer()`.
+* **Ctrl+wheel in the Editor** scrolls half a page instead of 3 lines.
+* **Kiosk mode:** with `kiosk.app` in the [board
+  configuration](guide/board-config.md#kiosk-mode), a board runs one
+  Python `tdui` app on the whole screen instead of the desktop, on every
+  board and over the serial link: no taskbar, Start menu, icons or window
+  keys, and the app starts again if it ends. Root's password leaves it
+  (asked after a 5-second hold on the top-right corner, F10 three times or
+  Ctrl+Alt+Delete); holding BOOT just after a reset starts the board
+  without it once. New `td_wm_set_kiosk()`, `kiosk_app` in `td_sysinfo_t`,
+  `td_kiosk_start()` and `td_pyui_running()`; `TINYDESK_KIOSK` in the PC
+  programs; `hold=` in tdsim.
+* **Sure clicks with a USB mouse:** a press holds the pointer on its cell
+  until the mouse has moved a whole cell, so a hand that nudges the mouse
+  while clicking no longer moves the release off the button.
 * **Pictures and pixels in Python windows (`tdui`):** a canvas has 2 x 2
   pixels to a cell under its text. One call draws a rectangle (with round
   corners), line, circle, dithered gradient, an image, part of one (a
