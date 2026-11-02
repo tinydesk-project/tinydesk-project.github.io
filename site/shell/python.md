@@ -417,6 +417,13 @@ def grow(win, width, height):
 w.on_resize = grow
 ```
 
+### Kiosk mode
+
+A `tdui` app can be the only thing on the screen: with `kiosk.app` in the
+board configuration the board starts it full screen at every start, with no
+desktop around it, and again if it ends. See [Kiosk
+mode](../guide/using.md#kiosk-mode).
+
 ### Fast screens
 
 Every `put()` and `fill()` is one message to the desktop, which draws what

@@ -48,13 +48,16 @@ and appears as the Terminal app; the desktop runs in the `tinydesk` task.
    (`td_py_register_shell_command`, with the same Ctrl+C check through
    `td_py_set_break_check`), `ota`.
 5. `td_mb_set_serial(board_rtu_lines())`.
-6. On the ESP32-S3, `usb_hid_start()` when `usb.host = 1`: the USB host
+6. Kiosk mode: with `kiosk.app` set, `board_maintenance_start()` (up to
+   1.5 s), then `kiosk_app` in `td_sysinfo_t` unless it was a maintenance
+   start.
+7. On the ESP32-S3, `usb_hid_start()` when `usb.host = 1`: the USB host
    and HID tasks, and `mouse` / `keyboard` in `td_sysinfo_t`. Their keys
    and mouse reports go into a small ring that `link_read()` reads after the
    UART.
-7. The `tinydesk` task: `hal_mux_init()`, `td_init()`, apps, Terminal
+8. The `tinydesk` task: `hal_mux_init()`, `td_init()`, apps, Terminal
    backend, `td_step()` loop (priority above the shell).
-8. A 30 s timer confirms a freshly installed firmware (OTA trial), and
+9. A 30 s timer confirms a freshly installed firmware (OTA trial), and
    `telnet_start()` opens port 23.
 
 ## Shared components
@@ -68,7 +71,14 @@ int link_write(const uint8_t *buf, int len);  /* bytes accepted */
 const char *board_platform(void);             /* "ESP32-C6 (USB Serial/JTAG)" */
 const char *board_hostname(void);             /* the shell's host name */
 const td_mb_serial_t *board_rtu_lines(void);  /* Modbus RTU lines, or NULL */
+bool board_maintenance_start(void);           /* start without kiosk mode this time */
 ```
+
+`board_maintenance_start()` is optional: `main.c` has a weak default that
+watches the BOOT button (board key `kiosk.maint_pin`; GPIO0, GPIO9 on the
+ESP32-C6) for 1.5 s and is true when it was held for 0.2 s. A port defines
+its own when it needs something else. It is only called when `kiosk.app`
+is set.
 
 A new ESP32-family board needs only these functions (or the existing
 `link_uart.c`), plus its `sdkconfig.defaults`, partitions and a project

@@ -224,6 +224,16 @@ The Mouse and Keyboard apps change all but `usb.host`.
 # reboot
 ```
 
+### Kiosk mode
+
+Read by `ports/esp_idf/app/main.c` at start-up, on every board. See
+[Using the desktop](using.md#kiosk-mode).
+
+| Key | Default | Meaning |
+| --- | --- | --- |
+| `kiosk.app` | (none) | A Python `tdui` script (`.py` or `.mpy`, a shell path such as `/root/hmi.py`) that runs full screen instead of the desktop. Empty or missing: the normal desktop. |
+| `kiosk.maint_pin` | 0 (GPIO9 on the ESP32-C6): the BOOT button | The button that asks for a maintenance start: held low for 0.2 s within 1.5 s of the start, the board starts without kiosk mode this time. -1: no maintenance start. Only read when `kiosk.app` is set; the start then waits those 1.5 s. |
+
 ## Choosing pins
 
 | Chip | Avoid | Notes |

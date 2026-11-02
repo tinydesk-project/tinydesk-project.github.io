@@ -124,6 +124,39 @@ and are saved in `/etc/board.conf` (root only):
   in those that use it), the repeat delay and rate, and a text box to try
   them in. Caps Lock and Num Lock work as on a PC.
 
+## Kiosk mode
+
+A board can run one [Python `tdui` app](../shell/python.md#windows-tdui)
+on the whole screen instead of the desktop, for a machine's operator panel:
+no taskbar, Start menu, desktop icons or window frames, and no keys that
+switch, close or resize windows (F6, F10, F11, Alt+Tab, Ctrl+Q, Alt+F4 and
+the Windows-key shortcuts do nothing). If the app ends or fails, it is
+started again after 5 seconds. It works on every board, over the serial
+link as well as on the CrowPanel's screen.
+
+```text
+# board set kiosk.app /root/hmi.py      # or a compiled .mpy
+# reboot
+```
+
+**The way out** asks for root's password and then leaves kiosk mode until
+the next restart (the app goes on running, in a normal window):
+
+* hold the mouse button (or a finger) on the **top-right corner** for 5
+  seconds;
+* or press **F10 three times** within 2 seconds;
+* or **Ctrl+Alt+Delete** on a keyboard plugged into the board (a PC keeps
+  that key for itself).
+
+The password window has keys to click or touch; a keyboard types into it
+too. After three wrong passwords it waits 30 seconds.
+
+**Maintenance start:** press RESET, let go, and within 1.5 seconds hold
+the **BOOT** button for a moment. The board then starts without kiosk mode,
+this time only (held through the reset, BOOT starts the chip's download
+mode instead). Turn kiosk mode off for good with `board unset kiosk.app`.
+See [Board configuration](board-config.md#kiosk-mode).
+
 ## Clipboard (copy and paste with the PC)
 
 * **PC to TinyDesk:** paste in the terminal as usual (PuTTY: Shift+Insert or

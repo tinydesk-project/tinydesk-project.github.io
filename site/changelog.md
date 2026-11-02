@@ -34,6 +34,19 @@ API may still change between minor versions.
   `td_wm_title_rows()`, plus `td_wm_screen_size()` and
   `td_wm_set_pointer()`.
 * **Ctrl+wheel in the Editor** scrolls half a page instead of 3 lines.
+* **Kiosk mode:** with `kiosk.app` in the [board
+  configuration](guide/board-config.md#kiosk-mode), a board runs one
+  Python `tdui` app on the whole screen instead of the desktop, on every
+  board and over the serial link: no taskbar, Start menu, icons or window
+  keys, and the app starts again if it ends. Root's password leaves it
+  (asked after a 5-second hold on the top-right corner, F10 three times or
+  Ctrl+Alt+Delete); holding BOOT just after a reset starts the board
+  without it once. New `td_wm_set_kiosk()`, `kiosk_app` in `td_sysinfo_t`,
+  `td_kiosk_start()` and `td_pyui_running()`; `TINYDESK_KIOSK` in the PC
+  programs; `hold=` in tdsim.
+* **Sure clicks with a USB mouse:** a press holds the pointer on its cell
+  until the mouse has moved a whole cell, so a hand that nudges the mouse
+  while clicking no longer moves the release off the button.
 * **Fast Python screens:** a `tdui` canvas can keep up to 16 pages on the
   desktop (`w.canvas(..., pages=n)`): a script draws into a hidden page
   with `draw_to()` and shows it whole with `show()`, so switching screens

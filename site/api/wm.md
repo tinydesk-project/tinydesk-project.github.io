@@ -408,6 +408,24 @@ The taskbar is the bottom row (two rows for the large size). From the left: `[St
 - The taskbar and the start menu stay usable while a modal dialog is open; windows opened from them are placed below the dialog.
 - The taskbar is hidden while a full-screen window is on top.
 
+### td_wm_set_kiosk
+
+```c
+void td_wm_set_kiosk(bool on, bool (*hook)(const td_event_t *ev));
+bool td_wm_kiosk(void);
+```
+
+Kiosk mode: one application on the whole screen. While it is on, there is
+no taskbar, Start menu, desktop icons or window menus; every window except
+a `TD_WIN_MODAL` dialog is full screen without a frame (also windows
+created later); and the keys that open the Start menu, switch, close or
+resize windows (F6, F10, F11, Alt+Tab, Ctrl+Q, Alt+F4, any key with
+`TD_MOD_SUPER`) go nowhere. Other keys go to the focused window; with no
+window focused they are dropped. `hook` (optional) sees every mouse and key
+event first and returns `true` to take it. Turning kiosk mode off gives
+the windows their frames back and shows minimised ones. `apps/kiosk.c`
+uses it (see [apps.md](apps.md#kiosk-mode)).
+
 ### td_wm_set_user_label
 
 ```c
@@ -630,6 +648,7 @@ The window manager looks at every key first. In this order:
 
 | Key | Action |
 |---|---|
+| any key in kiosk mode | First to the kiosk hook (`td_wm_set_kiosk()`); then the window keys below are dropped and the rest goes to the focused window. |
 | F10 (no modifiers) | Opens or closes the start menu, always, even in `TD_WIN_RAW_KEYS` windows. |
 | any key while a menu is open | Goes to the menu (Up, Down, Home, End, Enter, Esc, F10); nothing else sees it. |
 | F6 (no modifiers), Alt+Tab | Cycles the windows: the top window goes to the bottom. Alt+Shift+Tab goes the other way: the bottom visible window comes to the top. Does nothing while a modal dialog is open. |

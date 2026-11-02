@@ -76,7 +76,7 @@ Runs the complete host desktop (apps and TinyDesk Shell) against a simulated
 terminal and prints text screenshots. Actions: `size=COLSxROWS` (first
 only), `wait=MS`, `type=TEXT`, `key=NAME` (Enter Esc Tab BTab arrows Home
 End PgUp PgDn Del Bksp F1..F12 CtrlA..CtrlZ), `click=X,Y`, `rclick=X,Y`,
-`drag=X1,Y1,X2,Y2`, `move=X,Y`, `wheel=X,Y,up|down`, `shot`, `stats`, and
+`hold=X,Y,MS` (the left button held for MS milliseconds), `drag=X1,Y1,X2,Y2`, `move=X,Y`, `wheel=X,Y,up|down`, `shot`, `stats`, and
 `save=FILE`, which writes everything the desktop sent so far, for
 `vtshot FILE COLS ROWS --svg out.svg`.
 Screen rows in its output start one line down (the first line is a border).

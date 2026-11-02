@@ -25,6 +25,10 @@ loop, for callers that drive `td_step()` themselves (the simulator).
 simulated network and test accounts; the normal desktop build has neither
 (no Network app backend, and the desktop belongs to root).
 
+The environment variable `TINYDESK_KIOSK` starts the desktop in [kiosk
+mode](../guide/using.md#kiosk-mode) with that Python script, a path in the
+TinyDesk Shell file system (`TINYDESK_KIOSK=/root/hmi.py`).
+
 ## Helpers
 
 ```c

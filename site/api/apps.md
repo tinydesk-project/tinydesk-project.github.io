@@ -64,6 +64,31 @@ static const td_app_t s_app = { "Weather", launch, "~ " };
 void weather_register(void) { td_app_register(&s_app); }
 ```
 
+## Kiosk mode
+
+```c
+void td_kiosk_start(void);
+bool td_kiosk_active(void);
+bool td_pyui_running(void);
+```
+
+`td_kiosk_start()` (called by `td_apps_register_all()`) does nothing unless
+the port set `td_sysinfo()->kiosk_app`. Then it turns on
+`td_wm_set_kiosk()`, puts a full-screen status window behind the app
+("Starting ...", or that the app is not running) and types `py <app>` into
+the Terminal's shell 1.5 s later. A 100 ms timer starts the app again 5 s
+after its `tdui` windows are gone (`td_pyui_running()` is false). Its hook
+asks for root's password (`td_sysinfo()->authenticate`) on a 5-second
+press on the top-right corner (4 x 2 cells), F10 three times within 2 s,
+or Ctrl+Alt+Delete, in a modal window with an on-screen keyboard (a
+keyboard types too; three wrong passwords pause it for 30 s). The right
+password turns kiosk mode off until the next restart; the app keeps
+running. `td_kiosk_active()` is true until then. The host desktop does not
+show its welcome box in kiosk mode.
+
+`td_pyui_running()` is true from a script's first `tdui` request until its
+windows are gone after it ends.
+
 ## Built-in apps
 
 | App | Glyph | Source | What it does |

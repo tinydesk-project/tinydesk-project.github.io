@@ -79,6 +79,8 @@ typedef struct {
     const char *extra;
     const td_desktop_file_t *desktop_files;
 
+    const char *kiosk_app;              /* NULL or "": no kiosk mode */
+
     const td_mouse_ops_t *mouse;        /* NULL: no Mouse app */
     const td_keyboard_ops_t *keyboard;  /* NULL: no Keyboard app */
 } td_sysinfo_t;
@@ -108,6 +110,7 @@ typedef struct {
 | `fs` | `td_fs_stdio("/fs")`, TinyDesk Shell's LittleFS mount point | `td_fs_stdio("<cwd>/tinydesk_fs")` |
 | `extra` | `"Shell:     TinyDesk Shell <version>"` | the same with `TD_WITH_TDSH` |
 | `desktop_files` | not set | not set |
+| `kiosk_app` | board key `kiosk.app`, unless `board_maintenance_start()` | environment variable `TINYDESK_KIOSK` |
 | `mouse`, `keyboard` | the ESP32-S3 with `usb.host = 1` (`usb_hid.c`); not set elsewhere | not set |
 
 ### Identification
@@ -467,6 +470,13 @@ The ESP port reads `update-desktop-<board>.json` from the web installer's site (
 When `ota` is set, the first six members must be set; the app calls them without checking. The app only lets root start, cancel or roll back; everyone can look.
 
 Implementation: `ports/esp_idf/app/ota_esp.c` (`ota_esp_ops()`), shared with the `ota` shell command. An update is written to the slot that is not running, checked (image format, chip, SHA-256) and made the boot slot. HTTPS is checked against the ESP-IDF certificate bundle. The new version runs on trial after the restart until `ota_esp_boot_ok()` confirms it (30 s after start-up, or on a requested restart); a crash before that makes the bootloader go back. The hosts have no `ota`.
+
+### Kiosk mode
+
+`kiosk_app` is a Python script's shell path (`/root/hmi.py`, or a `.mpy`).
+When it is set, the desktop starts in [kiosk mode](apps.md#kiosk-mode) and
+runs it full screen. It must be set before `td_apps_register_all()` and stay
+valid.
 
 ### Mouse and keyboard
 
