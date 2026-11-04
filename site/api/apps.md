@@ -620,3 +620,25 @@ The desktop side of Python's [`tdui` module](../shell/python.md#windows-tdui) (`
 **Pixels.** A canvas has 2 x 2 pixels to a cell in a layer under its cells (`TD_PYUI_RECT`, `_LINE`, `_CIRCLE`, `_GRADIENT`, `_DRAW_IMAGE`, `_IMAGE_DATA` and `_PTEXT`, text in the 8 x 16 font of `td_pyui_glyph()` (`apps/pyui_font.c`, printable ASCII and Latin-1 from the Uni2-VGA16 console font, MIT) or the 3 x 5 one of `TD_PYUI_BIG`, draw into it or into an image). The layer is allocated by the first pixel drawn and counted against the pixel budget; a cell drawn in becomes a pixel cell, and `win_draw` turns its four pixels into a character with `td_canvas_quad_cell()` (Fine pictures) or an upper half block. `TD_PYUI_CLEAR` (-2) as a background lets text stand on the pixels. Images are decoded and converted on the script's task (`_tdui.image_load()`, through `td_image_load()` and `td_rgb256_dither()`), so the desktop's loop never waits for a file; the desktop frees any image still in the queue when a script ends.
 
 One script at a time uses them, as MicroPython runs one script at a time.
+
+**Atomic drawing.** `TD_PYUI_BATCH_BEGIN` and `TD_PYUI_BATCH_END` are
+session-wide markers, handled before looking up an object. A nesting count
+holds frames through queue refills and the 200-request tick budget. Input
+and timers continue. The outer begin starts a fixed 1000 ms deadline;
+timeout releases drawing and posts `TD_PYUI_EV_ERROR` once, while late end
+markers still balance the nesting count. Closing the script releases the
+hold. There is no command staging buffer or rollback copy.
+
+`TD_PYUI_BAR` draws a complete pixel meter: `a,b,c,d` are its rectangle,
+`e` is the filled fraction in thousandths (clamped to 0..1000), `f` is the
+corner radius. Exactly three payload bytes are fill, track and edge palette
+colours; flag 1 enables the top edge. Canvas rectangles aligned to even X
+and width paint column pairs so Normal pictures have symmetric ends.
+The request clips to the surface and removes overlapping Sixel pictures,
+as the other pixel drawing operations do.
+
+Keyed Python pictures retain their clipped canvas background before the
+Normal-picture fallback is painted. The storage is charged to
+`TD_PYUI_MAX_PIXELS`, reference-counted across page copies, and released
+with the picture. Mouse release is routed to the canvas that received the
+press, even when the pointer has left its rectangle.

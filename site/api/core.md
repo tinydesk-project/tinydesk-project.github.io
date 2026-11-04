@@ -9,6 +9,14 @@ Source: `src/td.c`
 
 ## Threading model
 
+`td_frame_hold(timeout_ms)` defers all composition and rendering, including
+resize/reconnect repaints, for at most the specified duration. Zero releases
+the hold. Call it only on the UI task. Input and timers continue, and the
+unsigned elapsed-time check handles clock wrap. `tdui` uses it for short
+drawing batches; its outer begin sets 1000 ms, nested begins do not renew
+it, and script cleanup releases it. It is a single desktop hold, not a
+per-window buffer, reference-counted lock or rollback transaction.
+
 The UI core is single-threaded. Every function on this page and on the [Screen](screen.md), [Input](input.md), [Window manager](wm.md) and [Widgets](widgets.md) pages uses static state without locks and must be called from the task that runs `td_step()` / `td_run()` (the "UI task"). Other tasks must hand data to the UI task through their own queue or buffer, polled from a timer or `on_tick` callback. The HAL callbacks are also only called from the UI task.
 
 ## Hardware abstraction layer

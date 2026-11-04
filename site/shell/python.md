@@ -483,6 +483,61 @@ and redrew the screen; with a page per screen and `big()` it takes
 
 ### Pictures and pixels
 
+**Atomic updates.** Use `with cv.batch():` (or `with tdui.batch():` after
+opening a window) for related drawing on visible pages. It holds desktop
+frames until the outer context ends, including nested contexts and queue
+refills. It covers the whole script's drawing, not just that canvas. Input,
+timers and queue processing continue; other windows' frames wait too.
+
+```python
+with cv.batch():
+    cv.bar(4, 12, 60, 4, temperature, maximum=1200,
+           color=40, track=237, edge=120, radius=1)
+    cv.put(2, 8, "%4d C" % temperature, 231, tdui.CLEAR)
+```
+
+Keep batches short: do not sleep, call `poll()`, load files or wait for
+input inside one. After **1000 ms from the outer begin**, the desktop
+releases the partial drawing and posts an error (raised by Python's next
+`poll()`); nesting does not extend that deadline. An exception exits the
+context and releases what was drawn. Script exit also releases it. This
+does not roll back changes or guarantee a terminal displays all transmitted
+bytes simultaneously; it prevents the desktop from sending an intermediate
+frame. Pages remain the best way to prepare a whole screen off-screen.
+The context is reused; it does not collect a Python list of commands or
+allocate a second screen buffer.
+
+**Bars in one request.** `cv.bar(x, y, w, h, value, maximum=100, color=40,
+track=237, edge=-1, radius=0)` uses **pixel** coordinates. It paints the
+track, fill and optional light top edge in one desktop request, including
+the old filled area when the value falls. `maximum` must be positive;
+values clamp to 0..maximum. Colours are 0..255; `edge=-1` disables the
+highlight. Rounded corners leave the surrounding background in place:
+paint that background once and keep the bar's rectangle fixed during
+animation. An even X and width give whole column pairs and symmetric ends
+in Normal pictures. On images, `img.bar(...)` uses individual pixels.
+The most recent three-byte style is cached on the canvas/image; changing
+only the value creates no new style or widget. The normal cell diff sends
+only the cells whose final appearance changed. A bar is a painted meter,
+not an input slider; handle `on_mouse` to change its value interactively.
+
+`CanvasButton.draw()` groups its shape, rim and label automatically. A
+button belongs to the page on which it was created: hidden-page buttons
+do not receive clicks, and updating one draws into its own page, restoring
+the canvas's previous draw page afterwards. Create buttons and images
+once, then update their values or text; do not create them in animation
+callbacks. Studio follows this rule in generated painters.
+
+The pixel budget includes **every page** of a canvas once it has pixels
+(`width * height * pages * 4` bytes), plus decoded images (`w * h` bytes,
+twice that with a transparent colour mask). Check `MAX_CELLS` and
+`MAX_PIXELS` before allocating a layout: 2000 cells and 16384 pixel bytes
+on C6/4 MB ESP32, 32000 cells and 2097152 pixel bytes with PSRAM. These
+are C drawing budgets, separate from the Python heap. An instrument-panel example
+chooses a single 80×24 page and omits its large skin at small budgets;
+the host checks do not establish whether the full application fits the
+default 64 KB Python heap on boards without PSRAM.
+
 A canvas also has pixels: **2 x 2 to a cell** (`cv.pwidth` x `cv.pheight`
 in all), in a layer under its cells. Pictures, shapes and panels are
 drawn by the desktop in C, so each of these is **one call**, however many
@@ -532,6 +587,26 @@ again (after a background was drawn over it), `button.enabled = False`
 ignores clicks, `button.remove()` forgets it. Every look is a few desktop
 calls, nothing per pixel.
 
+Optional `on_press`, `on_release`, and `on_cancel` keywords also take a
+`callback(button)`. Press runs after the down appearance is drawn. Release
+runs wherever the pointer is let go, including outside the canvas/window;
+then click runs if it is still over the enabled button on its shown page,
+otherwise cancel runs. Removing a held button also calls cancel. Updating
+its label during a press keeps its down appearance. Native `w.button`
+continues to expose `on_click`; use a canvas button for separate press and
+release actions. Use window timers for repeating work and `on_close` for
+application cleanup.
+
+For smooth UI skins, load with `dither=False`. Dithering intentionally
+spreads palette colors into dots; it is useful for photos but noisy on a
+button. `tools/make_ui_skin.py` now makes keyed corners without blending
+against a guessed background. Transparent pictures retain the canvas
+pixels beneath them, so their corners match the actual background even
+on Sixel displays. This saved background costs at most `4 * w * h` bytes
+per keyed picture (cell dimensions), within `MAX_PIXELS`. Copied pages
+share it; it is freed when the picture is removed. Palette gradients can
+still have visible color bands without dithering.
+
 ```python
 ok = cv.button(2, 10, 12, 3, "OK", lambda b: print("OK"),
                rim=tdui.rgb(170, 210, 255))                  # rounded, in colours
@@ -539,6 +614,38 @@ cv.button(16, 10, 12, 3, "Quit", lambda b: w.close(),
           sheet=sheet, src=(0, 0, 16, 16), src_down=(16, 0, 16, 16))
 cv.draw_text(4, 2, "21.5°C", tdui.rgb(255, 220, 0), scale=1)
 ```
+
+**Optional RGB565 colors (PSRAM firmware).** Check
+`tdui.SUPPORTS_RGB_PICTURES`, then call `tdui.enable_rgb_pictures()` before
+creating windows/images/fonts. Native images, gradients and transparent
+underlays retain RGB565 colors. CrowPanel renders them directly to its LCD;
+the App Builder helper uses native RGB frames. Sixel terminals use a
+per-picture palette (up to 256 source colors, then RGB332 fallback).
+This is opt-in: palette mode and smaller-target budgets remain unchanged.
+RGB mode adds two bytes per decoded image/coarse canvas/background pixel,
+plus a native backdrop picture per two canvas rows. Builder's RGB export setting
+includes these costs and checks the required firmware capability.
+
+**Optional rendered-artwork cache.** Updated PSRAM firmware automatically
+reuses lossless RGB565 artwork within a bounded arena and warms hidden
+pictures while idle. `tdui.render_cache(0)` disables it;
+`tdui.render_cache(128, warm=True)` requests up to 128 KiB plus its index.
+Allocation can be skipped when memory is low. `tdui.render_cache_info()`
+provides cache and native drawing counters. Existing page state remains
+retained, and changed pictures/source images invalidate cached output.
+App Builder 0.10 exposes Auto/Off/64/128 KiB in Export options.
+`tdui.scanout_info()` adds optional local RGB telemetry: VSYNCs, prepared
+frames, missed preparations, peak preparation gap in microseconds, submitted
+frames, pixel-clock Hz, interrupt CPU and bounce-buffer lines. Unsupported
+ports/runtimes return eight zeroes. These counters describe completed frame
+preparations rather than every individual DMA refill, and do not measure
+physical touch-to-LCD latency.
+`tdui.scanout_timing()` returns the last LCD submission timestamp in
+monotonic milliseconds, then last/peak/total LCD paint work in microseconds.
+Unsupported ports/runtimes return four zeroes. On CrowPanel, the timestamp
+shares the script's monotonic clock; mask to the `time.ticks_ms()` period
+before using `time.ticks_diff()`. It records driver submission, before the
+following physical scanout refresh.
 
 **Pictures at the screen's own resolution.** `cv.picture(img, x, y, w, h,
 src=None, border=0, text="", fg=231, scale=0)` puts an image (or its part
@@ -668,18 +775,3 @@ enough to start one. `heap` in the shell shows the free RAM;
 
 A script's frames use the shell task's stack; deep recursion ends with
 `RuntimeError: maximum recursion depth exceeded`, not a crash.
-
-## For developers
-
-The interpreter is in `third_party/micropython`, generated from the
-MicroPython release by `tools/micropython` (see its README), including
-`asyncio`'s Python part, compiled to bytecode and built into the firmware
-(`frozen/`). TinyDesk's port of it, including the configuration
-(`mpconfigport.h`), the frozen-module list (`manifest.py`), the file
-system, the `tinydesk` module and the `machine` module, is in
-`ports/common/python`; the chip side of `machine` (ESP-IDF's drivers, and
-the rules for which pins a script may use) is in its `hw/` folder. `tdui`
-is `modules/tdui.py` there, over the small C module `_tdui`; the desktop
-side, which makes the windows, is `apps/pyui.c`, and the messages between
-the two are in `apps/td_apps.h`. Builds can
-leave it out with `-DTD_WITH_PYTHON=OFF` (PC). See [Tools](../tools.md).

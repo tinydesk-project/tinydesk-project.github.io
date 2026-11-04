@@ -9,6 +9,40 @@ API may still change between minor versions.
 
 ## Unreleased
 
+* **Bounded artwork reuse:** RGB PSRAM apps reuse losslessly compressed
+  native artwork and warm hidden pictures while idle. App Builder 0.10
+  exposes Automatic/Off/64/128 KiB export choices. Existing RGB packages
+  benefit without re-exporting; allocation can be skipped when memory is low.
+* **CrowPanel scanout under load:** UI rendering and LCD painting now share
+  the RGB interrupt's CPU, avoiding simultaneous bulk pixel copies across
+  both CPUs. The tested 24 MHz clock and safe framebuffer handoff remain.
+  Optional `tdui.scanout_info()` distinguishes missed frame preparation from
+  image-allocation or UART failures; native cache statistics expose reuse
+  and drawing time independently.
+
+* **Clean button skins:** the sample UI skin loads without dithering, and its
+  keyed corners no longer bake in a fixed background. Sixel pictures keep
+  the original canvas background instead of sampling the already drawn
+  block fallback. These small background regions count against pixel
+  budgets and are shared by page copies.
+* **Button events in Studio:** canvas buttons support press, release,
+  click and cancel callbacks, including release outside the canvas.
+  Studio edits their Python bodies and starter actions directly, supports
+  optional normal/pressed sprite regions, and exports the event wiring.
+  See the new `button_events` example. CrowPanel's HMI also receives the
+  atomic drawing and bounded animation updates.
+
+* **Atomic Python drawing:** `with cv.batch():` / `tdui.batch()` prevents
+  intermediate frames across queued drawing calls, with nested groups and
+  a 1000 ms recovery deadline. `cv.bar()` repaints track, fill and highlight
+  in one request; instrument panels use it instead of erasing each bar first.
+  Canvas buttons draw atomically and belong to their creation page.
+* **TinyDesk Studio pixels:** drawing controls and exports for shapes,
+  gradients, pixel text, images, nine-slice panels, pictures, canvas buttons
+  and bars; cell/pixel budget checks include pages and image masks. Images
+  and buttons are created once and reused. The current API references and
+  export fixtures are refreshed; 80×24 is a screen preset.
+
 * **Pictures at the screen's own resolution:** a Python app's
   `canvas.picture()` (and buttons from a sprite sheet) are drawn by the
   terminal in real pixels, as Sixel graphics: smooth corners, gradients and
