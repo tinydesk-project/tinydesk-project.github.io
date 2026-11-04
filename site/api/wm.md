@@ -408,6 +408,19 @@ The taskbar is the bottom row (two rows for the large size). From the left: `[St
 - The taskbar and the start menu stay usable while a modal dialog is open; windows opened from them are placed below the dialog.
 - The taskbar is hidden while a full-screen window is on top.
 
+### td_wm_set_input_gate
+
+```c
+void td_wm_set_input_gate(bool locked, td_window_t *window);
+```
+
+The authentication gate. While `locked`, only `window` gets input and is
+composed; unlike a modal dialog it also blocks the taskbar, the Start
+menu and the global shortcuts. `window` may be `NULL` (the screen stays
+empty, as while a remembered login starts). `td_wm_set_input_gate(false,
+NULL)` lifts it. The Sign in window (`td_login_open()`, see
+[apps.md](apps.md#rights-and-sign-in)) uses it.
+
 ### td_wm_set_kiosk
 
 ```c

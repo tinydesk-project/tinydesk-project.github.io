@@ -62,7 +62,7 @@ name marked `#!`.
 * **Right-click → Run** (on the desktop or in Files) opens the Terminal and
   runs the script there: it types `tdsh run "<path>"` and Enter, after
   clearing whatever was half-typed at the prompt. The output stays in the
-  Terminal. A `.py` file has **Run** too, with `py "<path>"`.
+  Terminal. A `.py`, `.mpy` or `.tdapp` file has **Run** too, with `py "<path>"`.
 * In the Editor, **F5** saves the script and runs it with the output below
   the text (see [The Editor](#the-editor)).
 * Double-click (or **Open**) still opens the script in the Editor, so a
@@ -155,7 +155,8 @@ USB port (the board's second USB-C socket, marked "USB" rather than
 * The PC's keyboard and mouse keep working at the same time.
 
 Two apps appear on the desktop while `usb.host = 1`; changes apply at once
-and are saved in `/etc/board.conf` (root only):
+and are saved in `/etc/board.conf`. Changing them needs the System
+settings right (root has it; see [Accounts](first-login.md#accounts)):
 
 * **Mouse:** pointer speed, acceleration (fast moves go further) and
   precision (slow moves go less far, for aiming at small things), each with
@@ -175,9 +176,17 @@ started again after 5 seconds. It works on every board, over the serial
 link as well as on the CrowPanel's screen.
 
 ```text
-# board set kiosk.app /root/hmi.py      # or a compiled .mpy
+# board set kiosk.app /root/hmi.py      # or a compiled .mpy or a .tdapp
 # reboot
 ```
+
+The [Sign in](first-login.md#signing-in) window comes first; the app starts
+once an account with the Apps / Terminal right has signed in, or at once
+with a [remembered login](first-login.md#remembered-login). An account
+other than root cannot run an app under `/root`: put it in that account's
+home, or in `/shared`. Signing out stops the app. While the app starts, a
+status line or, with `kiosk.splash`, a picture fills the screen
+([Board configuration](board-config.md#kiosk-mode)).
 
 **The way out** asks for root's password and then leaves kiosk mode until
 the next restart (the app goes on running, in a normal window):
@@ -245,12 +254,21 @@ them (see [Files and settings](../shell/config-files.md#trash)).
 
 ## Users
 
+On the boards the desktop starts behind a full-screen **Sign in** window:
+choose an account and type its password (**Keyboard** shows touch keys).
+After 5 wrong passwords it waits 10 seconds before each try. Root can
+turn on a remembered login so the board starts without it. See [First
+login and users](first-login.md#signing-in).
+
 The desktop belongs to one TinyDesk Shell user at a time: their home, Desktop
 folder, settings, saved Wi-Fi networks and shell. It changes on a Telnet
-login, **Start → Switch user...**, or `login` / `logout` in the Terminal; a
-change closes the previous user's windows. Root can use everything; other
-users are limited to their home and cannot read the system log, reboot or
-set the system clock. Details: [Apps API](../api/apps.md#sessions).
+login, **Start → Switch user...**, **Start → Sign out**, or `login` /
+`logout` in the Terminal; a change closes the previous user's windows.
+Root can use everything. Other accounts are an Admin or a User with
+rights (Network, Clock, Apps / Terminal...) and stay in their home; they
+cannot read the system log or install firmware. The **Users** app makes
+and changes accounts ([Accounts](first-login.md#accounts)). Details:
+[Apps API](../api/apps.md#sessions).
 
 ## The Editor
 
@@ -312,7 +330,7 @@ not); **Stop** in the menu and Ctrl+C in the pane work everywhere.
 | App | What it does |
 | --- | --- |
 | Terminal | TinyDesk Shell in a window; the session survives closing the window |
-| Files | browse, create, rename, delete, drag and drop, run `.tdsh` and `.py` scripts (jailed to the home for non-root users) |
+| Files | browse, create, rename, delete, drag and drop, run `.tdsh` scripts and Python files (`.py`, `.mpy`, `.tdapp`) (jailed to the home for non-root users) |
 | Editor | text editor with selection, undo/redo, clipboard, paste from the PC, find and replace, go to a line; for Python, colours, line numbers, run with F5 and output below, the error line, suggestions (see [The Editor](#the-editor)) |
 | Network | Wi-Fi scan/connect/forget, Ethernet status, SSH/FTP servers, Telnet switch |
 | MQTT | connect (config file or URL, TLS), subscribe, publish, message log |
@@ -321,8 +339,11 @@ not); **Stop** in the menu and Ctrl+C in the pane work everywhere.
 | Task Manager | open windows (switch to / end) and system tasks with CPU %, state, stack |
 | Log Viewer | the system log (root) |
 | Settings | theme (Dark by default, or Classic), ASCII mode, icons, sizes, picture detail, desktop pattern (light shade by default), links to Network / Date & time / Software update |
+| Users | accounts: new account, role (Admin or User) and rights, change password, remembered login (root); others see only their own account ([Accounts](first-login.md#accounts)) |
+| Recycle Bin | what was deleted on the desktop and in Files: restore, delete for good, empty, size and time limits ([above](#recycle-bin)) |
+| Mouse, Keyboard | only with a USB keyboard and mouse on the board: pointer speed, keyboard layout and repeat; changes need the System settings right ([above](#usb-keyboard-and-mouse-esp32-s3)) |
 | Software Update | check for official updates (and, with *notify me*, daily, with a notice when one is out), install firmware from a URL or file, roll back (root); offers to save pins that only the running firmware has before it installs |
-| Date & time | from the taskbar clock: clock, time zone, SNTP |
+| Date & time | from the taskbar clock: clock, time zone, SNTP; setting the clock and automatic time needs the Clock right |
 | Counter, About | demo app; version, chip, heap, uptime and public source repository URLs |
 | Pixels | the [pixel canvas](../api/canvas.md) demo: an animated plasma and the palette, with pictures per second; Space switches, P pauses |
 | Image Viewer | BMP, PPM and PGM pictures, scaled to fit the window ([below](#pictures-bmp-ppm-pgm)) |

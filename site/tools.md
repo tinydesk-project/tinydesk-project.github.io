@@ -10,6 +10,7 @@ protocols. The C tools are built with the host build (`cmake --build build`).
 | `tools/serial_probe.py` | send keys/clicks to a board over its serial port and capture the output |
 | `build/vtshot` (`tools/vtshot.c`) | render a capture as a text screenshot or an SVG picture |
 | `build/tdsim` (`tools/tdsim.c`) | run the whole host desktop against a simulated terminal |
+| `build/tdsim_lcd` (`tools/tdsim.c`, `tools/sim_lcd.c`) | the same, drawn by the CrowPanel's LCD code, with LCD screenshots |
 | `tools/rtu_slave.py` | a Modbus RTU slave on PC serial ports (USB-RS485 adapters) |
 | `build/lfs_migrate` (`tools/lfs_migrate.c`) | copy a LittleFS image into an image of another size |
 | `tools/make_release.py` | package a release: factory images, web installer manifests, PC programs, checksums |
@@ -18,6 +19,7 @@ protocols. The C tools are built with the host build (`cmake --build build`).
 | `tools/micropython/gen.sh` | regenerate the MicroPython sources in `third_party/micropython` |
 | `tools/make_ui_sheet.py` | the example sprite sheet of UI pieces for Python windows (`examples/python/ui_sheet.ppm`) |
 | `tools/make_ui_skin.py` | the example skin of smooth buttons, tabs and panels for pictures (`examples/python/ui_skin.ppm`) |
+| `tools/make_lcd_font.py` | the CrowPanel's 8 x 16 LCD font (`lcd.font` 16) from the console font Uni2-VGA16 |
 | `tools/make_lcd_font_big.py` | the CrowPanel's larger LCD fonts (`lcd.font` 20, 24, 32) from Terminus Font |
 | `tools/check_tdui_contract.py` | check `ports/common/python/tdui_contract.json` against the C and Python code (run by ctest) |
 | `tools/make_kbd_layouts.py` | regenerate the USB keyboard layouts (`ports/esp_idf/app/usb_hid_layouts.h`) |
@@ -87,6 +89,20 @@ End PgUp PgDn Del Bksp F1..F12 CtrlA..CtrlZ), `click=X,Y`, `rclick=X,Y`,
 Screen rows in its output start one line down (the first line is a border).
 Settings it changes are saved in `build/tinydesk_fs/root/.tinydesk_settings`.
 A bracketed paste can be simulated with `type="\e[200~text\e[201~"`.
+
+### tdsim_lcd
+
+```bash
+build/tdsim_lcd size=80x24 wait=800 lcdshot=lcd.ppm
+```
+
+`tdsim_lcd` is `tdsim` with the CrowPanel's display code
+(`ports/crowpanel7/main/display.c`, through `tools/sim_lcd.c`) behind it:
+the desktop's output is painted into a simulated 800 x 480 frame buffer
+with the 10 x 20 font (`lcd.font = 20`, 80x24 cells), pictures included.
+Only the LCD peripheral and the RTOS are simulated. It takes the same
+actions, plus `lcdshot=PATH`, which saves the LCD as a P6 (PPM) picture.
+It is built with the tests (`TD_BUILD_TESTS`, on by default).
 
 ## make_release.py
 
@@ -231,6 +247,17 @@ pressed, a tab, the active tab, a panel and red, green and grey buttons,
 with gradients, a rim and a lit top edge. They are drawn four times larger
 and averaged, so the round corners are smooth; outside them is magenta,
 loaded as transparent. Draw them with a nine-slice border of 16.
+
+## make_lcd_font.py
+
+```bash
+python tools/make_lcd_font.py Uni2-VGA16.psf.gz > ports/crowpanel7/main/font8x16.c
+```
+
+Makes the CrowPanel's default 8 x 16 LCD font from the Linux console font
+Uni2-VGA16 (console-setup, `/usr/share/consolefonts`; MIT licence), and
+draws the few characters TinyDesk uses that it lacks (half blocks, the
+dark shade, the left and right pointers, the sun).
 
 ## make_lcd_font_big.py
 

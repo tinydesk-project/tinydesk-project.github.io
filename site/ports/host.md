@@ -28,6 +28,11 @@ simulated network and test accounts; the normal desktop build has neither
 The environment variable `TINYDESK_KIOSK` starts the desktop in [kiosk
 mode](../guide/using.md#kiosk-mode) with that Python script, a path in the
 TinyDesk Shell file system (`TINYDESK_KIOSK=/root/hmi.py`).
+`TINYDESK_KIOSK_SPLASH` names a picture shown while the app starts, as
+the board key `kiosk.splash` does, and `TINYDESK_KIOSK_HIDE_STATUS` (set
+to anything) hides the status line, as `kiosk.status = 0` does
+([Board configuration](../guide/board-config.md#kiosk-mode)). The normal
+desktop build has no accounts, so there is no Sign in before the app.
 
 ## Helpers
 

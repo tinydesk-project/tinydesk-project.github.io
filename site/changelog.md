@@ -9,6 +9,56 @@ API may still change between minor versions.
 
 ## Unreleased
 
+* **CrowPanel 7.0 port:** `ports/crowpanel7` runs the desktop on the
+  Elecrow CrowPanel 7.0 (ESP32-S3-WROOM-1-N4R8, 7" 800x480 LCD, GT911
+  touch). The touch screen is the mouse (a long press is the right
+  button), UART0 is the keyboard and also shows the picture
+  (`lcd.mirror`), `lcd.font` picks 100x30, 80x24, 66x20 or 50x15 cells,
+  and `console.uart = -1` leaves UART0 to a kiosk app. 4 MB flash, one
+  app, no OTA; build it from source. See [ESP-IDF
+  ports](ports/esp.md#crowpanel-70) and [Board
+  configuration](guide/board-config.md#crowpanel-70).
+* **Sign in, roles and rights:** the boards start behind a full-screen
+  Sign in window (account list, password, touch keys; 10 seconds' wait
+  after 5 wrong passwords) and the Start menu has **Sign out**. Accounts
+  other than root are Admin or User with seven rights (Manage accounts,
+  System settings, Network, Hardware / I/O, Shared files, Clock, Apps /
+  Terminal); Admins grant only what they hold and never reach `/root` or
+  other homes. The new **Users** app and the shell's `useradd NAME
+  admin|user`, `userrole` and `userrights` manage them; `/shared` is a
+  folder for accounts with Shared files. A changed password ends the
+  account's open sessions. See [First login and
+  users](guide/first-login.md).
+* **Remembered login:** root can let the board start as one account
+  without Sign in: the **Remember root on this device** box, the Users
+  app or `bootuser NAME`. It starts only after that account signed in
+  once with its password and ends with a password change;
+  `bootuser --require-password` turns it off. New `td_user_ops_t`,
+  `td_session_has_right()`, `td_session_lock()`, `td_login_open()` and
+  `td_wm_set_input_gate()`.
+* **Kiosk artwork:** `kiosk.splash` shows a picture while the kiosk app
+  starts and `kiosk.status = 0` hides the status line
+  (`TINYDESK_KIOSK_SPLASH` and `TINYDESK_KIOSK_HIDE_STATUS` in the PC
+  programs; `kiosk_splash` and `kiosk_hide_status` in `td_sysinfo_t`).
+  The kiosk app starts after Sign in.
+* **Fonts in Python windows:** `tdui.Font.load()` loads a generated
+  `.tdfont` bitmap font and `cv.font_text()` draws text in it at the
+  screen's own pixels, aligned and wrapped in a box of cells; buttons and
+  pictures take `font=`. New `td_font.h`. See [Python
+  scripts](shell/python.md#fonts).
+* **Gradient fills:** `rect()`, `circle()`, `bar()` and `cv.button()` take
+  `gradient=` (two RGB colours, down or across); `tdui.SUPPORTS_GRADIENT_FILLS`.
+* **RGB pictures:** on boards with PSRAM and on the PC,
+  `tdui.enable_rgb_pictures()` keeps images, gradients and pictures in
+  RGB565 instead of the 256 colours; the CrowPanel draws them directly.
+  `tdui.SUPPORTS_RGB_PICTURES`, `MAX_PICTURES`, `MAX_VISIBLE_PICTURES`
+  and `graphics_info()`; in C `td_picture_add_rgb()`, the picture sinks
+  and `td_picture_stats()`.
+* **App packages:** `py FILE.tdapp` and **Run** in Files and on the
+  desktop start a `.tdapp` package made with TinyDesk App Builder; it
+  checks `tdui.API` and `tdui.CAPABILITIES`, verifies its files and
+  unpacks them into a `.tdapp-<hash>` folder beside it. See [Python
+  scripts](shell/python.md#app-packages-tdapp).
 * **tdui version:** `tdui.API` (`(1, 0)`) and `tdui.CAPABILITIES` tell
   scripts and app packages which tdui contract the firmware has, and
   `ports/common/python/tdui_contract.json` writes it down (request,
@@ -31,12 +81,11 @@ API may still change between minor versions.
   the original canvas background instead of sampling the already drawn
   block fallback. These small background regions count against pixel
   budgets and are shared by page copies.
-* **Button events in Studio:** canvas buttons support press, release,
-  click and cancel callbacks, including release outside the canvas.
-  Studio edits their Python bodies and starter actions directly, supports
-  optional normal/pressed sprite regions, and exports the event wiring.
-  See the new `button_events` example. CrowPanel's HMI also receives the
-  atomic drawing and bounded animation updates.
+* **Button events in TinyDesk App Builder:** canvas buttons support press,
+  release, click and cancel callbacks, including release outside the
+  canvas. TinyDesk App Builder edits their Python bodies and starter
+  actions directly, supports optional normal/pressed sprite regions, and
+  exports the event wiring.
 
 * **Atomic Python drawing:** `with cv.batch():` / `tdui.batch()` prevents
   intermediate frames across queued drawing calls, with nested groups and

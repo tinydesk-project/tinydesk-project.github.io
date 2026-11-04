@@ -26,6 +26,7 @@ in two editions:
 | ESP32 with PSRAM and 16 MB flash (e.g. ESP32-WROVER-IE N16R8) | web installer or esptool; USB-UART at 921600 baud, screens up to 256x96 | web installer or esptool; USB-UART at 115200 baud |
 | ESP32 with 4 MB flash, no PSRAM (e.g. ESP32-WROOM-32 DevKitC) | web installer or esptool; 921600 baud; screen at most 80x25, no OTA updates, no SSH server | the same firmware as above; SSH works |
 | ESP32-S3 (the board's UART port) | 16 MB flash and 8 MB Octal PSRAM (e.g. ESP32-S3-DevKitC-1 N16R8): web installer or esptool; USB-UART at 921600 baud, screens up to 256x96 | any ESP32-S3 with 4 MB flash or more (Octal PSRAM used when present): web installer or esptool; USB-UART at 115200 baud |
+| Elecrow CrowPanel 7.0 (ESP32-S3, 4 MB flash, 8 MB PSRAM, 7" touch LCD) | no release image: build `ports/crowpanel7` from source ([ESP-IDF ports](../ports/esp.md#crowpanel-70)); the desktop on its LCD, keyboard on UART0 at 921600 baud | not built for it |
 | Linux x86_64 | `tinydesk-desktop-linux-x86_64.tar.gz` | `tinydesk-shell-linux-x86_64.tar.gz` |
 | Windows x64 | `tinydesk-desktop-windows-x64.zip` (run it in Windows Terminal) | `tinydesk-shell-windows-x64.zip` (`tdsh.exe`, run it in Windows Terminal) |
 | macOS, other CPUs, other systems | build from source ([Getting started](getting-started.md)) | build from source (`cmake -DTDSH_BUILD_HOST=ON`) |
@@ -121,6 +122,7 @@ shell program in `~/.local/share/tdsh/rootfs`, apart from your real home.
 | --- | --- | --- |
 | Desktop on the ESP32-C6, the ESP32 with PSRAM or the ESP32-S3 | **Software Update** on the board, or `ota install <url>` ([Shell commands](../shell/commands.md#ota)) | everything: users, networks, files, settings |
 | Desktop on the 4 MB ESP32 (no OTA) | flash the new release: the web installer *without* **Erase device**, or esptool as above | files in `/fs`; users, Wi-Fi networks and the root password start fresh |
+| Desktop on the CrowPanel 7.0 (no OTA) | build and flash the new version (`idf.py flash`) | NVS and files, as long as the flash is not erased |
 | TinyDesk Shell (any board) | flash the new release the same way | files in `/fs` |
 | Windows, Linux | unpack the new archive and start the new program | the desktop's files in `tinydesk_fs` (next to where you start it), the shell's in your profile |
 

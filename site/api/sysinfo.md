@@ -70,6 +70,7 @@ typedef struct {
 
     bool (*user_exists)(const char *user);
     bool (*authenticate)(const char *user, const char *password);
+    const td_user_ops_t *users;        /* NULL: no roles, rights or Sign in list */
 
     bool (*settings_load)(void *data, int len);
     bool (*settings_save)(const void *data, int len);
@@ -80,6 +81,8 @@ typedef struct {
     const td_desktop_file_t *desktop_files;
 
     const char *kiosk_app;              /* NULL or "": no kiosk mode */
+    const char *kiosk_splash;           /* picture while the app starts, or NULL */
+    bool kiosk_hide_status;             /* no status line behind the app */
 
     const td_mouse_ops_t *mouse;        /* NULL: no Mouse app */
     const td_keyboard_ops_t *keyboard;  /* NULL: no Keyboard app */
@@ -106,11 +109,13 @@ typedef struct {
 | `net` | `net_esp_ops()` (`net_esp.c`) | only through `td_host_use_net()` (the `tools/tdsim.c` simulator uses a fake one) |
 | `ota` | `ota_esp_ops()` (`ota_esp.c`) | not set |
 | `user_exists`, `authenticate` | TinyDesk Shell's user database | only through `td_host_use_users()` (tdsim test accounts) |
+| `users` | TinyDesk Shell's accounts, roles and remembered login (`main.c`) | not set |
 | `settings_load`, `settings_save` | NVS namespace `"tinydesk"`, key `"settings"` | file `tinydesk_settings.bin` in the working directory |
 | `fs` | `td_fs_stdio("/fs")`, TinyDesk Shell's LittleFS mount point | `td_fs_stdio("<cwd>/tinydesk_fs")` |
 | `extra` | `"Shell:     TinyDesk Shell <version>"` | the same with `TD_WITH_TDSH` |
 | `desktop_files` | not set | not set |
 | `kiosk_app` | board key `kiosk.app`, unless `board_maintenance_start()` | environment variable `TINYDESK_KIOSK` |
+| `kiosk_splash`, `kiosk_hide_status` | board keys `kiosk.splash` and `kiosk.status = 0`, with `kiosk_app` | `TINYDESK_KIOSK_SPLASH`, `TINYDESK_KIOSK_HIDE_STATUS` set |
 | `mouse`, `keyboard` | the ESP32-S3 with `usb.host = 1` (`usb_hid.c`); not set elsewhere | not set |
 
 ### Identification
@@ -230,9 +235,51 @@ The time zone is per user (`td_session_user()` and `td_session_home()` from [app
 | Member | Meaning |
 |---|---|
 | `user_exists` | True if a user with that name exists. Asked by Start > Switch user... before the password prompt. |
-| `authenticate` | True if the password is right for that user. When set, the session code adds "Switch user..." to the start menu at start-up. |
+| `authenticate` | True if the password is right for that user. When set, the desktop starts behind the Sign in window, and the session code adds "Switch user..." and "Sign out" to the start menu. |
+| `users` | Optional: accounts with roles and rights, for the Sign in list, the Users app, rights checks and remembered login. |
 
 Without them the desktop always belongs to root (unless the terminal backend reports another shell user).
+
+```c
+#define TD_USER_ROLE_USER 0
+#define TD_USER_ROLE_ADMIN 1
+#define TD_USER_ROLE_ROOT 2
+#define TD_RIGHT_USERS    (1u<<0)   /* Manage accounts (with the Admin role) */
+#define TD_RIGHT_SYSTEM   (1u<<1)   /* System settings */
+#define TD_RIGHT_NETWORK  (1u<<2)
+#define TD_RIGHT_HARDWARE (1u<<3)   /* Hardware / I/O */
+#define TD_RIGHT_SHARED   (1u<<4)   /* the /shared folder */
+#define TD_RIGHT_TIME     (1u<<5)   /* Clock */
+#define TD_RIGHT_APPS     (1u<<6)   /* Apps / Terminal */
+#define TD_RIGHT_ALL      127u
+
+typedef struct {char name[32];int role;uint32_t rights;} td_user_info_t;
+typedef struct {
+    int (*list)(int index,td_user_info_t *out);
+    int (*role)(const char *username);
+    uint32_t (*rights)(const char *username);
+    uint32_t (*generation)(const char *username);
+    int (*create)(const char *actor,const char *name,const char *password,int role,uint32_t rights);
+    int (*access_set)(const char *actor,const char *name,int role,uint32_t rights);
+    int (*password_set)(const char *actor,const char *name,const char *old_password,const char *password);
+    uint32_t (*remembered)(char *name,int cap);
+    bool (*remember_allowed)(const char *name);
+    uint32_t (*login)(const char *name,const char *password);
+    int (*boot_user_set)(const char *actor,const char *name);
+    int (*require_password)(const char *actor);
+} td_user_ops_t;
+```
+
+`list` fills the account at `index` (0 on success, otherwise past the
+last). `generation` is a number that changes when the account's password
+is replaced or the account is made again; the desktop locks a session
+whose generation changed. `login` checks a password and returns the
+account's generation (0: wrong), and records the proof for a remembered
+login. `remembered` returns the generation of the remembered account (and
+its name), or 0. `create`, `access_set`, `password_set`, `boot_user_set`
+and `require_password` act as the account `actor` and return 0 or a
+negative `errno` value (`-EACCES` when that account may not). The ESP
+ports implement it with TinyDesk Shell's account store.
 
 ### Settings storage
 
@@ -261,7 +308,14 @@ typedef struct {
     int (*write)(const char *path, const char *data, int len);
     int (*rename)(const char *from, const char *to);
     int (*exists)(const char *path);
+    int (*read_at)(const char *path, uint32_t offset, char *buf, int cap);
 } td_fs_ops_t;
+
+#define TD_FS_READ 0     /* actions for a path guard */
+#define TD_FS_WRITE 1
+#define TD_FS_LIST 2
+#define TD_FS_EXISTS 3
+#define TD_FS_REMOVE 4
 ```
 
 Minimal file access for Files, the Editor, the Desktop folder, per-user settings and the MQTT app's saved configuration. Paths are real paths: `root` followed by the path the shell sees (`"/fs" + "/root/Desktop/a.txt"`). Paths passed in are at most about 160 bytes.
@@ -276,6 +330,7 @@ Minimal file access for Files, the Editor, the Desktop folder, per-user settings
 | `remove` | yes | Delete a file, or a folder with everything in it. Return 0 on success. |
 | `rename` | yes | Rename or move a file or folder. Return 0 on success. Should fail rather than overwrite an existing target. |
 | `exists` | no | Return 1 if the path exists, else 0. Used to refuse names that are taken; without it, `rename` and `write` decide. |
+| `read_at` | no | Read up to `cap` bytes starting `offset` bytes into the file; return the byte count (0 at the end) or -1. The Image Viewer reads large files with it. |
 
 The apps check `fs` and a few members (Files checks `list`, the Editor `read` and `write`), but Files and the Desktop menus then call `write`, `mkdir`, `remove` and `rename` without checking, so implement all members except `exists`. All calls are made on the UI task and should finish in milliseconds; a flash filesystem is fine.
 
@@ -287,7 +342,7 @@ Every port uses the same implementation on top of the C library and `<dirent.h>`
 const td_fs_ops_t *td_fs_stdio(const char *root);
 ```
 
-Declared in `ports/common/td_fs_stdio.h`. Returns a static table (one per program; a second call replaces the root). `root` is copied into a 128-byte buffer, so longer paths are cut. Behaviour: `remove` deletes folders recursively up to 8 levels deep; `rename` refuses to overwrite an existing target; `write` writes the whole file in one `fopen("wb")`; `mkdir` uses mode 0755 (`_mkdir` on Windows); entries whose `stat()` fails are listed as files of size 0.
+Declared in `ports/common/td_fs_stdio.h`. Returns a static table (one per program; a second call replaces the root). `root` is copied into a 128-byte buffer, so longer paths are cut. `td_fs_stdio_guard(allow)` installs a check that every call passes through: `allow(path, action)` with a `TD_FS_*` action, false refuses it. The ports install `td_session_path_allowed()` ([apps.md](apps.md#rights-and-sign-in)), so the apps cannot reach paths the desktop's account may not. Behaviour: `remove` deletes folders recursively up to 8 levels deep; `rename` refuses to overwrite an existing target; `write` writes the whole file in one `fopen("wb")`; `mkdir` uses mode 0755 (`_mkdir` on Windows); entries whose `stat()` fails are listed as files of size 0.
 
 ## Network
 
@@ -476,7 +531,11 @@ Implementation: `ports/esp_idf/app/ota_esp.c` (`ota_esp_ops()`), shared with the
 `kiosk_app` is a Python script's shell path (`/root/hmi.py`, or a `.mpy`).
 When it is set, the desktop starts in [kiosk mode](apps.md#kiosk-mode) and
 runs it full screen. It must be set before `td_apps_register_all()` and stay
-valid.
+valid. `kiosk_splash` is a picture's shell path (BMP, PPM or PGM, up to
+800 x 480 pixels) shown while the app starts; `kiosk_hide_status` leaves
+the screen black instead of showing the status line. The app starts after
+Sign in, for an account with `TD_RIGHT_APPS`, and not for a non-root
+account when the path is under `/root`.
 
 ### Mouse and keyboard
 

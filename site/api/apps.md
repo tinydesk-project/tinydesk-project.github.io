@@ -132,14 +132,15 @@ int td_trash_next_size(int code);
 | Task Manager | `▐▌` | `apps/taskmgr.c` | Lists the open windows (switch to one, end it) and, where the port can list them, the system tasks with state, priority, core, CPU share and free stack. |
 | Log Viewer | `≡≡` | `apps/logview.c` | Shows the log ring buffer filled by `td_log_append()` with level colours. |
 | Settings | `☼ ` | `apps/settings.c` | Theme, ASCII / UTF-8 mode, desktop pattern and icons, icon / start menu / taskbar / window frame sizes, picture detail ([canvas](canvas.md#picture-detail)); saved per user. |
-| Mouse | `^ ` | `apps/mouse.c` | Only with `td_sysinfo()->mouse`: speed, acceleration and precision of a mouse the board reads itself, with targets to try them on; root only for changes. |
-| Keyboard | `Kb` | `apps/keyboard.c` | Only with `td_sysinfo()->keyboard`: layout, repeat delay and rate of a keyboard the board reads itself, with a text box to try them in; root only for changes. |
+| Users | `U ` | `apps/users.c` | Accounts through `td_sysinfo()->users`: new account, Administrator and the seven rights, Create / Apply, Change password, Remember login and Require password at boot (root). Accounts without `TD_RIGHT_USERS` see only their own. |
+| Mouse | `^ ` | `apps/mouse.c` | Only with `td_sysinfo()->mouse`: speed, acceleration and precision of a mouse the board reads itself, with targets to try them on; changes need `TD_RIGHT_SYSTEM`. |
+| Keyboard | `Kb` | `apps/keyboard.c` | Only with `td_sysinfo()->keyboard`: layout, repeat delay and rate of a keyboard the board reads itself, with a text box to try them in; changes need `TD_RIGHT_SYSTEM`. |
 | Software Update | `↑ ` | `apps/update.c` | Shows the installed firmware and installs a new one from a URL or a file, with progress and roll-back, through `td_sysinfo()->ota`. Only root may install. |
 | Counter | `+1` | `apps/counter.c` | The minimal example app: a label, two buttons, a checkbox and a one-second tick. |
 | Pixels | `▀▄` | `apps/pixels.c` | The [pixel canvas](canvas.md) demo: an animated plasma and the 256-colour palette (Space switches, P pauses), with pictures per second and the link's KB/s. Its canvas follows the window and is allocated while it is open. |
 | Image Viewer | `▓▒` | `apps/imageview.c`, `apps/imagefile.c` | Shows BMP, PPM and PGM pictures ([below](#pictures-td_image_)) on a [pixel canvas](canvas.md), scaled to fit the window (shrunk by averaging, enlarged by repeating pixels), dithered to the 256 colours (D switches), R loads again, O opens another path. The picture is decoded a slice per timer tick, so a large one appears from the top while the desktop stays usable. While open it holds the canvas, the fitted picture (3 bytes per pixel shown), one picture row (3 bytes per pixel) and a 4 KB file window. |
 | About | `i ` | `apps/about.c` | Name, version, platform, chip, SDK version, free heap and uptime. |
-| Date & time | (none) | `apps/datetime.c` | Not a registered app: opened by clicking the taskbar clock or with `td_datetime_open()`. Big clock, time zone picker, automatic time, manual setting (root only), 12/24-hour and date format. |
+| Date & time | (none) | `apps/datetime.c` | Not a registered app: opened by clicking the taskbar clock or with `td_datetime_open()`. Big clock, time zone picker, automatic time and manual setting (with `TD_RIGHT_TIME`), 12/24-hour and date format. |
 
 ### td_apps_register_all
 
@@ -161,6 +162,10 @@ void td_files_register(void);
 void td_counter_register(void);
 void td_pixels_register(void);
 void td_imageview_register(void);
+void td_trash_register(void);      /* the Recycle Bin, and its hourly clean-up */
+void td_users_register(void);
+void td_mouse_register(void);      /* only where td_sysinfo()->mouse is set */
+void td_keyboard_register(void);   /* only where td_sysinfo()->keyboard is set */
 void td_terminal_register(void);
 void td_editor_register(void);
 void td_network_register(void);
@@ -414,7 +419,7 @@ void td_time_of_day(int64_t utc, char *buf, int cap);
 | `td_datetime_install_clock()` | Installs the built-in taskbar clock provider with `td_wm_set_clock()`. Its text follows `td_clock_prefs()` and the user's time zone (`td_sysinfo()->get_tz`), shows `"--:-- no clock"` while `time_now` fails and nothing when `hide_clock` is set. A right click opens a menu: Adjust date and time, Change time zone..., Sync time now, Settings. Called by `td_apps_register_all()`. |
 | `td_time_of_day()` | Writes the time of day of the UTC moment `utc` (seconds since 1970) in the current user's time zone and clock format, with seconds (`"14:05:09"` or `"2:05:09 PM"`), into `buf` (`cap` bytes). Writes `""` when `utc <= 0` (clock not set). |
 
-The time zone is per user (read with `get_tz`); the system clock and automatic network time are device-wide, so the Date & time window lets only root change them. See [sysinfo.md](sysinfo.md#clock-and-time-zone).
+The time zone is per user (read with `get_tz`); the system clock and automatic network time are device-wide, so the Date & time window lets only accounts with `TD_RIGHT_TIME` change them. See [sysinfo.md](sysinfo.md#clock-and-time-zone).
 
 ## Sessions
 
@@ -428,7 +433,7 @@ The user changes when someone logs in through Start > Switch user... (added when
 void td_session_init(void);
 ```
 
-Starts the session for the shell's current user (from the terminal backend's `user`), or root. Computes the home and jail paths, resets Files, applies the user's saved settings, sets up the Desktop folder and the taskbar user label. The first call also starts the one-second timer that follows the shell's user and adds "Switch user..." to the start menu when `td_sysinfo()->authenticate` is set. Called by `td_apps_register_all()` and again by `td_terminal_set_backend()`.
+Starts the session for the shell's current user (from the terminal backend's `user`), or root. Computes the home and jail paths, resets Files, applies the user's saved settings, sets up the Desktop folder and the taskbar user label. The first call also starts the timer that follows the shell's user. When `td_sysinfo()->authenticate` is set it instead locks the desktop behind the input gate, signs in the remembered account silently (`users->remembered`) or opens the Sign in window, and adds "Switch user..." and "Sign out" to the start menu. Called by `td_apps_register_all()` and again by `td_terminal_set_backend()`.
 
 ### td_session_switch
 
@@ -458,13 +463,38 @@ const char *td_session_jail(void);   /* the Files app cannot go above this */
 
 The strings are static buffers that change on a user switch; copy them if you keep them.
 
+### Rights and sign-in
+
+```c
+bool td_session_has_right(uint32_t right);   /* TD_RIGHT_* (all bits given) */
+int td_session_role(void);                   /* TD_USER_ROLE_* */
+void td_session_lock(void);                  /* Start > Sign out */
+bool td_session_locked(void);
+bool td_session_path_allowed(const char *path, int action);
+void td_login_open(void);
+```
+
+| Function | Description |
+|---|---|
+| `td_session_has_right()` | True when the desktop's account has every bit of `right` (root has all; [sysinfo.md](sysinfo.md#user-accounts)). False while locked. Apps check it before a device-wide change: Terminal and kiosk `TD_RIGHT_APPS`, Mouse and Keyboard `TD_RIGHT_SYSTEM`, Date & time `TD_RIGHT_TIME`, the ESP network ops `TD_RIGHT_NETWORK`. |
+| `td_session_role()` | The account's role: `TD_USER_ROLE_ROOT`, `_ADMIN` or `_USER`. |
+| `td_session_lock()` | Signs out: stops the kiosk app, closes every window, clears the Terminal and the clipboard and opens the Sign in window. Does nothing without `authenticate`. |
+| `td_session_locked()` | True while nobody is signed in, or when the account's generation changed (its password was replaced). |
+| `td_session_path_allowed()` | Whether the account may use a real path for a `TD_FS_*` action: root anywhere; others in their home and, with `TD_RIGHT_SHARED`, `/shared`; never removing the home or `/shared` itself. The ports pass it to `td_fs_stdio_guard()`. |
+| `td_login_open()` | Opens the full-screen Sign in window (`apps/login.c`) behind the window manager's input gate ([wm.md](wm.md#td_wm_set_input_gate)). |
+
+`td_users_register()` registers the Users app; `td_trash_register()`,
+`td_mouse_register()` and `td_keyboard_register()` the Recycle Bin, Mouse
+and Keyboard apps (the last two only when the port sets `mouse` or
+`keyboard`).
+
 ### td_session_real_path
 
 ```c
 bool td_session_real_path(const char *path, char *real, size_t cap);
 ```
 
-Turns a path the desktop user typed into a real path in `real` (`cap` bytes). `"~/x"` is relative to the user's home, `"/home/bob/x"` is taken as a shell path, anything else is relative to the home. Returns `false` when there is no filesystem, `path` is empty or contains `".."`, a non-root user's path leaves their home, or the result does not fit. The Software Update app uses it for firmware files.
+Turns a path the desktop user typed into a real path in `real` (`cap` bytes). `"~/x"` is relative to the user's home, `"/home/bob/x"` is taken as a shell path, anything else is relative to the home. Returns `false` when there is no filesystem, `path` is empty or contains `".."`, a non-root user's path leaves their home (and, with `TD_RIGHT_SHARED`, `/shared`), the desktop is locked, or the result does not fit. The Software Update app uses it for firmware files.
 
 ```c
 char real[160];

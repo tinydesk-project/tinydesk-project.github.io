@@ -258,6 +258,55 @@ optional `dcs` hook and answers `ESC [ c` with Sixel and `ESC [ 16 t` with
 its cell size when its owner sets `sixel`, `cell_w` and `cell_h`: the
 CrowPanel's LCD decodes Sixel that way.
 
+### RGB pictures and local displays
+
+```c
+void td_term_set_sixel(bool on);
+void td_term_set_cell_px(int w, int h);
+void td_picture_add_rgb(int x, int y, int cols, int rows, uint32_t id,
+                        td_picture_render_fn fallback, td_picture_render_rgb_fn render, void *user);
+void td_picture_set_sink(td_picture_sink_fn sink, void *user);
+void td_picture_set_rgb_sink(td_picture_rgb_sink_fn sink, void *user);
+void td_picture_set_runs_sink(td_picture_runs_sink_fn sink, void *user);
+bool td_picture_local_rgb(void);
+void td_picture_set_scanout_monitor(void (*monitor)(uint32_t out[12]));
+void td_picture_scanout_info(uint32_t out[8]);
+void td_picture_scanout_timing(uint32_t out[4]);
+void td_picture_stats(uint32_t *renders, uint32_t *allocation_failures, uint32_t *sink_failures);
+void td_picture_profile_reset(void);
+void td_picture_profile(uint32_t out[4]);
+uint16_t td_rgb565(uint8_t r, uint8_t g, uint8_t b);
+uint16_t td_palette_rgb565(uint8_t index);
+void td_rgb565_rgb(uint16_t pixel, uint8_t rgb[3]);
+```
+
+`td_term_set_sixel()` and `td_term_set_cell_px()` set what the terminal
+can show without asking it, for a port whose display is local.
+`td_picture_add_rgb()` adds a picture with RGB565 pixels (`render`) and
+a palette version (`fallback`) for terminals that only take palette
+Sixel. A port with its own display installs sinks: `td_picture_set_sink()`
+takes palette pixels, `td_picture_set_rgb_sink()` RGB565 pixels and
+`td_picture_set_runs_sink()` run-length RGB565 (from
+`td_picture_add_rgb_runs()`), each synchronously; a sink that returns
+false falls back to Sixel. `td_picture_local_rgb()` is true when an RGB
+sink is installed. The CrowPanel port uses all three when UART0 does not
+mirror the picture.
+
+`td_picture_set_scanout_monitor()` lets a port report its LCD scan-out
+counters; `td_picture_scanout_info()` returns VSYNCs, prepared frames,
+missed preparations, the peak preparation gap (µs), submitted frames, the
+pixel clock (Hz), the interrupt's CPU and the bounce-buffer lines, and
+`td_picture_scanout_timing()` the last submission time (ms) and the
+last, peak and total paint work (µs); zeroes without a local display.
+`td_picture_stats()` counts renders, allocation failures and sink
+failures; `td_picture_profile()` gives picture frames, total, peak and
+last time in ms, and `td_picture_profile_reset()` starts it again.
+Python's `tdui.graphics_info()`, `scanout_info()` and `scanout_timing()`
+read them.
+
+`td_rgb565()` packs an 8-bit RGB colour, `td_palette_rgb565()` gives a
+palette index's colour as RGB565, and `td_rgb565_rgb()` unpacks one.
+
 ## Host clipboard (OSC 52)
 
 ```c

@@ -1,13 +1,14 @@
-# ESP-IDF ports (ESP32-C6, ESP32, ESP32-S3)
+# ESP-IDF ports (ESP32-C6, ESP32, ESP32-S3, CrowPanel 7.0)
 
-Four ESP-IDF 5.3.1 projects share one application. The shared code is in
+Five ESP-IDF 5.3.1 projects share one application. The shared code is in
 `ports/esp_idf`: the application in `app/` (start-up, Telnet, network,
 OTA, RS-485, the shell bridge, the UART link) and the TinyDesk core as
 an ESP-IDF component in `components/tinydesk/`. Each board project holds
 only what differs: `ports/esp32c6` its USB Serial/JTAG link
 (`main/link_usj.c`), `ports/esp32` (ESP32 modules with PSRAM) and
 `ports/esp32-4mb` (4 MB boards without PSRAM) and `ports/esp32s3`
-(ESP32-S3 with 16 MB flash and Octal PSRAM) the UART link, and each its
+(ESP32-S3 with 16 MB flash and Octal PSRAM) the UART link, `ports/crowpanel7`
+its LCD, touch and UART0 link ([below](#crowpanel-70)), and each its
 partitions, `sdkconfig.defaults` and `board.example.conf`. TinyDesk Shell runs in its own FreeRTOS task
 and appears as the Terminal app; the desktop runs in the `tinydesk` task.
 
@@ -30,6 +31,49 @@ and appears as the Terminal app; the desktop runs in the `tinydesk` task.
 | Software Update, `ota` | yes | yes | no (no second slot): update by flashing | yes |
 | Resets on port open | no | yes, with PuTTY (use the [serial bridge](../guide/terminals.md#esp32-boards-without-resets)) | the same | the UART port has the same auto-reset circuit; not checked with PuTTY yet |
 | [Pixel canvas](../api/canvas.md) | internal RAM | PSRAM | internal RAM | PSRAM |
+
+## CrowPanel 7.0
+
+`ports/crowpanel7` is for the Elecrow CrowPanel 7.0 (DIS08070H): an
+ESP32-S3-WROOM-1-N4R8 (4 MB flash, 8 MB octal PSRAM) with a 7" 800x480
+RGB LCD and a GT911 touch screen. The desktop is drawn on the LCD; there
+is no release image for it, so build it from source:
+
+```bash
+cd ports/crowpanel7
+idf.py build
+idf.py -p COMx -b 921600 flash      # close the terminal first
+```
+
+* **Screen:** `main/display.c` keeps a `td_vterm_t` of the LCD's cells
+  and paints the cells that changed into a frame buffer in PSRAM, which
+  the RGB peripheral scans out. The default 8x16 font gives 100x30 cells;
+  `lcd.font` 20, 24 or 32 picks a larger one (Terminus Font, bold): 80x24,
+  66x20 or 50x15 cells. Pictures (Sixel) are painted at the LCD's own
+  pixels ([Pictures](../api/core.md#pictures)).
+* **Touch** (`main/touch.c`, I2C on GPIO19/20) is the mouse: a finger is
+  the left button; held still for 0.7 s it becomes the right button
+  (context menus), until the finger lifts.
+* **Keyboard:** UART0 (GPIO43/44, the board's USB-C port) at 921600 baud.
+  With `lcd.mirror = 1` (the default) UART0 also gets the picture, so a PC
+  terminal set to the same cell count shows the desktop too. With
+  `console.uart = -1` TinyDesk leaves UART0 to a kiosk app.
+* **Flash:** one 2.5 MB app and a 1.4 MB `/fs`, the 4 MB ESP32's layout
+  (`partitions.csv`): no OTA, so update by flashing. Code and constants
+  run from PSRAM, so the picture keeps going while the flash is written.
+* **Pins:** the LCD (GPIO0, 1, 3-9, 14-16, 21, 39-41, 45-48), backlight
+  GPIO2, touch GPIO19/20, PSRAM GPIO33-37, flash GPIO26-32, UART0
+  GPIO43/44; the TF slot is MOSI 11, MISO 13, CLK 12, CS 10. GPIO38 is
+  free. Keys: [Board configuration](../guide/board-config.md#crowpanel-70).
+* **Kiosk:** a maintenance start (press RESET, let go, then hold BOOT for
+  a moment within 1.5 s) starts without the kiosk app and turns UART0 on
+  even with `console.uart = -1`, this time only. A running kiosk app is
+  left with a 5-second touch on the top-right corner and root's password
+  ([Kiosk mode](../guide/using.md#kiosk-mode)). Sign in still comes first.
+* There is no USB keyboard and mouse: GPIO19/20 are the touch screen's.
+
+`tools/sim_lcd.c` (the `tdsim_lcd` simulator) draws the same LCD code on
+the PC; see [Tools](../tools.md#tdsim).
 
 ## Start-up (`app/main.c`)
 
@@ -69,7 +113,7 @@ and appears as the Terminal app; the desktop runs in the `tinydesk` task.
 bool link_init(void);
 int link_read(uint8_t *buf, int cap);        /* bytes received, 0 if none; never blocks */
 int link_write(const uint8_t *buf, int len);  /* bytes accepted */
-const char *board_platform(void);             /* "ESP32-S3 (USB Serial/JTAG)" */
+const char *board_platform(void);             /* "ESP32-S3 (UART0, 921600 baud)" */
 const char *board_hostname(void);             /* the shell's host name */
 const td_mb_serial_t *board_rtu_lines(void);  /* Modbus RTU lines, or NULL */
 bool board_maintenance_start(void);           /* start without kiosk mode this time */

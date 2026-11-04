@@ -10,8 +10,9 @@ Shell paths and real paths differ:
 |---|---|---|---|
 | root | `/root` | `/fs/root` | `<cwd>/tinydesk_fs/root` |
 | other users | `/home/<user>` | `/fs/home/<user>` | `<cwd>/tinydesk_fs/home/<user>` |
+| shared folder | `/shared` | `/fs/shared` | (no accounts on the hosts) |
 
-On the ESP32 the LittleFS partition `storage` is mounted at `/fs`. On Windows and Linux the files live in `tinydesk_fs` under the directory the program was started in. Root sees the whole filesystem; every other user is kept inside their home, in the shell, over SFTP and in the desktop apps.
+On the ESP32 the LittleFS partition `storage` is mounted at `/fs`. On Windows and Linux the files live in `tinydesk_fs` under the directory the program was started in. Root sees the whole filesystem; every other user is kept inside their home, in the shell, over SFTP and in the desktop apps. TinyDesk Shell makes `/shared` at start on the boards; accounts with the Shared files right may also read and write there (in the shell, Python, FTP and the desktop apps, not over SFTP). See [Accounts](../guide/first-login.md#accounts).
 
 ## Overview
 
@@ -315,7 +316,13 @@ Keys in the ESP32's `nvs` partition used by TinyDesk and TinyDesk Shell:
 | `ush_net` | `wifi_auto` | u8 | TinyDesk Shell | `network autowifi`: `0` off (default), `1` on. |
 | `ush_net` | `mode` | u8 | TinyDesk Shell | `network mode`: auto, lan, wifi or both. |
 
-TinyDesk Shell keeps its user database and boot user in namespace `ush_users`; TinyDesk does not change those.
+| `ush_users` | `db` | blob | TinyDesk Shell (`tdsh_users.c`) | The account database: names, salts and password hashes (SHA-256, 2048 rounds), up to 12 accounts. |
+| `ush_users` | `boot_user` | string | TinyDesk Shell (`tdsh_users.c`) | `bootuser`: the account the console starts as. |
+| `ush_users` | `access` | blob | TinyDesk Shell (`tdsh_users_access.inc`) | Roles and rights: magic `0x54444131`, then per account its name, salt, role (User or Admin) and rights. An entry whose name or salt no longer matches the account is ignored (a User with Apps / Terminal). Written by `useradd`, `userrole`, `userrights` and the Users app. |
+| `ush_users` | `remember` | u8 | TinyDesk Shell (`tdsh_users_access.inc`) | Remembered desktop login: `1` on (set by `bootuser NAME`, the Sign in window's checkbox or the Users app), `0` off (`bootuser --require-password`). |
+| `ush_users` | `proof` | blob, 32 bytes | TinyDesk Shell (`tdsh_users_access.inc`) | The boot user's password hash when it last signed in with its password while remembering was on. A password change makes it stale; turning remembering off erases it. |
+
+The `ush_users` keys are written by TinyDesk Shell's account code, which the Sign in window and the Users app call.
 
 Wi-Fi passwords and the host key are stored in NVS in plain form: the ports' `sdkconfig` files enable neither flash encryption nor NVS encryption.
 
@@ -358,6 +365,18 @@ ESP32-WROVER-IE, 16 MB flash.
 ESP32-S3 with 16 MB flash and 8 MB Octal PSRAM (e.g. N16R8): the same
 layout as the ESP32 with PSRAM above (two 3 MB OTA slots, `otadata` at
 `0x610000`, a 9.9 MB `storage` at `0x620000`).
+
+### CrowPanel 7.0 (`ports/crowpanel7/partitions.csv`)
+
+ESP32-S3-WROOM-1-N4R8, 4 MB flash: one app, no OTA slots, the same
+layout as the 4 MB ESP32.
+
+| Name | Type | SubType | Offset | Size |
+|---|---|---|---|---|
+| `nvs` | data | nvs | `0x9000` | `0x6000` (24 KB) |
+| `phy_init` | data | phy | `0xF000` | `0x1000` (4 KB) |
+| `factory` | app | factory | `0x10000` | `0x280000` (2.5 MB) |
+| `storage` | data | littlefs | `0x290000` | `0x170000` (1.4 MB) |
 
 TinyDesk Shell on its own uses a smaller layout on the classic ESP32 and the
 ESP32-S3 (`projects/esp32`, `projects/esp32s3` in its repository): one

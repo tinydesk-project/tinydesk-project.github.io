@@ -35,7 +35,7 @@ build from source can use either layer.
 ### From source (your own `board.conf`)
 
 ```bash
-cd ports/esp32c6                       # or ports/esp32, ports/esp32-4mb, ports/esp32s3
+cd ports/esp32c6                       # or ports/esp32, ports/esp32-4mb, ports/esp32s3, ports/crowpanel7
 cp board.example.conf board.conf       # Windows: copy board.example.conf board.conf
 # edit board.conf: remove the '#' in front of the lines your board has
 idf.py build flash
@@ -185,8 +185,10 @@ key from `/etc/board.conf`) to take effect.
 
 ### Console (classic ESP32 and ESP32-S3)
 
-Read by `ports/esp_idf/app/link_uart.c` at start-up. The ESP32-C6 and
-ESP32-S3 use their built-in USB Serial/JTAG port and have no such keys.
+Read by `ports/esp_idf/app/link_uart.c` at start-up, on the classic ESP32
+and the ESP32-S3 (UART0 by default). The ESP32-C6 uses its built-in USB
+Serial/JTAG port and has no such keys; the CrowPanel 7.0 has its own
+[console keys](#crowpanel-70).
 
 | Key | Default | Meaning |
 | --- | --- | --- |
@@ -224,6 +226,31 @@ The Mouse and Keyboard apps change all but `usb.host`.
 # reboot
 ```
 
+### CrowPanel 7.0
+
+Read by `ports/crowpanel7/main/link_crowpanel.c` and `display.c` at
+start-up. See [ESP-IDF ports](../ports/esp.md#crowpanel-70).
+
+| Key | Default | Meaning |
+| --- | --- | --- |
+| `console.uart` | 0 | 0: UART0 (GPIO43/44, the USB-C port) is the desktop's keyboard. -1: TinyDesk leaves UART0 alone, for a kiosk app's own line (Modbus RTU, say); a maintenance start uses it again, this time only. |
+| `console.baud` | 921600 | UART0's speed. |
+| `lcd.mirror` | 1 | 1: UART0 also shows the desktop, so a PC terminal sees the same picture (set it to the LCD's cell count). 0: the LCD only; UART0 stays the keyboard. |
+| `lcd.pclk_mhz` | 24 | The LCD's pixel clock in MHz, 10 to 40 (others: 24). 24 gives about 49 frames a second; higher clocks can shift pixels briefly while much is drawn. |
+| `lcd.font` | 16 | The text size, the font's height in pixels: 16 (8x16, 100x30 cells), 20 (10x20, 80x24), 24 (12x24, 66x20), 32 (16x32, 50x15). Other values: 16. With `lcd.mirror`, set the PC terminal to the same size. |
+| `sd.mosi`, `sd.miso`, `sd.sclk`, `sd.cs` | (none) | The TF slot: 11, 13, 12, 10 (see [SD card](#sd-card-spi)). |
+
+The LCD (GPIO0, 1, 3-9, 14-16, 21, 39-41, 45-48), its backlight (GPIO2),
+the touch screen's I2C (GPIO19, 20), the octal PSRAM (GPIO33-37), the
+flash (GPIO26-32) and UART0 (GPIO43, 44) are taken. The BOOT button is
+GPIO0 (`kiosk.maint_pin`).
+
+```text
+# board set lcd.font 20
+# board set lcd.mirror 0
+# reboot
+```
+
 ### Kiosk mode
 
 Read by `ports/esp_idf/app/main.c` at start-up, on every board. See
@@ -231,17 +258,29 @@ Read by `ports/esp_idf/app/main.c` at start-up, on every board. See
 
 | Key | Default | Meaning |
 | --- | --- | --- |
-| `kiosk.app` | (none) | A Python `tdui` script (`.py` or `.mpy`, a shell path such as `/root/hmi.py`) that runs full screen instead of the desktop. Empty or missing: the normal desktop. |
-| `kiosk.maint_pin` | 0 (GPIO9 on the ESP32-C6): the BOOT button | The button that asks for a maintenance start: held low for 0.2 s within 1.5 s of the start, the board starts without kiosk mode this time. -1: no maintenance start. Only read when `kiosk.app` is set; the start then waits those 1.5 s. |
+| `kiosk.app` | (none) | A Python `tdui` script (`.py`, `.mpy` or `.tdapp`, a shell path such as `/root/hmi.py`) that runs full screen instead of the desktop. Empty or missing: the normal desktop. |
+| `kiosk.maint_pin` | 0 (GPIO9 on the ESP32-C6): the BOOT button | The button that asks for a maintenance start: held low for 0.2 s within 1.5 s of the start, the board starts without kiosk mode this time. -1: no maintenance start. Only read when `kiosk.app` is set (on the CrowPanel also with `console.uart = -1`); the start then waits those 1.5 s. |
+| `kiosk.splash` | (none) | A picture (BMP, PPM or PGM, a shell path such as `/root/logo.bmp`, at most 800 x 480 pixels) shown centred on black while the app starts, instead of the status line. Shown where the terminal can show pictures (the CrowPanel's LCD, Sixel terminals). |
+| `kiosk.status` | 1 | 0: no "Starting ..." status line behind the app; the screen stays black. |
+
+Sign in comes before the kiosk app: the app starts once an account with
+the Apps / Terminal right has signed in, or at once with a [remembered
+login](first-login.md#remembered-login). An account other than root cannot
+run an app under `/root`. A maintenance start does not skip Sign in.
+
+```text
+# board set kiosk.splash /root/logo.bmp
+# board set kiosk.status 0
+```
 
 ## Choosing pins
 
 | Chip | Avoid | Notes |
 | --- | --- | --- |
 | ESP32-C6 | GPIO12/13 (USB D-/D+, the desktop's port), GPIO24-30 (flash on most modules) | UART0 and UART1 are free for RS-485: the console is USB Serial/JTAG. GPIO4/5 are used by `hwtest uart` (LP UART loopback). |
-| ESP32-S3 | GPIO26-32 (flash), GPIO33-37 (octal PSRAM on R8 chips and modules), GPIO19/20 (USB D-/D+, the desktop's port), GPIO43/44 (UART0, the USB-UART chip on most boards) | Every UART is free for RS-485: the console is USB Serial/JTAG. Strapping pins (0, 3, 45, 46) need care at boot. For Ethernet, SPI2's IO MUX pins are MISO 13, MOSI 11, SCLK 12, CS 10 (`eth.spi_host = 1`). |
 | ESP32 | GPIO6-11 (flash), GPIO16/17 (PSRAM on WROVER modules), GPIO1/3 (UART0, the desktop) | Use UART1 and UART2 for RS-485. GPIO34-39 are inputs only: fine for `eth.int` or RX, not for TX, DE or CS. Strapping pins (0, 2, 5, 12, 15) need care at boot. |
-| ESP32-S3 | GPIO19/20 (USB; taken by `usb.host = 1`), GPIO26-32 (flash), GPIO33-37 (Octal PSRAM on R8 modules), GPIO43/44 (UART0, the desktop) | Use UART1 and UART2 for RS-485. Strapping pins (0, 3, 45, 46) need care at boot. |
+| ESP32-S3 | GPIO19/20 (USB; taken by `usb.host = 1`), GPIO26-32 (flash), GPIO33-37 (Octal PSRAM on R8 modules), GPIO43/44 (UART0, the desktop) | Use UART1 and UART2 for RS-485. Strapping pins (0, 3, 45, 46) need care at boot. For Ethernet, SPI2's IO MUX pins are MISO 13, MOSI 11, SCLK 12, CS 10 (`eth.spi_host = 1`). |
+| CrowPanel 7.0 | everything but GPIO38: see [CrowPanel 7.0](#crowpanel-70) | GPIO38 is free on the GPIO_D connector; the I2C header shares GPIO19/20 with the touch screen. |
 
 The examples in `board.example.conf` are illustrations, not a tested
 product. Check them against your board's schematic.

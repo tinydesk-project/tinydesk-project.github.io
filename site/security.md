@@ -6,9 +6,11 @@ what protects what, and where the limits are.
 ## Physical access
 
 * The board's own console (USB Serial/JTAG on the ESP32-C6, UART0 on the
-  ESP32 and the ESP32-S3) opens the desktop as the **boot user without a password**, and
-  `rootrecover` there sets a new root password. Whoever holds the board
-  (or its cable) is root.
+  ESP32 and the ESP32-S3) opens the desktop behind the **Sign in** window,
+  unless root turned on [remembered login](guide/first-login.md#remembered-login):
+  then the board starts as that account without a password. `rootrecover`
+  on the console sets a new root password, so whoever holds the board (or
+  its cable) can still become root.
 * Flash is **not encrypted** and **secure boot is off**: with esptool anyone
   can read NVS (password hashes, Wi-Fi passwords, the SSH host key, SMB
   credentials) and the file system, or write other firmware. ESP-IDF's flash
@@ -26,9 +28,17 @@ what protects what, and where the limits are.
   after disconnect. A recovery prompt holds a lease that refuses takeover.
   Separate SSH sessions cannot acquire that physical-console lease.
 * Passwords are stored salted and hashed (SHA-256, 2048 rounds), up to 12
-  accounts. There is no lock-out after failed logins.
-* Non-root users are sandboxed to their home in the shell, the Files app,
-  SFTP and FTP.
+  accounts. After 5 wrong passwords in a row the Sign in window waits 10
+  seconds before each further try; there is no permanent lock-out.
+* Accounts other than root are **Admin** or **User**, with rights such as
+  Network, Clock or Apps / Terminal ([Accounts](guide/first-login.md#accounts)).
+  An Admin cannot give rights it does not hold or change root. Both stay
+  in their home in the shell, the Files app, SFTP and FTP; the Shared
+  files right adds `/shared`, never `/root` or another home.
+* A password change, or an account deleted and made again, ends that
+  account's open sessions and its remembered login.
+* These rights are checks in TinyDesk and TinyDesk Shell, not an operating
+  system sandbox: native code and root's Python code run with full access.
 
 ## Network services
 
@@ -58,8 +68,8 @@ ESP-IDF certificate bundle) or copy the file over SFTP.
 ## Recommendations
 
 * Change the factory root password (`passwd`) at the first start and give
-  people their own accounts; make a non-root user the boot user for shared
-  desks.
+  people their own accounts with only the rights they need; remember a
+  non-root account, not root, on a shared desk.
 * Prefer SSH to Telnet; switch Telnet off on networks you do not trust.
 * Start the Modbus TCP server and FTP only while you need them.
 * Use MQTT over TLS with the broker's CA certificate, not `tls_insecure`.

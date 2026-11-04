@@ -24,7 +24,7 @@ Usage: `py [-m KB] [FILE [ARG...] | -c CODE [ARG...]]`
 
 | Form | What it does |
 |---|---|
-| `py FILE [ARG...]` | Runs the script: Python source, or a `.mpy` file (see [Precompiled .mpy files](#precompiled-mpy-files)). `sys.argv` is `[FILE, ARG...]`; the script's directory comes first in `sys.path`, so it can import modules next to it. |
+| `py FILE [ARG...]` | Runs the script: Python source, a `.mpy` file (see [Precompiled .mpy files](#precompiled-mpy-files)) or a `.tdapp` [app package](#app-packages-tdapp). `sys.argv` is `[FILE, ARG...]`; the script's directory comes first in `sys.path`, so it can import modules next to it. |
 | `py -c CODE [ARG...]` | Runs `CODE`; `sys.argv` is `['-c', ARG...]`. |
 | `py` | The interactive prompt, with history, auto-indent and paste mode (Ctrl+E, then Ctrl+D to run). Ctrl+D or `exit()` leaves it. `help()` lists what is available. Up and Down (or Ctrl+P and Ctrl+N) recall the last 8 lines, also from earlier prompts: they are kept in `~/.py_history`, as the shell keeps its own in `~/.tdsh_history`. |
 | `-m KB` | Heap size in KB (16 to 65536) instead of the default (see [Memory](#memory)). |
@@ -40,9 +40,29 @@ board and in the PC programs (Telnet shows the same desktop). In an SSH
 session it only interrupts `input()`; the same holds for
 `modbus read -i`.
 
-Who: any user. One script runs at a time on a device: while one runs, `py`
+Who: accounts with the Apps / Terminal right (root has it; see
+[Accounts](../guide/first-login.md#accounts)). One script runs at a time on a device: while one runs, `py`
 in another session (or from `tinydesk.shell()`) says
 `py: Python is already running (one script at a time)`.
+
+### App packages (.tdapp)
+
+A `.tdapp` file is a whole app in one file, made with TinyDesk App
+Builder. `py FILE.tdapp` runs it like a `.mpy` file, and **Run** on the
+desktop and in Files does the same. The file begins with a small compiled
+program that:
+
+1. checks `tdui.API` and `tdui.CAPABILITIES` (and the MicroPython
+   bytecode version) and stops with a message saying what to update when
+   the firmware lacks something the app needs;
+2. checks every file packed in it against its SHA-256 and unpacks them
+   into a folder beside it, `.tdapp-<hash>`, named after that version of
+   the package;
+3. runs the app from there.
+
+Only the one file is copied to the board; the unpacked folder takes space
+in the file system next to it. The checksums find damaged files; they are
+not signatures. A `.tdapp` can be a [kiosk app](#kiosk-mode).
 
 ## Writing scripts on the desktop
 
@@ -358,7 +378,8 @@ How it works:
   Files. In an SSH session `tdui.Window()` raises
   `OSError: tdui: no desktop in this session`. It works the same in the
   Windows and Linux programs.
-* **Who:** any user; the windows appear on that user's desktop.
+* **Who:** accounts with the Apps / Terminal right; the windows appear on
+  that user's desktop.
 * **The windows belong to the script.** They close when it ends, also after
   an error or Ctrl+C. Ctrl+C in one of the script's windows stops it as it
   does in the Terminal. A script that does not call `tdui.run()` (or keep
@@ -376,7 +397,7 @@ How it works:
   old one would break, and the old one then keeps working for one more
   major TinyDesk release. `tdui.CAPABILITIES` names the optional parts the
   firmware has (`"gradient_fills"`, and `"rgb_pictures"` on boards with
-  PSRAM and on the PC). An app package made with [TinyDesk App Builder](https://github.com/tinydesk-project/tinydesk-app-builder)
+  PSRAM and on the PC). An app package made with TinyDesk App Builder
   checks these before it starts, whichever Builder version made it, and
   stops with a message saying what to update. The whole contract, with the
   request numbers and limits, is `ports/common/python/tdui_contract.json`
@@ -519,7 +540,7 @@ The context is reused; it does not collect a Python list of commands or
 allocate a second screen buffer.
 
 **Bars in one request.** `cv.bar(x, y, w, h, value, maximum=100, color=40,
-track=237, edge=-1, radius=0)` uses **pixel** coordinates. It paints the
+track=237, edge=-1, radius=0, gradient=None)` uses **pixel** coordinates. It paints the
 track, fill and optional light top edge in one desktop request, including
 the old filled area when the value falls. `maximum` must be positive;
 values clamp to 0..maximum. Colours are 0..255; `edge=-1` disables the
@@ -537,7 +558,7 @@ button belongs to the page on which it was created: hidden-page buttons
 do not receive clicks, and updating one draws into its own page, restoring
 the canvas's previous draw page afterwards. Create buttons and images
 once, then update their values or text; do not create them in animation
-callbacks. Studio follows this rule in generated painters.
+callbacks. App Builder follows this rule in generated painters.
 
 The pixel budget includes **every page** of a canvas once it has pixels
 (`width * height * pages * 4` bytes), plus decoded images (`w * h` bytes,
@@ -556,14 +577,21 @@ pixels it covers:
 
 | Call | Draws |
 |---|---|
-| `cv.rect(x, y, w, h, color, radius=0, outline=False)` | a rectangle; `radius` rounds its corners |
+| `cv.rect(x, y, w, h, color, radius=0, outline=False, gradient=None)` | a rectangle; `radius` rounds its corners |
 | `cv.line(x0, y0, x1, y1, color)` | a line |
-| `cv.circle(x, y, r, color, outline=False)` | a circle |
+| `cv.circle(x, y, r, color, outline=False, gradient=None)` | a circle |
 | `cv.gradient(x, y, w, h, (r, g, b), (r, g, b), across=False)` | from one colour to another, top to bottom (`across`: left to right), dithered |
 | `cv.image(img, x, y, w=0, h=0, src=None)` | an image, or its part `src=(sx, sy, sw, sh)`; `w`, `h` stretch or shrink it |
 | `cv.nine(img, x, y, w, h, border, src=None)` | an image (or part) as a `w` x `h` panel: corners of `border` pixels as they are, edges and middle stretched |
 | `cv.pixels(x, y, w, h, data, rgb=False, dither=True)` | `w * h` palette numbers from `bytes`, or with `rgb` three bytes (red, green, blue) a pixel |
 | `cv.draw_text(x, y, text, color, bg=tdui.CLEAR, scale=1, small=False)` | text in pixels: an 8 x 16 font (ASCII and Latin-1, so `°` too), `scale` 1 to 8 times; `small`: the 3 x 5 font of `big()` |
+
+**Gradient fills.** `rect()`, `circle()`, `bar()` and `cv.button()` take
+`gradient={'rgb1': (r, g, b), 'rgb2': (r, g, b), 'across': False}`: the
+shape (for `bar()`, its fill) is drawn from one colour to the other
+instead of in `color`, top to bottom (`across`: left to right), keeping
+its rounded corners. A pressed button swaps the two colours. Values must be 0..255 (`ValueError` otherwise).
+`tdui.SUPPORTS_GRADIENT_FILLS` is 1 on firmware that has them.
 
 Coordinates are pixels. Colours are palette numbers (`tdui.rgb(r, g, b)`
 finds the nearest). A cell drawn in shows its four pixels from then on;
@@ -659,12 +687,13 @@ before using `time.ticks_diff()`. It records driver submission, before the
 following physical scanout refresh.
 
 **Pictures at the screen's own resolution.** `cv.picture(img, x, y, w, h,
-src=None, border=0, text="", fg=231, scale=0)` puts an image (or its part
+src=None, border=0, text="", fg=231, scale=0, font=None)` puts an image (or its part
 `src`, nine-slice with `border` > 0) over cells `x`, `y`, `w` x `h`, drawn
 by the terminal in real pixels: smooth round corners, gradients and
 shadows, like an LCD panel's UI (a Nextion's, say). `text` is a label
 drawn into the picture in colour `fg` (`scale` 1: the 8 x 16 font, sharp;
-0: as large as fits). Terminals that can show pictures:
+0: as large as fits; `font`: a loaded [`tdui.Font`](#fonts)). Terminals
+that can show pictures:
 
 | Terminal | Pictures |
 |---|---|
@@ -761,6 +790,59 @@ then about 12 KB of internal RAM for the queues and the window table while
 it runs, plus 6 bytes per canvas cell on every page (in PSRAM on boards
 that have it), the list items, and the images and pixel layers (see
 [Pictures and pixels](#pictures-and-pixels)), all freed when it ends.
+
+### Fonts
+
+`tdui.Font.load(path)` (or `tdui.Font(path)`) loads a generated bitmap font,
+a `.tdfont` file, into the desktop's graphics memory once; its glyphs are
+drawn in C. `.height`, `.ascent`, `.glyphs` (how many), `.size` (the
+nominal size in pixels) and `.bpp` (1 or 4 bits per pixel) describe it;
+`font.free()` releases it (the end of the script does too).
+
+`cv.font_text(font, x, y, w, h, text, fg=231, bg=tdui.CLEAR,
+align="left", valign="top", wrap=False)` draws text in that font inside
+cells `x`, `y`, `w` x `h`, at the screen's own pixels: `align` is
+`"left"`, `"center"` or `"right"`, `valign` `"top"`, `"middle"` or
+`"bottom"`, `wrap` breaks lines at words, `"
+"` starts a line. The text is
+clipped to the cells. `cv.button(..., font=font)` and `cv.picture(...,
+font=font)` draw their label with it.
+
+```python
+font = tdui.Font.load("/root/display_28.tdfont")
+cv.font_text(font, 2, 2, 40, 4, "Temperature
+123.4 °C",
+             fg=231, bg=25, align="center", valign="middle", wrap=True)
+cv.button(2, 10, 20, 3, "Apply", apply, font=font)
+```
+
+The size is in pixels, so the same font looks larger on a screen with
+small cells: a CrowPanel cell is 8 x 16 pixels with `lcd.font = 16` and
+10 x 20 with 20.
+
+A `.tdfont` file (format `TDFONT01`, little endian) has a 32-byte header
+(the magic, the line height and ascent, the glyph count, the nominal size,
+1 or 4 bits per pixel), a 16-byte record per glyph (code point, bitmap
+offset, width, left bearing, advance) and the bitmaps, each the full line
+height. It holds 1 to 512 glyphs sorted by code point, `?` among them (it
+stands in for missing ones), and is at most 256 KB. TinyDesk App Builder
+makes them from a desktop font; the C side is
+[`td_font.h`](../api/screen.md#bitmap-fonts).
+
+### Graphics limits and counters
+
+| Name | Value |
+|---|---|
+| `tdui.MAX_PICTURES` | pictures (`cv.picture()`, picture buttons) a script may keep, every page counted: 512 with PSRAM and on the PC, 48 otherwise |
+| `tdui.MAX_VISIBLE_PICTURES` | pictures on the screen at once: 128 with PSRAM and on the PC, 64 otherwise |
+| `tdui.SUPPORTS_GRADIENT_FILLS` | 1: the `gradient=` fills above |
+| `tdui.SUPPORTS_RGB_PICTURES` | true where `enable_rgb_pictures()` works (PSRAM and the PC) |
+
+`tdui.graphics_info()` returns `(renders, allocation_failures,
+sink_failures, psram_free, psram_largest, frame_ms)`: pictures rendered,
+renders that found no memory, pictures a local display refused (all
+counted since start), free PSRAM and its largest free block (0 without
+PSRAM), and the last frame's time in ms.
 
 ## Memory
 

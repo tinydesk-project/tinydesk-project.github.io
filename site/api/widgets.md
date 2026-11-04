@@ -225,6 +225,7 @@ Keys: Up, Down, PgUp, PgDn, Home, End move the selection. A click selects; a sec
 void td_list_set_count(td_widget_t *w, int count);
 int td_list_selected(const td_widget_t *w);
 void td_list_select(td_widget_t *w, int index);
+void td_list_set_view(td_widget_t *w, int selected, int scroll);
 ```
 
 | Function | Description |
@@ -232,6 +233,7 @@ void td_list_select(td_widget_t *w, int index);
 | `td_list_set_count()` | Sets the item count (negative is 0). The selection is moved to the last item if it was past the end; the scroll offset is clamped. Call it whenever the underlying data changes. |
 | `td_list_selected()` | Selected index, or -1 when the list is empty (or `NULL`). |
 | `td_list_select()` | Selects `index`, clamped to the items, and scrolls it into view. Does nothing on an empty list. Does not call `fn`. |
+| `td_list_set_view()` | Restores a selection and scroll offset together, for a list rebuilt from live data, without scrolling the selection into view. `selected` -1 (or an empty list) clears the selection; both values are clamped. |
 
 ```c
 static const char *const s_names[] = { "red", "green", "blue" };

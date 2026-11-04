@@ -32,23 +32,23 @@ app. It also runs on its own, without the desktop: see the two
 | Part | Where | Docs |
 | --- | --- | --- |
 | Core: screen buffers, renderer, input parser, event queue, timers, window manager, widgets, themes | `src/`, `include/tinydesk/` | [Core](api/core.md), [Screen](api/screen.md), [Input](api/input.md), [Window manager](api/wm.md), [Widgets](api/widgets.md) |
-| Apps: Terminal, Files, Editor, Network, MQTT, Modbus, System Monitor, Task Manager, Log Viewer, Settings, Recycle Bin, Mouse and Keyboard (USB on the ESP32-S3), Software Update, Counter, About | `apps/` | [Apps API](api/apps.md), [Writing an app](guide/writing-an-app.md) |
+| Apps: Terminal, Files, Editor, Network, MQTT, Modbus, System Monitor, Task Manager, Log Viewer, Settings, Users, Recycle Bin, Mouse and Keyboard (USB on the ESP32-S3), Software Update, Counter, About | `apps/` | [Apps API](api/apps.md), [Writing an app](guide/writing-an-app.md) |
 | Protocols: sockets, MQTT 3.1.1 (TLS), Modbus TCP/RTU client and TCP server | `proto/` | [Sockets](api/sock.md), [MQTT](api/mqtt.md), [Modbus](api/modbus.md), [TLS](api/tls.md) |
-| Ports: ESP32-C6 (USB Serial/JTAG), classic ESP32 with PSRAM and with 4 MB flash, ESP32-S3 with Octal PSRAM (UART0), Windows, Linux | `ports/` | [Architecture](ports/overview.md), [ESP-IDF](ports/esp.md), [Hosts](ports/host.md) |
+| Ports: ESP32-C6 (USB Serial/JTAG), classic ESP32 with PSRAM and with 4 MB flash, ESP32-S3 with Octal PSRAM (UART0), Elecrow CrowPanel 7.0 (touch LCD), Windows, Linux | `ports/` | [Architecture](ports/overview.md), [ESP-IDF](ports/esp.md), [Hosts](ports/host.md) |
 | Shell: TinyDesk Shell (`tdsh`, the git submodule `third_party/tdsh`) plus `mqtt`, `modbus`, `py`, `ota` commands | `third_party/tdsh/`, `ports/common/td_proto_cmds.c` | [Commands](shell/commands.md), [Config files](shell/config-files.md) |
 | Python: MicroPython for the `py` command, with TinyDesk's file system, the `tinydesk` module, pins and buses (`machine`) and windows (`tdui`) | `third_party/micropython/`, `ports/common/python/`, `apps/pyui.c` | [Python scripts](shell/python.md) |
 | Tools: serial probe, screen renderer, simulator, serial bridge, Modbus slave, LittleFS migration | `tools/` | [Tools](tools.md) |
 
 ## Boards
 
-| | ESP32-C6 | ESP32 with PSRAM (e.g. WROVER-IE) | ESP32, 4 MB (e.g. WROOM-32) | ESP32-S3 (e.g. DevKitC-1 N16R8) |
-| --- | --- | --- | --- | --- |
-| Project | `ports/esp32c6` | `ports/esp32` | `ports/esp32-4mb` | `ports/esp32s3` |
-| Desktop link | built-in USB Serial/JTAG | UART0 (USB-UART chip), 921600 baud | UART0 (USB-UART chip), 921600 baud | UART0 (USB-UART chip), 921600 baud |
-| Screen limit | 80x25 | 256x96 (buffers in PSRAM) | 80x25 | 256x96 (buffers in PSRAM) |
-| Flash | 8 MB, two OTA slots | 16 MB, two OTA slots | 4 MB, one app (update by flashing) | 16 MB, two OTA slots |
-| SSH/SFTP server | yes | yes | no (too little RAM; the Shell edition has it) | yes |
-| Everywhere | Wi-Fi, FTP, Telnet remote desktop, MQTT (TLS), Modbus TCP and RTU, users, board configuration | | | |
+| | ESP32-C6 | ESP32 with PSRAM (e.g. WROVER-IE) | ESP32, 4 MB (e.g. WROOM-32) | ESP32-S3 (e.g. DevKitC-1 N16R8) | Elecrow CrowPanel 7.0 |
+| --- | --- | --- | --- | --- | --- |
+| Project | `ports/esp32c6` | `ports/esp32` | `ports/esp32-4mb` | `ports/esp32s3` | `ports/crowpanel7` (build from source) |
+| Desktop link | built-in USB Serial/JTAG | UART0 (USB-UART chip), 921600 baud | UART0 (USB-UART chip), 921600 baud | UART0 (USB-UART chip), 921600 baud | its 800x480 touch LCD; keyboard on UART0, 921600 baud |
+| Screen limit | 80x25 | 256x96 (buffers in PSRAM) | 80x25 | 256x96 (buffers in PSRAM) | 100x30 cells (fewer with `lcd.font`) |
+| Flash | 8 MB, two OTA slots | 16 MB, two OTA slots | 4 MB, one app (update by flashing) | 16 MB, two OTA slots | 4 MB, one app (update by flashing) |
+| SSH/SFTP server | yes | yes | no (too little RAM; the Shell edition has it) | yes | built in, as on the ESP32-S3 |
+| Everywhere | Wi-Fi, FTP, Telnet remote desktop, MQTT (TLS), Modbus TCP and RTU, users, board configuration | | | | |
 
 Wiring (RS-485 lines, W6100 Ethernet, SD card) is set in the
 [board configuration](guide/board-config.md) on every board.

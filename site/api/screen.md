@@ -376,6 +376,34 @@ Treat the fields as private and zero-initialise the decoder before first use (`t
 
 The input parser (see [Input](input.md)) and the [Terminal emulator](vterm.md) use this decoder.
 
+## Bitmap fonts
+
+```c
+#include "tinydesk/td_font.h"
+#define TD_FONT_MAX_BYTES (256u * 1024u)
+typedef struct {
+    const uint8_t *data;
+    size_t size;
+    uint16_t height, ascent, count, pixels;
+    uint8_t bpp;
+} td_font_t;
+bool td_font_open(td_font_t *font, const uint8_t *data, size_t size);
+void td_font_measure(const td_font_t *font, const char *text, int width, bool wrap, int *w, int *h);
+void td_font_draw(const td_font_t *font, const char *text, uint8_t *pixels,
+                  int width, int height, uint8_t color, int align, int valign, bool wrap);
+void td_font_draw_rgb(const td_font_t *font, const char *text, uint16_t *pixels,
+                      int width, int height, uint8_t color, int align, int valign, bool wrap);
+```
+
+Generated bitmap fonts in the `.tdfont` format (see [Python
+scripts](../shell/python.md#fonts)), drawn without allocating.
+`td_font_open()` checks a whole file in memory and fills `font`; the caller
+keeps the bytes. `td_font_measure()` gives the size in pixels of UTF-8
+`text`, wrapped at `width` when `wrap` is set. `td_font_draw()` draws into
+a `width` x `height` buffer of palette indexes in palette colour `color`,
+`td_font_draw_rgb()` into RGB565 pixels; `align` and `valign` are 0 start,
+1 centre, 2 end. Python's `tdui.Font` uses them.
+
 ## Renderer
 
 The renderer keeps an output buffer and what it knows about the terminal's cursor and colour state, so it can skip redundant cursor moves and SGR sequences. The core owns the one renderer used for the desktop; applications do not normally call these functions. They are public for ports, tests (`tests/test_render.c`) and tools such as `tools/vtshot.c`.
@@ -417,6 +445,16 @@ void td_render_raw(td_renderer_t *r, const char *s);
 ```
 
 Appends the NUL-terminated string `s` (typically an escape sequence) to the output buffer, flushing whenever the buffer fills. It does not update the renderer's cursor or colour state; if the sequence moves the cursor or changes colours, call `td_render_reset_state()` afterwards.
+
+### td_render_write
+
+```c
+void td_render_write(td_renderer_t *r, const void *data, int len);
+```
+
+Like `td_render_raw()`, for `len` bytes instead of a NUL-terminated
+string; the core sends pictures' Sixel data with it. It does not update
+the cursor or colour state either.
 
 ### td_render_flush
 
