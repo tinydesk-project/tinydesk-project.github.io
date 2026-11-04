@@ -370,6 +370,17 @@ How it works:
   100x30 canvas is 3000 a page). A canvas has up to 16 pages
   (`tdui.MAX_PAGES`). Past them, `OSError` says which. Labels, buttons and
   text boxes hold up to 63 bytes, a window title 31.
+* **Version:** `tdui.API` is the contract scripts and app packages are
+  made for, as `(major, minor)`: `(1, 0)` now. The minor number grows when
+  something is added; the major one changes only when apps made for the
+  old one would break, and the old one then keeps working for one more
+  major TinyDesk release. `tdui.CAPABILITIES` names the optional parts the
+  firmware has (`"gradient_fills"`, and `"rgb_pictures"` on boards with
+  PSRAM and on the PC). An app package made with TinyDesk App Builder
+  checks these before it starts, whichever Builder version made it, and
+  stops with a message saying what to update. The whole contract, with the
+  request numbers and limits, is `ports/common/python/tdui_contract.json`
+  in the source.
 
 | Class or function | Notes |
 |---|---|

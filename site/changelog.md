@@ -9,6 +9,12 @@ API may still change between minor versions.
 
 ## Unreleased
 
+* **tdui version:** `tdui.API` (`(1, 0)`) and `tdui.CAPABILITIES` tell
+  scripts and app packages which tdui contract the firmware has, and
+  `ports/common/python/tdui_contract.json` writes it down (request,
+  widget and event numbers, limits, capabilities, the compatibility rule)
+  for app makers such as TinyDesk App Builder; a test checks it against
+  the code.
 * **Bounded artwork reuse:** RGB PSRAM apps reuse losslessly compressed
   native artwork and warm hidden pictures while idle. App Builder 0.10
   exposes Automatic/Off/64/128 KiB export choices. Existing RGB packages

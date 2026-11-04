@@ -19,6 +19,7 @@ protocols. The C tools are built with the host build (`cmake --build build`).
 | `tools/make_ui_sheet.py` | the example sprite sheet of UI pieces for Python windows (`examples/python/ui_sheet.ppm`) |
 | `tools/make_ui_skin.py` | the example skin of smooth buttons, tabs and panels for pictures (`examples/python/ui_skin.ppm`) |
 | `tools/make_lcd_font_big.py` | the CrowPanel's larger LCD fonts (`lcd.font` 20, 24, 32) from Terminus Font |
+| `tools/check_tdui_contract.py` | check `ports/common/python/tdui_contract.json` against the C and Python code (run by ctest) |
 | `tools/make_kbd_layouts.py` | regenerate the USB keyboard layouts (`ports/esp_idf/app/usb_hid_layouts.h`) |
 | `ports/esp32c6/build.ps1` | build and flash the C6 with the right ESP-IDF on Windows |
 
