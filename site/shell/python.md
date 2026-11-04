@@ -376,7 +376,7 @@ How it works:
   old one would break, and the old one then keeps working for one more
   major TinyDesk release. `tdui.CAPABILITIES` names the optional parts the
   firmware has (`"gradient_fills"`, and `"rgb_pictures"` on boards with
-  PSRAM and on the PC). An app package made with TinyDesk App Builder
+  PSRAM and on the PC). An app package made with [TinyDesk App Builder](https://github.com/tinydesk-project/tinydesk-app-builder)
   checks these before it starts, whichever Builder version made it, and
   stops with a message saying what to update. The whole contract, with the
   request numbers and limits, is `ports/common/python/tdui_contract.json`

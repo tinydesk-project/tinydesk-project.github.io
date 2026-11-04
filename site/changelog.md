@@ -43,7 +43,7 @@ API may still change between minor versions.
   a 1000 ms recovery deadline. `cv.bar()` repaints track, fill and highlight
   in one request; instrument panels use it instead of erasing each bar first.
   Canvas buttons draw atomically and belong to their creation page.
-* **TinyDesk Studio pixels:** drawing controls and exports for shapes,
+* **App Builder pixels:** drawing controls and exports for shapes,
   gradients, pixel text, images, nine-slice panels, pictures, canvas buttons
   and bars; cell/pixel budget checks include pages and image masks. Images
   and buttons are created once and reused. The current API references and
