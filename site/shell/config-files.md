@@ -25,7 +25,8 @@ On the ESP32 the LittleFS partition `storage` is mounted at `/fs`. On Windows an
 | [`/etc/board.conf`](#etcboardconf) | `board set`, `board init`, the user | TinyDesk Shell and the ports, at start-up |
 | [`~/Desktop`](#the-desktop-folder) | the desktop (created with `Welcome.txt` and the port's own files), the user | the desktop, every 3 s |
 | [`~/.tinydesk_icons`](#tinydesk_icons) | the desktop, when an icon is moved | the desktop, at start-up and after every user switch |
-| [`~/Apps`, `~/Start menu`](#apps-and-start-menu) | the desktop (made at sign-in), **Copy to Apps**, **Add to Start menu**, the user | the Start menu, shortcuts |
+| [`~/Apps`, `~/Start menu`](#apps-and-start-menu) | the desktop (made at sign-in), **Copy to Apps**, **Add to Start menu**, the Store, the user | the Start menu, shortcuts |
+| [`~/Apps/.store`, `~/Apps/.catalog.txt`](#apps-and-start-menu) | the Store | the Store |
 | [NVS keys](#nvs-keys) | TinyDesk, TinyDesk Shell | TinyDesk, TinyDesk Shell |
 | [Partition tables](#partition-tables) | the build | the bootloader |
 
@@ -322,6 +323,13 @@ the line `target=` and a shell path:
 ```text
 target=/root/Apps/hmi.tdapp
 ```
+
+The Store keeps two files in `~/Apps`: `.catalog.txt`, the catalog it last
+read, and `.store`, one line per app it installed: its id, version and
+the folder the package unpacks into, such as
+`device_monitor 1.0.0 .tdapp-2c11cd0ada8203de`. Update and Remove use it to
+delete that folder; an app is downloaded as `NAME.tdapp.part` and renamed
+once its SHA-256 matches.
 
 ---
 

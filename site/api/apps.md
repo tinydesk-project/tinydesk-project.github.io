@@ -735,3 +735,26 @@ Add to / Remove from Start menu and Copy to Apps) and
 `td_shortcut_menu_chosen()` carries one out. `td_shortcuts_session()`, run
 at sign-in, makes `~/Apps` and `~/Start menu` and lists the user's entries
 in the Start menu (`td_wm_set_start_provider()`).
+
+## Store
+
+```c
+void td_store_register(void);
+int td_store_parse(char *text, void *list, int max);
+int td_store_entry_size(void);
+const char *td_store_cannot_run(const void *entry);
+void td_store_sha256(const void *data, uint32_t len, char out[65]);
+```
+
+`apps/store.c`, the Store app. It reads a `catalog.txt` (format 1: a line
+`TDSTORE 1`, then per app `app <id>`, `key value` lines and `end`; the
+format is described in the tinydesk-apps repository's
+`tools/make_index.py`) through the port's downloads (`td_fetch_ops_t`, see
+[sysinfo.md](sysinfo.md#downloads)), installs packages into `~/Apps`,
+adds them to the Start menu with `td_shortcut_make()` and records them in
+`~/Apps/.store`. An app is installed only when
+`td_store_cannot_run()` returns NULL: its tdui API is this firmware's (the
+Store's `TDUI_MAJOR`/`TDUI_MINOR`, checked against `tdui_contract.json` by
+`tools/check_tdui_contract.py`), its `cells` fit `TD_PYUI_MAX_CELLS`, its
+capabilities are there and native code matches the CPU. The other
+functions are for `tests/test_store.c`.

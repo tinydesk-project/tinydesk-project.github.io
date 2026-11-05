@@ -34,6 +34,11 @@ to anything) hides the status line, as `kiosk.status = 0` does
 ([Board configuration](../guide/board-config.md#kiosk-mode)). The normal
 desktop build has no accounts, so there is no Sign in before the app.
 
+The Store downloads with `curl` (part of Windows 10 and later and of most
+Linux systems). `TINYDESK_STORE` names another catalog for it: a URL or a
+`catalog.txt` on the PC (`TINYDESK_STORE=C:/apps/site/catalog.txt`), as the
+board key `store.url` does.
+
 ## Helpers
 
 ```c

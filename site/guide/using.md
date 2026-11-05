@@ -270,6 +270,23 @@ App packages (`.tdapp`) also have, in Files and on the desktop:
 
 Both folders are made at sign-in, beside `~/Desktop`.
 
+## Store
+
+**Start → Store** lists the apps of the
+[tinydesk-apps](https://github.com/tinydesk-project/tinydesk-apps)
+catalog: App Builder apps with their sources. Choose one to see what it is
+and whether this board can run it; **Install** downloads it into `~/Apps`,
+checks it (its size and SHA-256 must match the catalog; a damaged download
+is thrown away) and adds it to your Start menu. An installed app shows
+*(installed)*, or *(update)* when the catalog has a newer version:
+**Update** replaces it. **Remove** deletes it, the folder it unpacked
+into and its Start menu entry. Apps a board cannot run (they need a newer
+TinyDesk, a board with PSRAM, or native code for another CPU) are listed
+in grey with the reason, and cannot be installed. Installing and removing
+need the Apps permission. The board needs the network; the catalog is
+read over HTTPS. To use another catalog, such as your own while testing,
+set the board key [`store.url`](board-config.md#store).
+
 ## On-screen keyboard
 
 For touch screens, **Start → On-screen keyboard** opens large keys at the
@@ -385,6 +402,7 @@ not); **Stop** in the menu and Ctrl+C in the pane work everywhere.
 | Settings | theme (Dark by default, or Classic), ASCII mode, icons, the on-screen keyboard for text fields, sizes, picture detail, desktop pattern (light shade by default), links to Network / Date & time / Software update |
 | Users | accounts: new account, role (Admin or User) and rights, change password, password hint, remembered login (root); others see only their own account ([Accounts](first-login.md#accounts)) |
 | On-screen keyboard | large keys to touch that type into the window that has the focus; the Start menu entry opens and closes it ([below](#on-screen-keyboard)) |
+| Store | install, update and remove apps from the tinydesk-apps catalog ([above](#store)) |
 | Recycle Bin | what was deleted on the desktop and in Files: restore, delete for good, empty, size and time limits ([above](#recycle-bin)) |
 | Mouse, Keyboard | only with a USB keyboard and mouse on the board: pointer speed, keyboard layout and repeat; changes need the System settings right ([above](#usb-keyboard-and-mouse-esp32-s3)) |
 | Software Update | check for official updates (and, with *notify me*, daily, with a notice when one is out), install firmware from a URL or file, roll back (root); offers to save pins that only the running firmware has before it installs |

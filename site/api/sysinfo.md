@@ -67,6 +67,8 @@ typedef struct {
     const td_net_ops_t *net;
     const td_ota_ops_t *ota;   /* NULL: no updates on this platform */
     const char *no_ota_text;   /* with ota NULL: why, and how to update instead */
+    const td_fetch_ops_t *fetch;   /* downloads (the Store), NULL: none */
+    const char *store_url;     /* the Store's catalog, NULL: the official one */
 
     bool (*user_exists)(const char *user);
     bool (*authenticate)(const char *user, const char *password);
@@ -108,6 +110,8 @@ typedef struct {
 | `get_tz`, `set_tz` | `~/.tdsh_tz` (TinyDesk Shell's `tz` file) | `~/.tdsh_tz`, else the PC's offset |
 | `net` | `net_esp_ops()` (`net_esp.c`) | only through `td_host_use_net()` (the `tools/tdsim.c` simulator uses a fake one) |
 | `ota` | `ota_esp_ops()` (`ota_esp.c`) | not set |
+| `fetch` | `fetch_esp_ops()` (`fetch_esp.c`) | `host_fetch_ops()` (`ports/common/host_fetch.c`: files copied, URLs through `curl`) |
+| `store_url` | board key `store.url` (a shell path becomes a real one) | environment variable `TINYDESK_STORE` |
 | `user_exists`, `authenticate` | TinyDesk Shell's user database | only through `td_host_use_users()` (tdsim test accounts) |
 | `users` | TinyDesk Shell's accounts, roles and remembered login (`main.c`) | not set |
 | `settings_load`, `settings_save` | NVS namespace `"tinydesk"`, key `"settings"` | file `tinydesk_settings.bin` in the working directory |
@@ -534,6 +538,40 @@ The ESP port reads `update-desktop-<board>.json` from the web installer's site (
 When `ota` is set, the first six members must be set; the app calls them without checking. The app only lets root start, cancel or roll back; everyone can look.
 
 Implementation: `ports/esp_idf/app/ota_esp.c` (`ota_esp_ops()`), shared with the `ota` shell command. An update is written to the slot that is not running, checked (image format, chip, SHA-256) and made the boot slot. HTTPS is checked against the ESP-IDF certificate bundle. The new version runs on trial after the restart until `ota_esp_boot_ok()` confirms it (30 s after start-up, or on a requested restart); a crash before that makes the bootloader go back. The hosts have no `ota`.
+
+## Downloads
+
+```c
+enum { TD_FETCH_IDLE, TD_FETCH_RUNNING, TD_FETCH_DONE, TD_FETCH_FAILED };
+typedef struct
+{
+    int state;                 /* TD_FETCH_* */
+    uint32_t done, total;      /* bytes; total 0 while unknown */
+    char message[96];          /* why it failed */
+} td_fetch_status_t;
+typedef struct
+{
+    bool (*start)(const char *source, const char *dest, uint32_t max);
+    void (*status)(td_fetch_status_t *out);
+    void (*cancel)(void);
+} td_fetch_ops_t;
+```
+
+`start()` copies `source`, an `http://` or `https://` URL or a real file
+path (also `file://`), into the real file path `dest`, replacing it, in
+the background; one download at a time (false while one runs). HTTPS is
+checked against the port's trusted certificates and redirects are
+followed. More than `max` bytes (0: no limit) fails. A failed or cancelled
+download removes `dest`. Poll `status()`; the Store does every 100 ms.
+
+The ESP port (`ports/esp_idf/app/fetch_esp.c`) uses `esp_http_client`
+with the ESP-IDF certificate bundle (up to 4 redirects) in a short-lived
+task; the PC programs (`ports/common/host_fetch.c`) copy files themselves
+and hand URLs to `curl` in a thread.
+
+`store_url` is the catalog the Store reads (`apps/store.c`): a URL or a
+real file path of a `catalog.txt`; the packages come from the same folder.
+NULL: `https://tinydesk-project.github.io/tinydesk-apps/catalog.txt`.
 
 ### Kiosk mode
 

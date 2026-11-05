@@ -183,6 +183,12 @@ key from `/etc/board.conf`) to take effect.
 | --- | --- | --- |
 | `update.url` | the official feed | The update feed *Check for official updates* and the daily check read (`http://` or `https://`, a full URL to an `update-desktop-<board>.json`), for example your own server. It takes precedence over a `moved` address in the update information (`ota feed`). |
 
+### Store
+
+| Key | Default | Meaning |
+| --- | --- | --- |
+| `store.url` | the official catalog | The catalog the [Store](using.md#store) reads: an `http://` or `https://` URL of a `catalog.txt`, or one on the board (a shell path such as `/root/test/catalog.txt`). The packages are fetched from the same folder. |
+
 ### Console (classic ESP32 and ESP32-S3)
 
 Read by `ports/esp_idf/app/link_uart.c` at start-up, on the classic ESP32

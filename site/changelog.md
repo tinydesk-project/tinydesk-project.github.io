@@ -9,6 +9,13 @@ API may still change between minor versions.
 
 ## Unreleased
 
+* **Store:** a new app that lists the apps of the
+  [tinydesk-apps](https://github.com/tinydesk-project/tinydesk-apps)
+  catalog and installs, updates and removes them (`~/Apps`, the Start
+  menu). Downloads are checked against the catalog's SHA-256; apps the
+  board cannot run are listed but not installed. Board key `store.url`
+  (`TINYDESK_STORE` on a PC) chooses another catalog. Ports can offer
+  downloads with `td_fetch_ops_t`.
 * **Password hints:** an account can have a hint, set with `useradd`,
   `passwd` or the Users app (when it is made or its password changes) and
   shown by the new **Hint** button of Sign in. A hint that contains the
