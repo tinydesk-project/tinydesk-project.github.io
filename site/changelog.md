@@ -9,6 +9,24 @@ API may still change between minor versions.
 
 ## Unreleased
 
+* **Password hints:** an account can have a hint, set with `useradd`,
+  `passwd` or the Users app (when it is made or its password changes) and
+  shown by the new **Hint** button of Sign in. A hint that contains the
+  password is refused. TinyDesk Shell keeps it in NVS (`hints`).
+* **On-screen keyboard:** one set of large touch keys, sized to the
+  screen, for Sign in, the kiosk's way out and a new **On-screen
+  keyboard** app that types into the focused window, also dialogs. Settings
+  can open it whenever a text box has the focus. Windows can be tools that
+  stay on top without taking the focus (`TD_WIN_NO_FOCUS`).
+* **Desktop icons:** drag any icon to a new place (or onto another to swap
+  them); the places are kept per user (`~/.tinydesk_icons`). **Auto arrange
+  icons** (right-click the desktop) lines them up again. The Recycle Bin
+  sits in the bottom-right corner.
+* **Shortcuts and the Start menu:** **Send to Desktop** in Files makes a
+  shortcut (`.tdlink`); app packages can be added to the Start menu, which
+  lists a user's entries (`~/Start menu`) under the built-in apps, and
+  copied to `~/Apps`, each user's folder for app packages.
+
 * **CrowPanel 7.0 port:** `ports/crowpanel7` runs the desktop on the
   Elecrow CrowPanel 7.0 (ESP32-S3-WROOM-1-N4R8, 7" 800x480 LCD, GT911
   touch). The touch screen is the mouse (a long press is the right

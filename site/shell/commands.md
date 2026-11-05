@@ -882,7 +882,8 @@ described in [First login and users](../guide/first-login.md#accounts).
 
 | Command | Who | What it does |
 |---|---|---|
-| `useradd <username> [admin\|user]` | root, or an Admin with the Manage accounts right | create an account; asks for the password twice. A User by default, with Apps / Terminal; `admin`: every right except Hardware / I/O. Only rights the creator holds are given. |
+| `useradd <username> [admin\|user]` | root, or an Admin with the Manage accounts right | create an account; asks for the password twice, then for an optional password hint (shown by Sign in's **Hint**; one that contains the password is not saved). A User by default, with Apps / Terminal; `admin`: every right except Hardware / I/O. Only rights the creator holds are given. |
+| `passwd` | anyone | change your own password: the old one, the new one twice, then the hint (Enter keeps it, `-` removes it) |
 | `userdel <username> [-f]` | the same | delete an account and its home; without `-f` it asks for that account's password; root cannot be deleted |
 | `userrole <username> [admin\|user]` | show: anyone; set: the same | show the role (`root`, `admin` or `user`); setting it resets the rights to the role's defaults, limited to the setter's rights |
 | `userrights <username> [+right\|-right ...]` | show: anyone; change: the same | show the rights, or add (`+`) and remove (`-`) them: `users`, `system`, `network`, `hardware`, `shared`, `time`, `apps` |
@@ -897,6 +898,7 @@ prints `userrole: permission denied or account update failed` or
 # useradd operator
 New password:
 Retype new password:
+Password hint (optional, shown at Sign in): the blue notebook
 Created operator (user).
 # userrights operator +shared +network
 operator: network shared apps

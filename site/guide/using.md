@@ -197,8 +197,10 @@ the next restart (the app goes on running, in a normal window):
 * or **Ctrl+Alt+Delete** on a keyboard plugged into the board (a PC keeps
   that key for itself).
 
-The password window has keys to click or touch; a keyboard types into it
-too. After three wrong passwords it waits 30 seconds.
+The password window has large keys to click or touch (the [on-screen
+keyboard](#on-screen-keyboard)'s, with **Unlock** as Enter and **Clear**);
+a keyboard types into it too. After three wrong passwords it waits 30
+seconds.
 
 **Maintenance start:** press RESET, let go, and within 1.5 seconds hold
 the **BOOT** button for a moment. The board then starts without kiosk mode,
@@ -236,6 +238,48 @@ board with little flash, keep the size small or empty the bin now and
 then. A user other than root only ever restores into their home. Files
 are kept as `~/.trash/<id>/<name>` with a small `.tdtrash` record next to
 them (see [Files and settings](../shell/config-files.md#trash)).
+
+## Desktop icons
+
+Icons fill the desktop's columns from the top left, and the Recycle Bin
+sits in the bottom-right corner. Drag an icon (an app's too) to another
+place and it stays there; dropped on another icon, the two swap. Moving
+one turns **Auto arrange icons** off (right-click the empty desktop), so
+every icon keeps its place, also after a restart: the places are saved
+for each user in `~/.tinydesk_icons`. Tick **Auto arrange icons** again
+to line them up. A file dropped on a folder icon still goes into that
+folder.
+
+## Shortcuts, the Start menu and Apps
+
+Right-click a file or folder in Files and choose **Send to Desktop**: a
+shortcut to it appears on the desktop (an `->` icon). Opening a shortcut
+opens what it points to; deleting it deletes only the shortcut. A
+shortcut is a small text file `NAME.tdlink` whose line `target=` holds
+the shell path, such as `target=/root/Apps/hmi.tdapp`.
+
+App packages (`.tdapp`) also have, in Files and on the desktop:
+
+* **Add to Start menu** (or **Remove from Start menu**): the package
+  appears in its own section of the Start menu, under the built-in apps.
+  These entries are the shortcuts in the folder `~/Start menu`; rename or
+  delete them there in Files.
+* **Copy to Apps**: copies the package into `~/Apps`, the folder for each
+  user's apps, and adds it to the Start menu. The original stays where it
+  was (a kiosk app keeps working from its old path).
+
+Both folders are made at sign-in, beside `~/Desktop`.
+
+## On-screen keyboard
+
+For touch screens, **Start → On-screen keyboard** opens large keys at the
+bottom of the screen (or above the text being typed, so it stays in
+view). They type into the window that has the focus, also into dialogs;
+the keyboard itself never takes the focus. A key types when the finger
+lifts on it. **#+=** shows the symbols, **Esc** closes dialogs and
+**Hide** closes the keyboard. Settings → **On-screen keyboard for text
+fields** opens it whenever a text box has the focus and closes it again
+afterwards. Sign in and the kiosk's way out use the same keys.
 
 ## Clipboard (copy and paste with the PC)
 
@@ -338,8 +382,9 @@ not); **Stop** in the menu and Ctrl+C in the pane work everywhere.
 | System Monitor | RAM (internal and PSRAM), tasks, CPU and, on the ESP32-S3 and ESP32-C6, the chip's temperature, frame time, serial traffic, screen size |
 | Task Manager | open windows (switch to / end) and system tasks with CPU %, state, stack |
 | Log Viewer | the system log (root) |
-| Settings | theme (Dark by default, or Classic), ASCII mode, icons, sizes, picture detail, desktop pattern (light shade by default), links to Network / Date & time / Software update |
-| Users | accounts: new account, role (Admin or User) and rights, change password, remembered login (root); others see only their own account ([Accounts](first-login.md#accounts)) |
+| Settings | theme (Dark by default, or Classic), ASCII mode, icons, the on-screen keyboard for text fields, sizes, picture detail, desktop pattern (light shade by default), links to Network / Date & time / Software update |
+| Users | accounts: new account, role (Admin or User) and rights, change password, password hint, remembered login (root); others see only their own account ([Accounts](first-login.md#accounts)) |
+| On-screen keyboard | large keys to touch that type into the window that has the focus; the Start menu entry opens and closes it ([below](#on-screen-keyboard)) |
 | Recycle Bin | what was deleted on the desktop and in Files: restore, delete for good, empty, size and time limits ([above](#recycle-bin)) |
 | Mouse, Keyboard | only with a USB keyboard and mouse on the board: pointer speed, keyboard layout and repeat; changes need the System settings right ([above](#usb-keyboard-and-mouse-esp32-s3)) |
 | Software Update | check for official updates (and, with *notify me*, daily, with a notice when one is out), install firmware from a URL or file, roll back (root); offers to save pins that only the running firmware has before it installs |

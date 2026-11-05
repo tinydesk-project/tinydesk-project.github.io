@@ -267,7 +267,10 @@ typedef struct {
     uint32_t (*login)(const char *name,const char *password);
     int (*boot_user_set)(const char *actor,const char *name);
     int (*require_password)(const char *actor);
+    int (*hint_get)(const char *name,char *out,int cap);
+    int (*hint_set)(const char *actor,const char *name,const char *hint);
 } td_user_ops_t;
+#define TD_HINT_MAX 64
 ```
 
 `list` fills the account at `index` (0 on success, otherwise past the
@@ -278,8 +281,12 @@ account's generation (0: wrong), and records the proof for a remembered
 login. `remembered` returns the generation of the remembered account (and
 its name), or 0. `create`, `access_set`, `password_set`, `boot_user_set`
 and `require_password` act as the account `actor` and return 0 or a
-negative `errno` value (`-EACCES` when that account may not). The ESP
-ports implement it with TinyDesk Shell's account store.
+negative `errno` value (`-EACCES` when that account may not). The
+optional `hint_get` and `hint_set` read and set an account's password
+hint (up to `TD_HINT_MAX - 1` bytes; `""` none or remove): anyone may read
+it, it is shown by Sign in's **Hint**; the account itself and whoever may
+manage it set it. Without them Sign in has no Hint button. The ESP ports
+implement it with TinyDesk Shell's account store.
 
 ### Settings storage
 
@@ -309,6 +316,7 @@ typedef struct {
     int (*rename)(const char *from, const char *to);
     int (*exists)(const char *path);
     int (*read_at)(const char *path, uint32_t offset, char *buf, int cap);
+    int (*append)(const char *path, const char *data, int len);
 } td_fs_ops_t;
 
 #define TD_FS_READ 0     /* actions for a path guard */
@@ -331,6 +339,7 @@ Minimal file access for Files, the Editor, the Desktop folder, per-user settings
 | `rename` | yes | Rename or move a file or folder. Return 0 on success. Should fail rather than overwrite an existing target. |
 | `exists` | no | Return 1 if the path exists, else 0. Used to refuse names that are taken; without it, `rename` and `write` decide. |
 | `read_at` | no | Read up to `cap` bytes starting `offset` bytes into the file; return the byte count (0 at the end) or -1. The Image Viewer reads large files with it. |
+| `append` | no | Add `len` bytes to the end of the file, making it if missing; return 0 on success. **Copy to Apps** copies files larger than memory with `read_at` and `append`. |
 
 The apps check `fs` and a few members (Files checks `list`, the Editor `read` and `write`), but Files and the Desktop menus then call `write`, `mkdir`, `remove` and `rename` without checking, so implement all members except `exists`. All calls are made on the UI task and should finish in milliseconds; a flash filesystem is fine.
 

@@ -15,7 +15,7 @@ All functions on this page must be called from the UI task (the task that runs `
 |---|---|---|
 | `TD_MAX_WINDOWS` | 12 | Open windows at once, dialogs included. `td_win_create()` returns `NULL` beyond it. |
 | `TD_MAX_TIMERS` | 16 | Shared timer pool; each window with an `on_tick` uses one. |
-| `TD_MAX_APPS` | 16 | Registered apps (start menu entries and desktop icons). |
+| `TD_MAX_APPS` | 32 | Registered apps (start menu entries and desktop icons). |
 | `TD_TITLE_MAX` | 32 | Bytes of a window title, including the NUL. Longer titles are cut. |
 | `TD_DOUBLE_CLICK_MS` | 400 | Double-click window for title bars, desktop icons and lists. |
 
@@ -32,6 +32,7 @@ All of them live in `include/tinydesk/td_config.h` and can be overridden from th
 #define TD_WIN_HIDDEN     0x0100u  /* minimised to the taskbar */
 #define TD_WIN_MAXIMIZED  0x0200u
 #define TD_WIN_FULLSCREEN 0x0400u  /* no frame, covers the taskbar */
+#define TD_WIN_NO_FOCUS   0x0800u  /* a tool: on top, never the focus */
 
 #define TD_WIN_DEFAULT (TD_WIN_MOVABLE | TD_WIN_RESIZABLE | TD_WIN_CLOSABLE)
 ```
@@ -43,11 +44,13 @@ All of them live in `include/tinydesk/td_config.h` and can be overridden from th
 | `TD_WIN_CLOSABLE` | you | Shows `[x]` in the title bar and "Close" in the window menu. Ctrl+Q and Alt+F4 close any window, closable or not. |
 | `TD_WIN_MODAL` | you | A dialog: it stays above ordinary windows, keeps the keyboard and mouse until closed, has no `[-]` button, cannot be minimised, closes on Esc and has no taskbar button. |
 | `TD_WIN_RAW_KEYS` | you | Every key the window manager does not handle itself goes straight to `on_event`; widgets get no keys (see [Keyboard](#keyboard)). Used by the Terminal and the Editor. |
+| `TD_WIN_NO_FOCUS` | you | A tool window, such as the on-screen keyboard: it stays above all other windows, also dialogs, and gets its mouse events even while a dialog is open, but it never becomes the focused window, so keys keep going to the window that has the focus. `td_win_focused()` skips it. |
+| `TD_WIN_NO_FOCUS` | you | A tool window, such as the on-screen keyboard: it stays above all other windows, also dialogs, and gets its mouse events even while a dialog is open, but it never becomes the focused window, so keys keep going to the window that has the focus. `td_win_focused()` skips it. |
 | `TD_WIN_HIDDEN` | window manager | The window is minimised. |
 | `TD_WIN_MAXIMIZED` | window manager | The window covers the desktop area above the taskbar. |
 | `TD_WIN_FULLSCREEN` | window manager | No frame; the client area is the whole screen. The taskbar is hidden while this window is on top. |
 
-Set the first five in `td_window_desc_t.flags`. Read the last three from `td_window_t.flags`, but change them only through `td_win_minimize()`, `td_win_toggle_maximize()` and `td_win_set_fullscreen()`.
+Set `TD_WIN_MOVABLE` to `TD_WIN_RAW_KEYS` and `TD_WIN_NO_FOCUS` in `td_window_desc_t.flags`. Read the last three from `td_window_t.flags`, but change them only through `td_win_minimize()`, `td_win_toggle_maximize()` and `td_win_set_fullscreen()`.
 
 ## Creating windows
 
@@ -384,7 +387,7 @@ void td_wm_toggle_start_menu(void);
 Opens the start menu at the bottom-left corner, or closes it when it is open. F10, a click on `[Start]`, and Enter or Esc while no window is focused call it. The menu lists, from the top:
 
 1. every registered app in registration order (with its glyph for the medium and large start menu sizes),
-2. a separator,
+2. a separator, then the user's entries from the start provider (below), if any, and another separator,
 3. the entries added with `td_wm_add_start_item()`,
 4. "Redraw screen" (calls `td_full_redraw()`),
 5. "Exit" (calls `td_quit()`; on the ESP32 ports the board then restarts).
@@ -398,6 +401,27 @@ void td_wm_add_start_item(const char *label, void (*fn)(void));
 ```
 
 Adds an entry to the start menu's lower section, above "Redraw screen". `fn` runs when it is chosen. At most 4 entries can be added; further calls, and calls with `NULL` arguments, are ignored. The `label` pointer is stored, not copied: pass a string that stays valid (a literal). There is no way to remove an entry. The session code adds "Switch user..." when the port supplies `authenticate` (see [sysinfo.md](sysinfo.md)).
+
+### td_wm_set_start_provider
+
+```c
+#define TD_START_USER_MAX 16
+typedef struct
+{
+    int (*count)(void *user);
+    const char *(*label)(int i, void *user);
+    const char *(*icon)(int i, void *user);   /* two cells, or NULL */
+    void (*open)(int i, void *user);
+    void *user;
+} td_start_provider_t;
+void td_wm_set_start_provider(const td_start_provider_t *provider);
+```
+
+The user's own start menu entries, asked each time the menu opens (up to
+`TD_START_USER_MAX`): `count`, then `label` and `icon` for each (the
+pointers must stay valid until the menu is open; labels are copied then),
+and `open` when one is chosen. `apps/shortcut.c` lists the shortcuts in
+`~/Start menu` with it.
 
 ## Taskbar
 
@@ -585,7 +609,34 @@ void td_desktop_set_icons(bool on);
 bool td_desktop_icons(void);
 ```
 
-Shows or hides all desktop icons (default: shown). There is one icon per registered app, in registration order, followed by the desktop provider's items. Icons are laid out in columns from the top-left corner; windows cover them.
+Shows or hides all desktop icons (default: shown). There is one icon per registered app, in registration order, followed by the desktop provider's items. Icons are laid out in columns from the top-left corner, in slots spread over the whole desktop; windows cover them.
+
+### Icon places
+
+```c
+typedef struct { uint32_t key; int16_t col, row; } td_icon_place_t;
+#define TD_MAX_ICON_PLACES 96
+void td_wm_set_icon_arrange(bool on);
+bool td_wm_icon_arrange(void);
+int td_wm_icon_places(td_icon_place_t *out, int max);
+void td_wm_set_icon_places(const td_icon_place_t *places, int count);
+void td_wm_on_icons_moved(void (*fn)(void));
+void td_wm_pin_icon(const char *app_name);
+uint32_t td_wm_icon_key(bool file, const char *name);
+```
+
+Arranged (the default), icons fill the columns from the top left and the
+pinned app's icon (`td_wm_pin_icon()`; the Recycle Bin pins itself) takes
+the bottom-right slot. Any icon, an app's too, can be dragged: dropped on
+an empty slot it goes there, dropped on another icon the two swap (a file
+dropped on a folder still goes to the provider's `drop`). The first move
+stops arranging and gives every icon its current slot as its place, so
+the others stay put. `td_wm_icon_places()` copies the places (a key from
+`td_wm_icon_key()` with the icon's name, and a column and row of slots);
+`td_wm_set_icon_places()` restores them, and the function set with
+`td_wm_on_icons_moved()` is called after each move. Icons without a place,
+or whose place is taken or off the screen, fill the first free slots.
+`apps/settings.c` keeps them per user in `~/.tinydesk_icons`.
 
 - A click selects an icon, a double-click opens it (the app's `launch`, or the provider's `open`).
 - While no window is focused, the arrow keys move the selection and Enter opens the selected icon.

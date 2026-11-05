@@ -672,3 +672,66 @@ Normal-picture fallback is painted. The storage is charged to
 `TD_PYUI_MAX_PIXELS`, reference-counted across page copies, and released
 with the picture. Mouse release is routed to the canvas that received the
 press, even when the pointer has left its rectangle.
+
+## On-screen keyboard
+
+```c
+typedef struct
+{
+    td_rect_t area;      /* client cells the keys use */
+    const char *enter;   /* the Enter key's label ("Enter", "Sign in", ...) */
+    bool password;       /* a Clear key instead of Esc */
+    bool shift, sym;
+    int held;            /* the key pressed and not released yet, or -1 */
+} td_osk_t;
+void td_osk_init(td_osk_t *k, td_rect_t area, const char *enter, bool password);
+void td_osk_draw(const td_osk_t *k);
+int td_osk_mouse(td_osk_t *k, const td_event_t *ev, bool *used);
+void td_osk_follow_focus(bool on);
+bool td_osk_follows_focus(void);
+```
+
+Touch keys drawn into part of a window (`apps/osk.c`): a grid 12 units
+wide and 5 rows high, a unit 3 to 8 columns and a row 1 to 4 lines as the
+area allows. Call `td_osk_draw()` from `on_draw` and pass the window's
+mouse events (client cells) to `td_osk_mouse()`, which returns what a
+released key types: a character, `TD_KEY_BACKSPACE`, `TD_KEY_ENTER`,
+`TD_KEY_LEFT`, `TD_KEY_RIGHT`, `TD_KEY_ESC`, `TD_OSK_HIDE`, `TD_OSK_CLEAR`
+(password keyboards), or `TD_OSK_NONE` (also for Shift and `#+=`, which
+only change the keys). A key types only when released on the key it was
+pressed on. Sign in, the kiosk's unlock window and the On-screen keyboard
+app use it; the app (a `TD_WIN_NO_FOCUS` window) sends its keys with
+`td_wm_dispatch()`. `td_osk_follow_focus(true)` opens the app whenever a
+text box has the focus (the Settings switch).
+
+## Shortcuts
+
+```c
+bool td_is_shortcut(const char *name);
+bool td_shortcut_target(const char *link, char *target, int cap);
+const char *td_shortcut_make(const char *dir, const char *target);
+const char *td_apps_dir(void);
+const char *td_start_dir(void);
+bool td_in_start_menu(const char *target);
+const char *td_start_menu_remove(const char *target);
+const char *td_copy_to_apps(const char *path, char *copy, int cap);
+void td_open_path(const char *path, bool is_dir);
+void td_shortcuts_session(void);
+int td_shortcut_menu(const char *path, bool on_desktop, const char **items, int max);
+void td_shortcut_menu_chosen(const char *path, bool on_desktop, int index);
+```
+
+`apps/shortcut.c`. Paths are real paths. A shortcut is `NAME.tdlink` with
+the line `target=` and a shell path; `td_shortcut_make()` writes one in a
+folder (the Desktop, `td_start_dir()`), naming it after the target
+(without `.tdapp`, with ` (2)` and so on when the name is taken), and
+returns NULL or an error message. `td_open_path()` opens anything the way
+the Desktop and Files do: folders in Files, pictures in the Image Viewer,
+app packages run, a shortcut its target (one step), other files in the
+Editor. `td_copy_to_apps()` copies a file into `~/Apps` in 2 KB pieces
+(it needs the file system's `read_at` and `append`). `td_shortcut_menu()`
+gives the right-click entries for a file (Send to Desktop; for `.tdapp`
+Add to / Remove from Start menu and Copy to Apps) and
+`td_shortcut_menu_chosen()` carries one out. `td_shortcuts_session()`, run
+at sign-in, makes `~/Apps` and `~/Start menu` and lists the user's entries
+in the Start menu (`td_wm_set_start_provider()`).

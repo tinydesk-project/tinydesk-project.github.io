@@ -24,6 +24,8 @@ On the ESP32 the LittleFS partition `storage` is mounted at `/fs`. On Windows an
 | [`~/.tdshrc.tdsh`](#tdshrctdsh) | TinyDesk Shell (created with comments only), the user | TinyDesk Shell, when the local console starts a session |
 | [`/etc/board.conf`](#etcboardconf) | `board set`, `board init`, the user | TinyDesk Shell and the ports, at start-up |
 | [`~/Desktop`](#the-desktop-folder) | the desktop (created with `Welcome.txt` and the port's own files), the user | the desktop, every 3 s |
+| [`~/.tinydesk_icons`](#tinydesk_icons) | the desktop, when an icon is moved | the desktop, at start-up and after every user switch |
+| [`~/Apps`, `~/Start menu`](#apps-and-start-menu) | the desktop (made at sign-in), **Copy to Apps**, **Add to Start menu**, the user | the Start menu, shortcuts |
 | [NVS keys](#nvs-keys) | TinyDesk, TinyDesk Shell | TinyDesk, TinyDesk Shell |
 | [Partition tables](#partition-tables) | the build | the bootloader |
 
@@ -182,7 +184,7 @@ typedef struct {
     uint8_t picture_detail;
     uint8_t trash_size;
     uint8_t trash_keep;
-    uint8_t reserved2[1];
+    uint8_t desk;
 } settings_blob_t;
 ```
 
@@ -204,7 +206,7 @@ typedef struct {
 | 16 | 1 | `picture_detail` | Pictures: `0` Normal (two pixels per cell), `1` Fine (four) | Normal |
 | 17 | 1 | `trash_size` | Recycle Bin size: `0` 1 MB, `1` off, `2` 256 KB, `3` 4 MB, `4` 16 MB, `5` 64 MB | 1 MB |
 | 18 | 1 | `trash_keep` | Recycle Bin: delete items after `0` never, `1` 1 day, `2` 7 days, `3` 30 days, `4` 90 days | never |
-| 19 | 1 | `reserved2` | Written as 0 | |
+| 19 | 1 | `desk` | Bit 0: the on-screen keyboard opens for text fields; bit 1: desktop icons stay where they are put (**Auto arrange icons** off) | |
 
 Older versions wrote only the first 8 bytes (magic to `hide_icons`). Any file of 8 bytes or more with the right magic is accepted: the missing fields of a shorter one read as 0, and bytes past the 20 that this version knows are ignored. In every newer field, 0 means the default: 24-hour clock, day-month-year dates, clock shown, medium icons, start menu and taskbar, small window frames, and Normal pictures. In `hide_icons`, 0 (also in blobs saved before icons existed) means icons are shown.
 
@@ -300,6 +302,27 @@ Each user's `~/Desktop` holds the files shown as desktop icons (`apps/desktop.c`
 
 After a user switch the desktop shows the new user's folder.
 
+## ~/.tinydesk_icons
+
+Where the desktop icons are, once one has been moved (`apps/settings.c`,
+`td_wm_icon_places()`): the magic `0x54444931`, the count, then per icon a
+32-bit key made from its name (FNV-1a of `a` and the app name, or `f` and
+the file name) and its column and row (16 bits each), little-endian. Icons
+without a place, or whose place is taken or off the screen, fill the
+first free places. A renamed file loses its place.
+
+## Apps and Start menu
+
+`~/Apps` holds a user's app packages (`.tdapp`); **Copy to Apps** puts
+one there. `~/Start menu` holds the user's Start menu entries, shortcuts
+listed in the Start menu's own section (up to 16). A shortcut,
+`NAME.tdlink` (on the Desktop or in `~/Start menu`), is a text file with
+the line `target=` and a shell path:
+
+```text
+target=/root/Apps/hmi.tdapp
+```
+
 ---
 
 ## NVS keys
@@ -321,6 +344,7 @@ Keys in the ESP32's `nvs` partition used by TinyDesk and TinyDesk Shell:
 | `ush_users` | `access` | blob | TinyDesk Shell (`tdsh_users_access.inc`) | Roles and rights: magic `0x54444131`, then per account its name, salt, role (User or Admin) and rights. An entry whose name or salt no longer matches the account is ignored (a User with Apps / Terminal). Written by `useradd`, `userrole`, `userrights` and the Users app. |
 | `ush_users` | `remember` | u8 | TinyDesk Shell (`tdsh_users_access.inc`) | Remembered desktop login: `1` on (set by `bootuser NAME`, the Sign in window's checkbox or the Users app), `0` off (`bootuser --require-password`). |
 | `ush_users` | `proof` | blob, 32 bytes | TinyDesk Shell (`tdsh_users_access.inc`) | The boot user's password hash when it last signed in with its password while remembering was on. A password change makes it stale; turning remembering off erases it. |
+| `ush_users` | `hints` | blob | TinyDesk Shell (`tdsh_users_hint.inc`) | Password hints: magic `0x54444831`, then per account its name and hint (up to 63 bytes). Written by `useradd`, `passwd` and the Users app; making or deleting an account removes a hint left under its name. |
 
 The `ush_users` keys are written by TinyDesk Shell's account code, which the Sign in window and the Users app call.
 

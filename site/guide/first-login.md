@@ -27,9 +27,16 @@ The Sign in window lists the accounts with their role. Choose one, type its
 password and press Enter or **Sign in**. Nothing else on the desktop takes
 input until the shell has switched to that account.
 
-* **Keyboard** (for a touch screen such as the CrowPanel's) shows keys to
-  touch: the letters and digits, **Shift**, **Space**, **Backspace** and
-  **Clear**. **Accounts** goes back to the list.
+* **Keyboard** (for a touch screen such as the CrowPanel's) shows large
+  keys to touch, as big as the screen allows: digits, letters, **Shift**,
+  **#+=** for the symbols, **Space**, **Del** and **Clear**; the Enter key
+  signs in and **Hide** goes back to the list. A key types when the finger
+  lifts on it; sliding off a key types nothing.
+* **Hint** shows the selected account's password hint, if it has one.
+  The hint is set when the account is made or its password changed
+  (`useradd`, `passwd`, the Users app) and anyone at the device can read
+  it, so it must not give the password away: a hint that contains the
+  password is refused.
 * After a wrong password the next try waits 1 second; after 5 wrong
   passwords in a row, 10 seconds each time, until one is right.
 * **Start → Sign out** closes the account's windows, clears the Terminal
@@ -96,7 +103,7 @@ root's.
 | `userdel <username> [-f]` | root, or an Admin with Manage accounts | delete an account and its home; without `-f` it asks for that account's password |
 | `userrole <username> [admin\|user]` | show: anyone; set: as `useradd` | show or set the role; setting it resets the rights to the role's defaults |
 | `userrights <username> [+right\|-right ...]` | show: anyone; change: as `useradd` | show the rights, or add and remove them by name |
-| `passwd` | anyone | change your own password (asks for the old one) |
+| `passwd` | anyone | change your own password (asks for the old one), then the hint: Enter keeps it, `-` removes it |
 | `login <username>` | anyone | continue the session as another user (asks for their password) |
 | `logout` | anyone | end the session; the console asks who logs in next |
 | `bootuser [username\|--require-password]` | show: anyone; set: root | the account the console starts as and the [remembered login](#remembered-login); `--require-password` (or `off`) turns remembering off |
