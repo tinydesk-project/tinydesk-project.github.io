@@ -293,7 +293,10 @@ For touch screens, **Start → On-screen keyboard** opens large keys at the
 bottom of the screen (or above the text being typed, so it stays in
 view). They type into the window that has the focus, also into dialogs;
 the keyboard itself never takes the focus. A key types when the finger
-lifts on it. **#+=** shows the symbols, **Esc** closes dialogs and
+lifts on it. **Shift** works as on a phone: one tap capitalises the next
+character only, two quick taps lock it (**CAPS**) and one more tap
+releases it. A finger between two keys still lands on one: the gaps
+belong to the keys. **#+=** shows the symbols, **Esc** closes dialogs and
 **Hide** closes the keyboard. Settings → **On-screen keyboard for text
 fields** opens it whenever a text box has the focus and closes it again
 afterwards. Sign in and the kiosk's way out use the same keys.

@@ -703,7 +703,9 @@ typedef struct
     td_rect_t area;      /* client cells the keys use */
     const char *enter;   /* the Enter key's label ("Enter", "Sign in", ...) */
     bool password;       /* a Clear key instead of Esc */
-    bool shift, sym;
+    uint8_t shift;       /* TD_OSK_SHIFT_OFF, _ONCE (next character), _LOCK */
+    bool sym;            /* the symbols */
+    uint32_t shift_ms;   /* when Shift was last tapped (double tap) */
     int held;            /* the key pressed and not released yet, or -1 */
 } td_osk_t;
 void td_osk_init(td_osk_t *k, td_rect_t area, const char *enter, bool password);
@@ -715,14 +717,18 @@ void td_osk_register(void);   /* the On-screen keyboard app */
 ```
 
 Touch keys drawn into part of a window (`apps/osk.c`): a grid 12 units
-wide and 5 rows high, a unit 3 to 8 columns and a row 1 to 4 lines as the
-area allows. Call `td_osk_draw()` from `on_draw` and pass the window's
+wide and 5 rows high, a unit 3 to 8 columns and a row 1 to 6 lines as the
+area allows (the app's window gives 4-line rows on a 30-line screen). Call `td_osk_draw()` from `on_draw` and pass the window's
 mouse events (client cells) to `td_osk_mouse()`, which returns what a
 released key types: a character, `TD_KEY_BACKSPACE`, `TD_KEY_ENTER`,
 `TD_KEY_LEFT`, `TD_KEY_RIGHT`, `TD_KEY_ESC`, `TD_OSK_HIDE`, `TD_OSK_CLEAR`
 (password keyboards), or `TD_OSK_NONE` (also for Shift and `#+=`, which
 only change the keys). A key types only when released on the key it was
-pressed on. Sign in, the kiosk's unlock window and the On-screen keyboard
+pressed on; the gap drawn after a key, right and below, counts as that
+key. Shift: one tap is `TD_OSK_SHIFT_ONCE`, cleared after the next
+character key; a second tap within 400 ms is `TD_OSK_SHIFT_LOCK`; a tap
+then turns it off. An owner that sets the keys up again for a new size
+keeps `shift`, `shift_ms` and `sym`. Sign in, the kiosk's unlock window and the On-screen keyboard
 app use it; the app (a `TD_WIN_NO_FOCUS` window) sends its keys with
 `td_wm_dispatch()`. `td_osk_follow_focus(true)` opens the app whenever a
 text box has the focus (the Settings switch).

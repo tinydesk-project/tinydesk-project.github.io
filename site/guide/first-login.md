@@ -31,7 +31,8 @@ input until the shell has switched to that account.
   keys to touch, as big as the screen allows: digits, letters, **Shift**,
   **#+=** for the symbols, **Space**, **Del** and **Clear**; the Enter key
   signs in and **Hide** goes back to the list. A key types when the finger
-  lifts on it; sliding off a key types nothing.
+  lifts on it; sliding off a key types nothing. **Shift** capitalises the
+  next character; tap it twice quickly to lock it (**CAPS**).
 * **Hint** shows the selected account's password hint, if it has one.
   The hint is set when the account is made or its password changed
   (`useradd`, `passwd`, the Users app) and anyone at the device can read

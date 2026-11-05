@@ -22,7 +22,9 @@ API may still change between minor versions.
   password is refused. TinyDesk Shell keeps it in NVS (`hints`). While
   root has the factory password, its hint is **Type: TinyDesk**.
 * **On-screen keyboard:** one set of large touch keys, sized to the
-  screen, for Sign in, the kiosk's way out and a new **On-screen
+  screen (3 lines tall on a 30-line screen; a touch between two keys counts
+  for one of them), with Shift as on a phone (one tap for the next letter,
+  two quick taps for Caps lock), for Sign in, the kiosk's way out and a new **On-screen
   keyboard** app that types into the focused window, also dialogs. Settings
   can open it whenever a text box has the focus. Windows can be tools that
   stay on top without taking the focus (`TD_WIN_NO_FOCUS`).
