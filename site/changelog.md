@@ -106,6 +106,10 @@ API may still change between minor versions.
   Optional `tdui.scanout_info()` distinguishes missed frame preparation from
   image-allocation or UART failures; native cache statistics expose reuse
   and drawing time independently.
+  The LCD now waits for a slow frame as long as it is still arriving
+  (up to 8 s) instead of painting it half done after 1.5 s, which
+  sometimes showed a kiosk app's first page blank for a moment (a logo
+  that blinked at start-up).
 
 * **Clean button skins:** the sample UI skin loads without dithering, and its
   keyed corners no longer bake in a fixed background. Sixel pictures keep
