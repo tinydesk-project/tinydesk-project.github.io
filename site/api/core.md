@@ -278,7 +278,26 @@ void td_picture_profile(uint32_t out[4]);
 uint16_t td_rgb565(uint8_t r, uint8_t g, uint8_t b);
 uint16_t td_palette_rgb565(uint8_t index);
 void td_rgb565_rgb(uint16_t pixel, uint8_t rgb[3]);
+bool td_sixel_encode_rgb(const uint16_t *px, int w, int h,
+                         void (*write)(void *user, const char *s, int n), void *user);
+typedef bool (*td_picture_runs_fn)(void *user, int w, int h, const uint16_t **runs, size_t *words);
+void td_picture_add_rgb_runs(int x, int y, int cols, int rows, uint32_t id,
+                             td_picture_render_fn fallback, td_picture_render_rgb_fn render,
+                             td_picture_runs_fn cached, void *user);
+uint32_t td_picture_runs_ms(void);
 ```
+
+`td_sixel_encode_rgb()` is `td_sixel_encode()` for RGB565 pixels (false
+when it cannot, out of memory). `td_picture_add_rgb_runs()` adds an RGB
+picture that may also come as runs: `cached` lends pairs (count, RGB565)
+that expand to exactly `w * h` pixels, for a runs sink, and returns false
+to use `render` instead. `td_picture_runs_ms()` is the time spent on runs
+so far (reset with `td_picture_profile_reset()`).
+
+The core (`src/td.c`) frames each update with `td_pictures_begin()`,
+`td_pictures_available()`, `td_pictures_mark()`, `td_pictures_send()` and,
+after the terminal was set up again, `td_pictures_forget()`; apps and ports
+do not call them.
 
 `td_term_set_sixel()` and `td_term_set_cell_px()` set what the terminal
 can show without asking it, for a port whose display is local.

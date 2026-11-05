@@ -115,6 +115,7 @@ int td_trash_next_size(int code);
 | `td_trash_purge` | Applies the limits: items older than the user's time go (only while the clock is set), then the oldest until the bin fits its size. Called after each `td_trash_put()`, by `td_settings_apply_saved()` (so after every user switch) and by an hourly timer. |
 | `td_trash_restore` | Puts item `id` back: to the recorded path, making missing folders and picking `name (2)` when it is taken. For users other than root a path outside their home is not trusted: the item goes into the home. `NULL`, or a message. |
 | `td_trash_delete`, `td_trash_empty` | One item, or the whole bin, for good. |
+| `TD_TRASH_SIZES`, `TD_TRASH_KEEPS` | How many size codes (6) and keep codes (5) there are, for stepping through them (`td_trash_next_size()`). |
 | `td_trash_prefs` | The user's size code (`0` 1 MB, the default; `1` off; `2` 256 KB; `3` 4 MB; `4` 16 MB; `5` 64 MB) and keep code (`0` for ever; `1`, `2`, `3`, `4`: 1, 7, 30, 90 days), saved by `td_settings_save()` (bytes 17 and 18). `td_trash_limit()` is the size in bytes (0: off). |
 
 ## Built-in apps
@@ -472,6 +473,11 @@ void td_session_lock(void);                  /* Start > Sign out */
 bool td_session_locked(void);
 bool td_session_path_allowed(const char *path, int action);
 void td_login_open(void);
+void td_login_status(const char *message);
+void td_session_accept_login(const char *user, uint32_t generation);
+void td_session_accept_authenticated(const char *user);
+bool td_session_auth_pending(void);
+void td_kiosk_stop_for_login(void);
 ```
 
 | Function | Description |
@@ -482,6 +488,11 @@ void td_login_open(void);
 | `td_session_locked()` | True while nobody is signed in, or when the account's generation changed (its password was replaced). |
 | `td_session_path_allowed()` | Whether the account may use a real path for a `TD_FS_*` action: root anywhere; others in their home and, with `TD_RIGHT_SHARED`, `/shared`; never removing the home or `/shared` itself. The ports pass it to `td_fs_stdio_guard()`. |
 | `td_login_open()` | Opens the full-screen Sign in window (`apps/login.c`) behind the window manager's input gate ([wm.md](wm.md#td_wm_set_input_gate)). |
+| `td_login_status()` | The line Sign in shows under its fields ("Starting session...", why a sign-in failed); `""` clears it. |
+| `td_session_accept_login()` | After a password was checked: the desktop asks TinyDesk Shell to switch to `user` and keeps the input gate shut until the shell's user is `user` (or gives up after a few seconds). `generation` is the account's generation when the password was checked; a different one now (the password changed meanwhile) refuses with "Account changed. Please sign in again." Sign in calls it. |
+| `td_session_accept_authenticated()` | The same with the account's current generation, for a sign-in the port has already verified (a remembered login, `td_session_switch()` with the shell). |
+| `td_session_auth_pending()` | True from `td_session_accept_login()` until the shell has switched (or the wait ended); Sign in ignores input meanwhile. |
+| `td_kiosk_stop_for_login()` | Ends kiosk mode without starting it again (its status window too); `td_session_lock()` calls it before Sign in opens. |
 
 `td_users_register()` registers the Users app; `td_trash_register()`,
 `td_mouse_register()` and `td_keyboard_register()` the Recycle Bin, Mouse
@@ -592,6 +603,7 @@ The Terminal's one shell session can also be shown and used in another window; t
 #define TD_SCRIPT_EXT ".tdsh"
 bool td_is_script(const char *name);
 bool td_is_python(const char *name);
+bool td_is_compiled_app(const char *name);   /* .mpy, .tdapp */
 bool td_is_runnable(const char *name);
 bool td_script_run(const char *path);
 uint8_t td_script_colour(uint8_t bg);
@@ -629,7 +641,13 @@ bool td_pyui_detach_done(void);
 bool td_pyui_pixels_take(long bytes);
 void td_pyui_pixels_give(long bytes);
 td_pyui_image_t *td_pyui_image_new(int w, int h, bool mask);
+td_pyui_image_t *td_pyui_image_new_rgb(int w, int h, bool mask, bool rgb);
 long td_pyui_image_bytes(const td_pyui_image_t *img);
+bool td_pyui_enable_rgb(void);
+bool td_pyui_rgb_enabled(void);
+void td_pyui_send_font(uint16_t id, td_pyui_font_t *font, void (*wait)(void));
+void td_pyui_cache_stats(uint32_t out[12]);
+#define TD_PYUI_MAX_PAGES 16   /* pages of one canvas */
 void td_pyui_send_image(uint8_t op, uint16_t id, int a, int b, td_pyui_image_t *img, void (*wait)(void));
 ```
 
@@ -637,6 +655,10 @@ The desktop side of Python's [`tdui` module](../shell/python.md#windows-tdui) (`
 
 | Function | Task | Meaning |
 |---|---|---|
+| `td_pyui_image_new_rgb` | script | `td_pyui_image_new()` that, with `rgb`, also holds RGB565 pixels (two more bytes a pixel) beside the palette ones; `tdui` uses it for RGB pictures once `td_pyui_enable_rgb()` succeeded. |
+| `td_pyui_enable_rgb` | script | Turns RGB pictures on for this script (`tdui.enable_rgb_pictures()`): false on boards with the default 2000 cells (no PSRAM) or once palette pictures exist. `td_pyui_rgb_enabled()` tells. |
+| `td_pyui_send_font` | script | Hands a generated bitmap font (`TD_PYUI_FONT`, `tdui` `font_text`) to the desktop, which then owns it; waits like `td_pyui_send_image()`. |
+| `td_pyui_cache_stats` | any | Picture cache and timing counters for `tdui.graphics_info()`: the cache's six counters, raster and decode time (ms), then `td_picture_profile()`'s four. |
 | `td_pyui_start` | UI | Starts a 10 ms timer that carries out the requests, sends the changes of text boxes and list selections and of the scripts' window sizes (the desktop has no resize callback, so it compares each window's client size), and notices dialogs closed without an answer. Only the first call has an effect; called by `td_apps_register_all()`. |
 | `td_pyui_attach` | script | Allocates the queues and the object table (about 12 KB). False when `td_pyui_start()` has not run or memory is short. |
 | `td_pyui_send` | script | Queues a request; false while the queue is full (try again shortly). |
@@ -689,6 +711,7 @@ void td_osk_draw(const td_osk_t *k);
 int td_osk_mouse(td_osk_t *k, const td_event_t *ev, bool *used);
 void td_osk_follow_focus(bool on);
 bool td_osk_follows_focus(void);
+void td_osk_register(void);   /* the On-screen keyboard app */
 ```
 
 Touch keys drawn into part of a window (`apps/osk.c`): a grid 12 units
