@@ -90,7 +90,10 @@ API may still change between minor versions.
   `ports/common/python/tdui_contract.json` writes it down (request,
   widget and event numbers, limits, capabilities, the compatibility rule)
   for app makers such as TinyDesk App Builder; a test checks it against
-  the code.
+  the code. Its `python` part pins every public `tdui` name and its
+  parameters: removing or renaming one, or adding a required parameter,
+  fails the build. Another test checks, in the simulator, that the `tdui`
+  frozen into the firmware is the current one.
 * **Bounded artwork reuse:** RGB PSRAM apps reuse losslessly compressed
   native artwork and warm hidden pictures while idle. App Builder 0.10
   exposes Automatic/Off/64/128 KiB export choices. Existing RGB packages

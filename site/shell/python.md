@@ -401,7 +401,13 @@ How it works:
   checks these before it starts, whichever Builder version made it, and
   stops with a message saying what to update. The whole contract, with the
   request numbers and limits, is `ports/common/python/tdui_contract.json`
-  in the source.
+  in the source. Its `python` part lists every public function, class,
+  method, property and constant of `tdui`, with each function's
+  parameters, and a test keeps it: within API 1 a name is never removed or
+  renamed, its parameters keep their names and order, and new parameters
+  come last with a default, so a script or package made for 1.0 runs on
+  every later 1.x. Another test runs the firmware's own `tdui` (frozen
+  into it as bytecode) in the simulator and checks it has all of that.
 
 | Class or function | Notes |
 |---|---|
