@@ -12,7 +12,8 @@ API may still change between minor versions.
 * **Password hints:** an account can have a hint, set with `useradd`,
   `passwd` or the Users app (when it is made or its password changes) and
   shown by the new **Hint** button of Sign in. A hint that contains the
-  password is refused. TinyDesk Shell keeps it in NVS (`hints`).
+  password is refused. TinyDesk Shell keeps it in NVS (`hints`). While
+  root has the factory password, its hint is **Type: TinyDesk**.
 * **On-screen keyboard:** one set of large touch keys, sized to the
   screen, for Sign in, the kiosk's way out and a new **On-screen
   keyboard** app that types into the focused window, also dialogs. Settings

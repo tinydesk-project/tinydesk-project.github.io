@@ -344,7 +344,7 @@ Keys in the ESP32's `nvs` partition used by TinyDesk and TinyDesk Shell:
 | `ush_users` | `access` | blob | TinyDesk Shell (`tdsh_users_access.inc`) | Roles and rights: magic `0x54444131`, then per account its name, salt, role (User or Admin) and rights. An entry whose name or salt no longer matches the account is ignored (a User with Apps / Terminal). Written by `useradd`, `userrole`, `userrights` and the Users app. |
 | `ush_users` | `remember` | u8 | TinyDesk Shell (`tdsh_users_access.inc`) | Remembered desktop login: `1` on (set by `bootuser NAME`, the Sign in window's checkbox or the Users app), `0` off (`bootuser --require-password`). |
 | `ush_users` | `proof` | blob, 32 bytes | TinyDesk Shell (`tdsh_users_access.inc`) | The boot user's password hash when it last signed in with its password while remembering was on. A password change makes it stale; turning remembering off erases it. |
-| `ush_users` | `hints` | blob | TinyDesk Shell (`tdsh_users_hint.inc`) | Password hints: magic `0x54444831`, then per account its name and hint (up to 63 bytes). Written by `useradd`, `passwd` and the Users app; making or deleting an account removes a hint left under its name. |
+| `ush_users` | `hints` | blob | TinyDesk Shell (`tdsh_users_hint.inc`) | Password hints: magic `0x54444831`, then per account its name and hint (up to 63 bytes). Written by `useradd`, `passwd` and the Users app; making or deleting an account removes a hint left under its name. While root has the factory password, root's hint is `Type: TinyDesk` whatever is stored. |
 
 The `ush_users` keys are written by TinyDesk Shell's account code, which the Sign in window and the Users app call.
 

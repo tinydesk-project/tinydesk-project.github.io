@@ -36,7 +36,8 @@ input until the shell has switched to that account.
   The hint is set when the account is made or its password changed
   (`useradd`, `passwd`, the Users app) and anyone at the device can read
   it, so it must not give the password away: a hint that contains the
-  password is refused.
+  password is refused. While root still has the factory password, its
+  hint is **Type: TinyDesk**.
 * After a wrong password the next try waits 1 second; after 5 wrong
   passwords in a row, 10 seconds each time, until one is right.
 * **Start → Sign out** closes the account's windows, clears the Terminal
