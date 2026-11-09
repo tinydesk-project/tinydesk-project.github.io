@@ -28,6 +28,7 @@ import re
 import shutil
 import sys
 import tempfile
+import time
 import urllib.error
 import urllib.request
 
@@ -39,8 +40,16 @@ def http_get(url, accept="application/octet-stream"):
     token = os.environ.get("GITHUB_TOKEN")
     if token:
         req.add_header("Authorization", "Bearer " + token)
-    with urllib.request.urlopen(req, timeout=60) as r:
-        return r.read()
+    # GitHub sometimes answers a download with a 5xx or times out: try again.
+    for attempt in range(5):
+        try:
+            with urllib.request.urlopen(req, timeout=60) as r:
+                return r.read()
+        except (urllib.error.HTTPError, urllib.error.URLError, TimeoutError) as e:
+            if attempt == 4 or (isinstance(e, urllib.error.HTTPError) and e.code < 500):
+                raise
+            print("  %s: %s, trying again" % (url.rsplit("/", 1)[-1], e))
+            time.sleep(5 * (attempt + 1))
 
 
 def get_json(url):
@@ -79,7 +88,8 @@ def download_release(repo, tag, into):
         name = asset["name"]
         print("  %s (%d KB)" % (name, asset.get("size", 0) // 1024))
         with open(os.path.join(into, name), "wb") as f:
-            f.write(http_get(asset["browser_download_url"]))
+            # The API endpoint: the release download links can time out.
+            f.write(http_get(asset["url"]))
 
 
 def check_feed(folder, name, listed):
