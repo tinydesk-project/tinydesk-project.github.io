@@ -7,6 +7,16 @@ that reaches users or changes an API (see [Maintaining these docs](maintaining.m
 Versions follow [Semantic Versioning](https://semver.org/): until 1.0.0 the
 API may still change between minor versions.
 
+## 0.3.1
+
+* **`ssl` in the PC shell program:** 0.3.0's `tdsh_host` and
+  `tdsh_host.exe` were built without TLS, so `py` had no `ssl` there (no
+  HTTPS, MQTT over TLS or `upip`). Both release workflows now build them
+  with mbedTLS and stop when TLS would be missing (`TDSH_REQUIRE_TLS`).
+  The firmware and the desktop programs are unchanged.
+* **Web installer:** it downloads a release's files through GitHub's API and
+  tries again when GitHub times out (the first 0.3.0 deploy came up empty).
+
 ## 0.3.0
 
 * **API freeze for 1.0:** TinyDesk and the shell follow semantic versioning

@@ -72,6 +72,10 @@ like the taskbar clock. There is no `nano` on Windows: use the Editor.
   LTS branch that ESP-IDF 5.3.1 ships as 3.6.0) with `TD_REQUIRE_TLS` on and
   check that `mqtt connect mqtts://...` gets past the TLS check. CA
   certificates come from the Windows ROOT store or the Linux system bundle.
+* The shell program (`tdsh_host`, built from `third_party/tdsh`) finds its
+  mbedTLS for `ssl` in `py` the same way, through `TDSH_MBEDTLS_DIR`;
+  `-DTDSH_REQUIRE_TLS=ON` makes a build without it a configure error. Both
+  release workflows set it (0.3.0's shell programs had no `ssl`).
 * The screen limit is 400x150 (`td_config.h` defaults): the desktop follows
   the terminal window when it is resized or maximised, like on the ESP32 with
   PSRAM.
