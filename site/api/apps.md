@@ -38,7 +38,7 @@ int td_app_register(const td_app_t *app);
 
 Adds an app to the start menu and the desktop. The descriptor is stored by pointer and must stay valid for the life of the program (make it `static const`). Apps appear in registration order. Returns 0, or -1 when `app` is `NULL` or `TD_MAX_APPS` (16) apps are registered. Names are not checked for duplicates. There is no unregister call.
 
-`td_apps_register_all()` registers 13 apps, leaving 3 slots with the default `TD_MAX_APPS`. The start menu lists at most 17 apps minus the entries added with `td_wm_add_start_item()` (see [wm.md](wm.md#start-menu)).
+`td_apps_register_all()` registers 15 apps, leaving 1 slot with the default `TD_MAX_APPS`. The start menu lists at most 17 apps minus the entries added with `td_wm_add_start_item()` (see [wm.md](wm.md#start-menu)).
 
 ### td_app_count / td_app_get
 
@@ -64,24 +64,92 @@ static const td_app_t s_app = { "Weather", launch, "~ " };
 void weather_register(void) { td_app_register(&s_app); }
 ```
 
+## Kiosk mode
+
+```c
+void td_kiosk_start(void);
+bool td_kiosk_active(void);
+bool td_pyui_running(void);
+```
+
+`td_kiosk_start()` (called by `td_apps_register_all()`) does nothing unless
+the port set `td_sysinfo()->kiosk_app`. Then it turns on
+`td_wm_set_kiosk()`, puts a full-screen status window behind the app
+("Starting ...", or that the app is not running) and types `py <app>` into
+the Terminal's shell 1.5 s later. A 100 ms timer starts the app again 5 s
+after its `tdui` windows are gone (`td_pyui_running()` is false). Its hook
+asks for root's password (`td_sysinfo()->authenticate`) on a 5-second
+press on the top-right corner (4 x 2 cells), F10 three times within 2 s,
+or Ctrl+Alt+Delete, in a modal window at the top of the main monitor
+with the On-screen keyboard app below it (`td_osk_show()`; a keyboard
+types too; three wrong passwords pause it for 30 s). The window
+manager keeps kiosk artwork (pictures) out from under it
+(`td_pictures_cover()`, [core.md](core.md)). The right
+password turns kiosk mode off until the next restart; the app keeps
+running. `td_kiosk_active()` is true until then. The host desktop does not
+show its welcome box in kiosk mode.
+
+`td_pyui_running()` is true from a script's first `tdui` request until its
+windows are gone after it ends.
+
+## Recycle bin
+
+```c
+td_trash_result_t td_trash_put(const char *path, bool is_dir);
+void td_trash_ask_delete(const char *path, bool is_dir, bool for_good, void (*done)(void));
+void td_trash_ask_delete_many(const char *const *paths, const bool *is_dir, int count, bool for_good,
+                              void (*done)(void));
+void td_trash_purge(void);
+const char *td_trash_restore(const char *id, char *where, int where_cap);
+void td_trash_delete(const char *id);
+void td_trash_empty(void);
+
+td_trash_prefs_t *td_trash_prefs(void);   /* .size, .keep: codes */
+uint32_t td_trash_limit(void);
+const char *td_trash_size_name(int code);
+const char *td_trash_keep_name(int code);
+int td_trash_next_size(int code);
+```
+
+`apps/trash.c`: the current user's bin, `~/.trash` (through `td_sysinfo()->fs`, which needs `list`, `read`, `write`, `mkdir`, `rename`, `remove` and `exists`). Each item is a folder of its own, `~/.trash/<id>/`, with the file or folder under its own name and a `.tdtrash` record; there is no index. Paths are real paths, as Files and the Desktop use.
+
+| Function | Meaning |
+|---|---|
+| `td_trash_put` | Moves the file or folder into the bin (a rename, so it needs no space) and applies the limits. `TD_TRASH_OFF` when the bin is off or the path is inside it, `TD_TRASH_TOO_BIG` when it is bigger than the size limit, `TD_TRASH_FAILED` when the move failed; the item is left as it was in those cases. |
+| `td_trash_ask_delete` | The confirmation Files and the Desktop show: *Move ... to the Recycle Bin?*, or *Delete ... for good?* when `for_good`, when the bin is off or the item is too big for it (saying so). Does it, shows an error box if that failed, then calls `done`. |
+| `td_trash_ask_delete_many` | The same for several selected items with one question (*Move 5 items to the Recycle Bin?*); items too big for the bin are deleted for good, and one message says how many could not be deleted. The paths are copied (heap, freed after the answer). One item asks as `td_trash_ask_delete` does. |
+| `td_trash_purge` | Applies the limits: items older than the user's time go (only while the clock is set), then the oldest until the bin fits its size. Called after each `td_trash_put()`, by `td_settings_apply_saved()` (so after every user switch) and by an hourly timer. |
+| `td_trash_restore` | Puts item `id` back: to the recorded path, making missing folders and picking `name (2)` when it is taken. For users other than root a path outside their home is not trusted: the item goes into the home. `NULL`, or a message. |
+| `td_trash_delete`, `td_trash_empty` | One item, or the whole bin, for good. |
+| `TD_TRASH_SIZES`, `TD_TRASH_KEEPS` | How many size codes (6) and keep codes (5) there are, for stepping through them (`td_trash_next_size()`). |
+| `td_trash_prefs` | The user's size code (`0` 1 MB, the default; `1` off; `2` 256 KB; `3` 4 MB; `4` 16 MB; `5` 64 MB) and keep code (`0` for ever; `1`, `2`, `3`, `4`: 1, 7, 30, 90 days), saved by `td_settings_save()` (bytes 17 and 18). `td_trash_limit()` is the size in bytes (0: off). |
+
 ## Built-in apps
 
 | App | Glyph | Source | What it does |
 |---|---|---|---|
 | Terminal | `>_` | `apps/terminal.c` | Runs the port's text program (normally TinyDesk Shell) through a `td_term_backend_t` with a VT100 emulator ([vterm.md](vterm.md)); scrollback with Shift+PgUp/PgDn and the wheel. The program keeps running while the window is closed. |
-| Files | `[]` | `apps/files.c` | Browses the port's filesystem: open files in the Editor, create files and folders, rename, delete, drag and drop. Non-root users stay inside their home. |
+| Files | `[]` | `apps/files.c` | Browses the port's filesystem: open files in the Editor (pictures in the Image Viewer), create files and folders, rename, delete (into the Recycle Bin, or for good), drag and drop. Non-root users stay inside their home. |
+| Search | `?/` | `apps/search.c` | Finds apps (the start menu's) and files and folders in the user's home (root: everywhere) by part of the name, as typed; Enter opens with `td_open_path()` or `td_app_launch()`. The window manager opens it on Alt+S and Win+S. |
+| Recycle Bin | `\/` | `apps/trash.c` | What Files and the Desktop deleted, per user: restore, delete for good, empty; the bin's size limit and its time limit ([Recycle bin](#recycle-bin)). |
 | Editor | `¶_` | `apps/editor.c`, `apps/editor_py.c` | Text editor for one file at a time (up to `TD_EDITOR_MAX`, 16384 bytes; the text buffer is allocated while open, sized to the file plus 1 KB and grown with the text; bigger files open read-only), with selection, undo/redo, the clipboard, find and replace, go to a line and Ctrl+S save; Python files get colours, line numbers, F5 Run with an output pane (the Terminal's session, through `td_terminal_draw_view()`), the error line from the traceback, and suggestions (`td_editor_prefs()`). While open it also keeps the undo history: `TD_EDITOR_UNDO` bytes of text (6144) and `TD_EDITOR_UNDO_OPS` records of 20 bytes each (128), about 8.7 KB, plus 256 bytes for a line's colours, and 2 KB of program output after the first Run. A build can set all three, for example `-DTD_EDITOR_MAX=8192 -DTD_EDITOR_UNDO=2048 -DTD_EDITOR_UNDO_OPS=32`. Keys: [Using the desktop](../guide/using.md#the-editor). |
-| Network | `((` | `apps/network.c` | Wi-Fi and Ethernet status, Wi-Fi scan / connect / forget, the Telnet remote-desktop switch and the SSH/SFTP and FTP servers, through `td_sysinfo()->net`. |
+| Network | `((` | `apps/network.c` | Wi-Fi and Ethernet status, Wi-Fi scan / connect / forget, the Telnet desktop switch (with a Displays... button), the Telnet remote-desktop switch and the SSH/SFTP and FTP servers, through `td_sysinfo()->net`. |
+| Displays | `▌▌` | `apps/displays.c` | Settings → Displays: the two displays drawn as boxes to drag (`td_screens_set_layout`), duplicate or extend, the main display, each display's source (`td_sysinfo()->displays`), resolution and orientation, Identify. Changes need `TD_RIGHT_SYSTEM`. `td_displays_register()`. |
 | MQTT | `MQ` | `apps/mqtt.c` | Connects to a broker, subscribes, publishes and lists messages; shares the connection with the `mqtt` shell command ([mqtt.md](mqtt.md)). |
 | Modbus | `MB` | `apps/modbus.c` | Reads and writes coils and registers over Modbus TCP or RTU, optionally repeated, and switches the Modbus TCP server ([modbus.md](modbus.md)). |
 | System Monitor | `▄█` | `apps/sysmon.c` | Live heap and PSRAM bars, task count, CPU clock, the chip's temperature (where the port sets `chip_temp`), uptime and tinydesk's own frame and link statistics. |
 | Task Manager | `▐▌` | `apps/taskmgr.c` | Lists the open windows (switch to one, end it) and, where the port can list them, the system tasks with state, priority, core, CPU share and free stack. |
 | Log Viewer | `≡≡` | `apps/logview.c` | Shows the log ring buffer filled by `td_log_append()` with level colours. |
-| Settings | `☼ ` | `apps/settings.c` | Theme, ASCII / UTF-8 mode, desktop pattern and icons, icon / start menu / taskbar sizes; saved per user. |
+| Settings | `☼ ` | `apps/settings.c` | Theme, ASCII / UTF-8 mode, desktop pattern and icons, icon / start menu / taskbar / window frame sizes, picture detail ([canvas](canvas.md#picture-detail)); saved per user. |
+| Users | `U ` | `apps/users.c` | Accounts through `td_sysinfo()->users`: new account, Administrator and the seven rights, Create / Apply, Change password, Remember login and Require password at boot (root). Accounts without `TD_RIGHT_USERS` see only their own. |
+| Mouse | `^ ` | `apps/mouse.c` | Only with `td_sysinfo()->mouse`: speed, acceleration and precision of a mouse the board reads itself, with targets to try them on; changes need `TD_RIGHT_SYSTEM`. |
+| Keyboard | `Kb` | `apps/keyboard.c` | Only with `td_sysinfo()->keyboard`: layout, repeat delay and rate of a keyboard the board reads itself, with a text box to try them in; changes need `TD_RIGHT_SYSTEM`. |
 | Software Update | `↑ ` | `apps/update.c` | Shows the installed firmware and installs a new one from a URL or a file, with progress and roll-back, through `td_sysinfo()->ota`. Only root may install. |
 | Counter | `+1` | `apps/counter.c` | The minimal example app: a label, two buttons, a checkbox and a one-second tick. |
+| Pixels | `▀▄` | `apps/pixels.c` | The [pixel canvas](canvas.md) demo: an animated plasma and the 256-colour palette (Space switches, P pauses), with pictures per second and the link's KB/s. Its canvas follows the window and is allocated while it is open. |
+| Image Viewer | `▓▒` | `apps/imageview.c`, `apps/imagefile.c` | Shows BMP, PPM and PGM pictures ([below](#pictures-td_image_)) on a [pixel canvas](canvas.md), scaled to fit the window (shrunk by averaging, enlarged by repeating pixels), dithered to the 256 colours (D switches), R loads again, O opens another path. The picture is decoded a slice per timer tick, so a large one appears from the top while the desktop stays usable. While open it holds the canvas, the fitted picture (3 bytes per pixel shown), one picture row (3 bytes per pixel) and a 4 KB file window. |
 | About | `i ` | `apps/about.c` | Name, version, platform, chip, SDK version, free heap and uptime. |
-| Date & time | (none) | `apps/datetime.c` | Not a registered app: opened by clicking the taskbar clock or with `td_datetime_open()`. Big clock, time zone picker, automatic time, manual setting (root only), 12/24-hour and date format. |
+| Date & time | (none) | `apps/datetime.c` | Not a registered app: opened by clicking the taskbar clock or with `td_datetime_open()`. Big clock, time zone picker, automatic time and manual setting (with `TD_RIGHT_TIME`), 12/24-hour and date format. |
 
 ### td_apps_register_all
 
@@ -101,6 +169,13 @@ void td_logview_register(void);
 void td_settings_register(void);
 void td_files_register(void);
 void td_counter_register(void);
+void td_pixels_register(void);
+void td_imageview_register(void);
+void td_trash_register(void);      /* the Recycle Bin, and its hourly clean-up */
+void td_users_register(void);
+void td_search_register(void);     /* Search (Alt+S, Win+S) */
+void td_mouse_register(void);      /* only where td_sysinfo()->mouse is set */
+void td_keyboard_register(void);   /* only where td_sysinfo()->keyboard is set */
 void td_terminal_register(void);
 void td_editor_register(void);
 void td_network_register(void);
@@ -113,7 +188,7 @@ Each registers one app with `td_app_register()`. Use them instead of `td_apps_re
 
 ## Files and Desktop folder
 
-The Desktop folder is `~/Desktop` of the current desktop user. Its files and folders are shown as desktop icons after the app icons, through a desktop provider (see [wm.md](wm.md#desktop-provider)) implemented in `apps/desktop.c`. Double-click opens a folder in Files and a file in the Editor; right-click offers Open / Rename / Delete, and on the empty desktop New file, New folder, Terminal, Open Desktop folder, Refresh and Settings. Files and folders can be dragged onto folders, into Files, into the Editor (opens the file) and into the Terminal (types the path). Up to 24 entries are shown; names starting with `.` are hidden.
+The Desktop folder is `~/Desktop` of the current desktop user. Its files and folders are shown as desktop icons after the app icons, through a desktop provider (see [wm.md](wm.md#desktop-provider)) implemented in `apps/desktop.c`. Double-click opens a folder in Files, a picture (`.bmp`, `.ppm`, `.pgm`) in the Image Viewer and any other file in the Editor; pictures have the icon `▓▒`; right-click offers Open / Rename / Delete, and on the empty desktop New file, New folder, Terminal, Open Desktop folder, Refresh and Settings. Files and folders can be dragged onto folders, into Files, into the Editor (opens the file) and into the Terminal (types the path). Up to 24 entries are shown; names starting with `.` are hidden.
 
 All paths on this page are real paths, which include the filesystem root from `td_sysinfo()->fs->root` (for example `/fs` on the ESP32). The shell sees the same files without that prefix.
 
@@ -132,6 +207,38 @@ void td_files_open(const char *dir);
 ```
 
 Opens (or focuses) the Files app in folder `dir`. A `dir` outside the user's allowed area (`td_session_jail()`), or `NULL`, keeps the last folder, or starts at the home folder. The entry table (64 entries) is allocated while the window is open.
+
+### td_imageview_open
+
+```c
+void td_imageview_open(const char *path);
+bool td_is_image(const char *name);
+```
+
+`td_imageview_open()` opens (or focuses) the Image Viewer with the picture at the real path `path`, replacing the one it shows; `NULL` opens it without a picture. Errors (not a supported picture, too large, unreadable) are shown on its status line. `td_is_image()` is true for names ending in `.bmp`, `.ppm` or `.pgm` (any case); Files and the Desktop use it to choose between the viewer and the Editor.
+
+### Pictures (td_image_*)
+
+```c
+#define TD_IMAGE_MAX_W 4096
+#define TD_IMAGE_MAX_H 32768
+
+bool td_image_load(td_image_t *img, const td_fs_ops_t *fs, const char *path, char *err, int errcap);
+bool td_image_row(td_image_t *img, int *y, uint8_t *rgb);
+void td_image_rewind(td_image_t *img);
+void td_image_close(td_image_t *img);
+```
+
+The Image Viewer's decoder, usable by other apps (`apps/imagefile.c`). It reads a picture row by row through `fs->read_at` ([sysinfo.md](sysinfo.md#filesystem)), keeping a 4 KB window of the file (or one row, if a row is longer), so pictures larger than the RAM can be read.
+
+| Function | Does |
+|---|---|
+| `td_image_load` | Reads the header into `img` (the caller's struct, about 1 KB): `img->w`, `img->h` and `img->format` (for example `"BMP 24-bit"`, `"PPM"`, `"PGM 16-bit"`, `"PPM text"`). Returns `false` with a sentence in `err` for a file that is not a supported picture, larger than `TD_IMAGE_MAX_W` x `TD_IMAGE_MAX_H`, unreadable, or when `fs->read_at` is missing. |
+| `td_image_row` | The next row in the order the file stores them: its number in `*y` (0 = top; BMP files usually store the bottom row first) and `img->w` RGB triples in `rgb`. `false` after the last row, or when the file ends early. |
+| `td_image_rewind` | Starts again with the first stored row. |
+| `td_image_close` | Frees the window. Call it after every successful `td_image_load()`. |
+
+Supported: BMP with 1, 4, 8 bits per pixel (colour table), 16 bits (5-5-5, or bit-field masks), 24 bits, 32 bits (with or without bit-field masks), stored bottom-up or top-down; PPM (colour) and PGM (grey), binary (`P6`, `P5`) or plain text (`P3`, `P2`), with a maximum value up to 65535. Not supported: compressed (RLE) BMP, the old OS/2 BMP header, PNG, JPEG and GIF.
 
 ### td_files_changed
 
@@ -237,7 +344,7 @@ Installs functions that serialise access to the log buffer when several tasks wr
 
 ## Settings
 
-Each user's settings are stored in `~/.tinydesk_settings` (through `td_sysinfo()->fs`): theme, ASCII mode, desktop pattern, icons shown, clock format, date format, clock shown, and the icon, start menu and taskbar sizes. The file format is private to `apps/settings.c`. A user without that file gets the device defaults: the first 8 bytes of the blob loaded with `td_sysinfo()->settings_load` (theme, ASCII mode, pattern, icons; written by older versions), or the built-in defaults (Dark theme, light-shade pattern, icons shown).
+Each user's settings are stored in `~/.tinydesk_settings` (through `td_sysinfo()->fs`): theme, ASCII mode, desktop pattern, icons shown, clock format, date format, clock shown, the icon, start menu, taskbar and window frame sizes, and the picture detail. The file format is private to `apps/settings.c`. A user without that file gets the device defaults: the first 8 bytes of the blob loaded with `td_sysinfo()->settings_load` (theme, ASCII mode, pattern, icons; written by older versions), or the built-in defaults (Dark theme, light-shade pattern, icons shown).
 
 ### td_settings_apply_saved
 
@@ -245,7 +352,7 @@ Each user's settings are stored in `~/.tinydesk_settings` (through `td_sysinfo()
 void td_settings_apply_saved(void);
 ```
 
-Loads the current user's settings as described above and applies them: `td_theme_set()`, ASCII mode (with a full redraw if it changed), `td_desktop_set_pattern()`, `td_desktop_set_icons()`, the clock preferences and the three UI sizes. Called by `td_session_init()` and `td_session_switch()`.
+Loads the current user's settings as described above and applies them: `td_theme_set()`, ASCII mode (with a full redraw if it changed), `td_desktop_set_pattern()`, `td_desktop_set_icons()`, the clock preferences, the four UI sizes and `td_canvas_set_detail()`. Called by `td_session_init()` and `td_session_switch()`.
 
 ### td_settings_save
 
@@ -253,7 +360,7 @@ Loads the current user's settings as described above and applies them: `td_theme
 bool td_settings_save(void);
 ```
 
-Saves the current state (active theme, ASCII mode, pattern, icons, `td_clock_prefs()`, `td_editor_prefs()`, UI sizes) to the current user's `~/.tinydesk_settings`. Returns `false` when there is no filesystem with `write`, no home folder, or writing failed. The Settings app and the Date & time window call it after every change. It does not call `td_sysinfo()->settings_save`.
+Saves the current state (active theme, ASCII mode, pattern, icons, `td_clock_prefs()`, `td_editor_prefs()`, UI sizes, picture detail) to the current user's `~/.tinydesk_settings`. Returns `false` when there is no filesystem with `write`, no home folder, or writing failed. The Settings app and the Date & time window call it after every change. It does not call `td_sysinfo()->settings_save`.
 
 ```c
 td_theme_set(1);                       /* Dark */
@@ -322,7 +429,7 @@ void td_time_of_day(int64_t utc, char *buf, int cap);
 | `td_datetime_install_clock()` | Installs the built-in taskbar clock provider with `td_wm_set_clock()`. Its text follows `td_clock_prefs()` and the user's time zone (`td_sysinfo()->get_tz`), shows `"--:-- no clock"` while `time_now` fails and nothing when `hide_clock` is set. A right click opens a menu: Adjust date and time, Change time zone..., Sync time now, Settings. Called by `td_apps_register_all()`. |
 | `td_time_of_day()` | Writes the time of day of the UTC moment `utc` (seconds since 1970) in the current user's time zone and clock format, with seconds (`"14:05:09"` or `"2:05:09 PM"`), into `buf` (`cap` bytes). Writes `""` when `utc <= 0` (clock not set). |
 
-The time zone is per user (read with `get_tz`); the system clock and automatic network time are device-wide, so the Date & time window lets only root change them. See [sysinfo.md](sysinfo.md#clock-and-time-zone).
+The time zone is per user (read with `get_tz`); the system clock and automatic network time are device-wide, so the Date & time window lets only accounts with `TD_RIGHT_TIME` change them. See [sysinfo.md](sysinfo.md#clock-and-time-zone).
 
 ## Sessions
 
@@ -336,7 +443,7 @@ The user changes when someone logs in through Start > Switch user... (added when
 void td_session_init(void);
 ```
 
-Starts the session for the shell's current user (from the terminal backend's `user`), or root. Computes the home and jail paths, resets Files, applies the user's saved settings, sets up the Desktop folder and the taskbar user label. The first call also starts the one-second timer that follows the shell's user and adds "Switch user..." to the start menu when `td_sysinfo()->authenticate` is set. Called by `td_apps_register_all()` and again by `td_terminal_set_backend()`.
+Starts the session for the shell's current user (from the terminal backend's `user`), or root. Computes the home and jail paths, resets Files, applies the user's saved settings, sets up the Desktop folder and the taskbar user label. The first call also starts the timer that follows the shell's user. When `td_sysinfo()->authenticate` is set it instead locks the desktop behind the input gate, signs in the remembered account silently (`users->remembered`) or opens the Sign in window, and adds "Switch user..." and "Sign out" to the start menu. Called by `td_apps_register_all()` and again by `td_terminal_set_backend()`.
 
 ### td_session_switch
 
@@ -366,13 +473,48 @@ const char *td_session_jail(void);   /* the Files app cannot go above this */
 
 The strings are static buffers that change on a user switch; copy them if you keep them.
 
+### Rights and sign-in
+
+```c
+bool td_session_has_right(uint32_t right);   /* TD_RIGHT_* (all bits given) */
+int td_session_role(void);                   /* TD_USER_ROLE_* */
+void td_session_lock(void);                  /* Start > Sign out */
+bool td_session_locked(void);
+bool td_session_path_allowed(const char *path, int action);
+void td_login_open(void);
+void td_login_status(const char *message);
+void td_session_accept_login(const char *user, uint32_t generation);
+void td_session_accept_authenticated(const char *user);
+bool td_session_auth_pending(void);
+void td_kiosk_stop_for_login(void);
+```
+
+| Function | Description |
+|---|---|
+| `td_session_has_right()` | True when the desktop's account has every bit of `right` (root has all; [sysinfo.md](sysinfo.md#user-accounts)). False while locked. Apps check it before a device-wide change: Terminal and kiosk `TD_RIGHT_APPS`, Mouse and Keyboard `TD_RIGHT_SYSTEM`, Date & time `TD_RIGHT_TIME`, the ESP network ops `TD_RIGHT_NETWORK`. |
+| `td_session_role()` | The account's role: `TD_USER_ROLE_ROOT`, `_ADMIN` or `_USER`. |
+| `td_session_lock()` | Signs out: stops the kiosk app, closes every window, clears the Terminal and the clipboard and opens the Sign in window. Does nothing without `authenticate`. |
+| `td_session_locked()` | True while nobody is signed in, or when the account's generation changed (its password was replaced). |
+| `td_session_path_allowed()` | Whether the account may use a real path for a `TD_FS_*` action: root anywhere; others in their home and, with `TD_RIGHT_SHARED`, `/shared`; never removing the home or `/shared` itself. The ports pass it to `td_fs_stdio_guard()`. |
+| `td_login_open()` | Opens the full-screen Sign in window (`apps/login.c`) behind the window manager's input gate ([wm.md](wm.md#td_wm_set_input_gate)). |
+| `td_login_status()` | The line Sign in shows under its fields ("Starting session...", why a sign-in failed); `""` clears it. |
+| `td_session_accept_login()` | After a password was checked: the desktop asks TinyDesk Shell to switch to `user` and keeps the input gate shut until the shell's user is `user` (or gives up after a few seconds). `generation` is the account's generation when the password was checked; a different one now (the password changed meanwhile) refuses with "Account changed. Please sign in again." Sign in calls it. |
+| `td_session_accept_authenticated()` | The same with the account's current generation, for a sign-in the port has already verified (a remembered login, `td_session_switch()` with the shell). |
+| `td_session_auth_pending()` | True from `td_session_accept_login()` until the shell has switched (or the wait ended); Sign in ignores input meanwhile. |
+| `td_kiosk_stop_for_login()` | Ends kiosk mode without starting it again (its status window too); `td_session_lock()` calls it before Sign in opens. |
+
+`td_users_register()` registers the Users app; `td_trash_register()`,
+`td_mouse_register()` and `td_keyboard_register()` the Recycle Bin, Mouse
+and Keyboard apps (the last two only when the port sets `mouse` or
+`keyboard`).
+
 ### td_session_real_path
 
 ```c
 bool td_session_real_path(const char *path, char *real, size_t cap);
 ```
 
-Turns a path the desktop user typed into a real path in `real` (`cap` bytes). `"~/x"` is relative to the user's home, `"/home/bob/x"` is taken as a shell path, anything else is relative to the home. Returns `false` when there is no filesystem, `path` is empty or contains `".."`, a non-root user's path leaves their home, or the result does not fit. The Software Update app uses it for firmware files.
+Turns a path the desktop user typed into a real path in `real` (`cap` bytes). `"~/x"` is relative to the user's home, `"/home/bob/x"` is taken as a shell path, anything else is relative to the home. Returns `false` when there is no filesystem, `path` is empty or contains `".."`, a non-root user's path leaves their home (and, with `TD_RIGHT_SHARED`, `/shared`), the desktop is locked, or the result does not fit. The Software Update app uses it for firmware files.
 
 ```c
 char real[160];
@@ -470,6 +612,7 @@ The Terminal's one shell session can also be shown and used in another window; t
 #define TD_SCRIPT_EXT ".tdsh"
 bool td_is_script(const char *name);
 bool td_is_python(const char *name);
+bool td_is_compiled_app(const char *name);   /* .mpy, .tdapp */
 bool td_is_runnable(const char *name);
 bool td_script_run(const char *path);
 uint8_t td_script_colour(uint8_t bg);
@@ -503,17 +646,158 @@ bool td_pyui_send(const td_pyui_msg_t *m, const char *text);
 int td_pyui_recv(td_pyui_msg_t *m, char *text, int cap);
 void td_pyui_detach_begin(void);
 bool td_pyui_detach_done(void);
+
+bool td_pyui_pixels_take(long bytes);
+void td_pyui_pixels_give(long bytes);
+td_pyui_image_t *td_pyui_image_new(int w, int h, bool mask);
+td_pyui_image_t *td_pyui_image_new_rgb(int w, int h, bool mask, bool rgb);
+long td_pyui_image_bytes(const td_pyui_image_t *img);
+bool td_pyui_enable_rgb(void);
+bool td_pyui_rgb_enabled(void);
+void td_pyui_send_font(uint16_t id, td_pyui_font_t *font, void (*wait)(void));
+void td_pyui_cache_stats(uint32_t out[12]);
+#define TD_PYUI_MAX_PAGES 16   /* pages of one canvas */
+void td_pyui_send_image(uint8_t op, uint16_t id, int a, int b, td_pyui_image_t *img, void (*wait)(void));
 ```
 
 The desktop side of Python's [`tdui` module](../shell/python.md#windows-tdui) (`apps/pyui.c`). A script runs on the shell's task and must not call the window manager, so the two talk through two queues, each with one writer and one reader: requests (`TD_PYUI_OPEN`, `TD_PYUI_ADD`, `TD_PYUI_TEXT`, ...) from the script, events (`TD_PYUI_EV_CLICK`, `TD_PYUI_EV_CHANGE`, `TD_PYUI_EV_CLOSE`, ...) back to it. Each message is a `td_pyui_msg_t` (operation, flags, the object's number, its window, six small integers) followed by up to `TD_PYUI_TEXT_MAX` bytes of text; `td_apps.h` lists the operations and what their fields mean. The script numbers the windows and widgets itself, so no request waits for an answer.
 
 | Function | Task | Meaning |
 |---|---|---|
+| `td_pyui_image_new_rgb` | script | `td_pyui_image_new()` that, with `rgb`, also holds RGB565 pixels (two more bytes a pixel) beside the palette ones; `tdui` uses it for RGB pictures once `td_pyui_enable_rgb()` succeeded. |
+| `td_pyui_enable_rgb` | script | Turns RGB pictures on for this script (`tdui.enable_rgb_pictures()`): false on boards with the default 2000 cells (no PSRAM) or once palette pictures exist. `td_pyui_rgb_enabled()` tells. |
+| `td_pyui_send_font` | script | Hands a generated bitmap font (`TD_PYUI_FONT`, `tdui` `font_text`) to the desktop, which then owns it; waits like `td_pyui_send_image()`. |
+| `td_pyui_cache_stats` | any | Picture cache and timing counters for `tdui.graphics_info()`: the cache's six counters, raster and decode time (ms), then `td_picture_profile()`'s four. |
 | `td_pyui_start` | UI | Starts a 10 ms timer that carries out the requests, sends the changes of text boxes and list selections and of the scripts' window sizes (the desktop has no resize callback, so it compares each window's client size), and notices dialogs closed without an answer. Only the first call has an effect; called by `td_apps_register_all()`. |
 | `td_pyui_attach` | script | Allocates the queues and the object table (about 12 KB). False when `td_pyui_start()` has not run or memory is short. |
 | `td_pyui_send` | script | Queues a request; false while the queue is full (try again shortly). |
 | `td_pyui_recv` | script | 1 and the next event, or 0 when there is none. Text longer than `cap - 1` bytes is cut; it is always `'\0'`-terminated. |
 | `td_pyui_detach_begin` | script | The script is ending: on its next tick the desktop closes every window, dialog and menu the script opened. |
 | `td_pyui_detach_done` | script | True once the desktop has let go; the queues are then freed. Call it until it returns true. |
+| `td_pyui_pixels_take`, `td_pyui_pixels_give` | both | Reserve and return bytes of `TD_PYUI_MAX_PIXELS` (16384, 2097152 with PSRAM and on the PC), shared by a script's images and its canvases' pixel layers. `take` is false when they do not fit. |
+| `td_pyui_image_new` | script | A `td_pyui_image_t` of `w` x `h` palette indexes (colour 0), with a transparency mask when asked, in one block; `NULL` without memory or outside 1..4096. `td_pyui_image_bytes()` is what it counts against the budget. |
+| `td_pyui_send_image` | script | Sends `TD_PYUI_IMAGE` (a new image under id) or `TD_PYUI_IMAGE_DATA` (pixels for a canvas or image at a, b) with the image's pointer; the desktop owns it from then on and frees it. Without a desktop to take it, it is freed here. Waits while the queue is full, calling `wait`. |
+
+**Pixels.** A canvas has 2 x 2 pixels to a cell in a layer under its cells (`TD_PYUI_RECT`, `_LINE`, `_CIRCLE`, `_GRADIENT`, `_DRAW_IMAGE`, `_IMAGE_DATA` and `_PTEXT`, text in the 8 x 16 font of `td_pyui_glyph()` (`apps/pyui_font.c`, printable ASCII and Latin-1 from the Uni2-VGA16 console font, MIT) or the 3 x 5 one of `TD_PYUI_BIG`, draw into it or into an image). The layer is allocated by the first pixel drawn and counted against the pixel budget; a cell drawn in becomes a pixel cell, and `win_draw` turns its four pixels into a character with `td_canvas_quad_cell()` (Fine pictures) or an upper half block. `TD_PYUI_CLEAR` (-2) as a background lets text stand on the pixels. Images are decoded and converted on the script's task (`_tdui.image_load()`, through `td_image_load()` and `td_rgb256_dither()`), so the desktop's loop never waits for a file; the desktop frees any image still in the queue when a script ends.
 
 One script at a time uses them, as MicroPython runs one script at a time.
+
+**Atomic drawing.** `TD_PYUI_BATCH_BEGIN` and `TD_PYUI_BATCH_END` are
+session-wide markers, handled before looking up an object. A nesting count
+holds frames through queue refills and the 200-request tick budget. Input
+and timers continue. The outer begin starts a fixed 1000 ms deadline;
+timeout releases drawing and posts `TD_PYUI_EV_ERROR` once, while late end
+markers still balance the nesting count. Closing the script releases the
+hold. There is no command staging buffer or rollback copy.
+
+`TD_PYUI_BAR` draws a complete pixel meter: `a,b,c,d` are its rectangle,
+`e` is the filled fraction in thousandths (clamped to 0..1000), `f` is the
+corner radius. Exactly three payload bytes are fill, track and edge palette
+colours; flag 1 enables the top edge. Canvas rectangles aligned to even X
+and width paint column pairs so Normal pictures have symmetric ends.
+The request clips to the surface and removes overlapping Sixel pictures,
+as the other pixel drawing operations do.
+
+Keyed Python pictures retain their clipped canvas background before the
+Normal-picture fallback is painted. The storage is charged to
+`TD_PYUI_MAX_PIXELS`, reference-counted across page copies, and released
+with the picture. Mouse release is routed to the canvas that received the
+press, even when the pointer has left its rectangle.
+
+## On-screen keyboard
+
+```c
+typedef struct
+{
+    td_rect_t area;      /* client cells the keys use */
+    const char *enter;   /* the Enter key's label ("Enter", "Sign in", ...) */
+    bool password;       /* a Clear key instead of Esc */
+    uint8_t shift;       /* TD_OSK_SHIFT_OFF, _ONCE (next character), _LOCK */
+    bool sym;            /* the symbols */
+    uint32_t shift_ms;   /* when Shift was last tapped (double tap) */
+    int held;            /* the key pressed and not released yet, or -1 */
+} td_osk_t;
+void td_osk_init(td_osk_t *k, td_rect_t area, const char *enter, bool password);
+void td_osk_draw(const td_osk_t *k);
+int td_osk_mouse(td_osk_t *k, const td_event_t *ev, bool *used);
+void td_osk_follow_focus(bool on);
+bool td_osk_follows_focus(void);
+void td_osk_register(void);   /* the On-screen keyboard app */
+void td_osk_show(bool on);    /* open or close the app's window */
+bool td_osk_shown(void);
+```
+
+Touch keys drawn into part of a window (`apps/osk.c`): a grid 12 units
+wide and 5 rows high, a unit 3 to 8 columns and a row 1 to 6 lines as the
+area allows (the app's window gives 4-line rows on a 30-line screen). Call `td_osk_draw()` from `on_draw` and pass the window's
+mouse events (client cells) to `td_osk_mouse()`, which returns what a
+released key types: a character, `TD_KEY_BACKSPACE`, `TD_KEY_ENTER`,
+`TD_KEY_LEFT`, `TD_KEY_RIGHT`, `TD_KEY_ESC`, `TD_OSK_HIDE`, `TD_OSK_CLEAR`
+(password keyboards), or `TD_OSK_NONE` (also for Shift and `#+=`, which
+only change the keys). A key types only when released on the key it was
+pressed on; the gap drawn after a key, right and below, counts as that
+key. Shift: one tap is `TD_OSK_SHIFT_ONCE`, cleared after the next
+character key; a second tap within 400 ms is `TD_OSK_SHIFT_LOCK`; a tap
+then turns it off. An owner that sets the keys up again for a new size
+keeps `shift`, `shift_ms` and `sym`. The On-screen keyboard app uses it
+(a `TD_WIN_NO_FOCUS` window that sends its keys with `td_wm_dispatch()`);
+Sign in and the kiosk's unlock window open that one window with
+`td_osk_show()` instead of drawing keys of their own. While the session is
+locked the window manager draws `TD_WIN_NO_FOCUS` windows above Sign in
+and lets them take clicks, and kiosk mode does not make them full screen. `td_osk_follow_focus(true)` opens the app whenever a
+text box has the focus (the Settings switch).
+
+## Shortcuts
+
+```c
+bool td_is_shortcut(const char *name);
+bool td_shortcut_target(const char *link, char *target, int cap);
+const char *td_shortcut_make(const char *dir, const char *target);
+const char *td_apps_dir(void);
+const char *td_start_dir(void);
+bool td_in_start_menu(const char *target);
+const char *td_start_menu_remove(const char *target);
+const char *td_copy_to_apps(const char *path, char *copy, int cap);
+void td_open_path(const char *path, bool is_dir);
+void td_shortcuts_session(void);
+int td_shortcut_menu(const char *path, bool on_desktop, const char **items, int max);
+void td_shortcut_menu_chosen(const char *path, bool on_desktop, int index);
+```
+
+`apps/shortcut.c`. Paths are real paths. A shortcut is `NAME.tdlink` with
+the line `target=` and a shell path; `td_shortcut_make()` writes one in a
+folder (the Desktop, `td_start_dir()`), naming it after the target
+(without `.tdapp`, with ` (2)` and so on when the name is taken), and
+returns NULL or an error message. `td_open_path()` opens anything the way
+the Desktop and Files do: folders in Files, pictures in the Image Viewer,
+app packages run, a shortcut its target (one step), other files in the
+Editor. `td_copy_to_apps()` copies a file into `~/Apps` in 2 KB pieces
+(it needs the file system's `read_at` and `append`). `td_shortcut_menu()`
+gives the right-click entries for a file (Send to Desktop; for `.tdapp`
+Add to / Remove from Start menu and Copy to Apps) and
+`td_shortcut_menu_chosen()` carries one out. `td_shortcuts_session()`, run
+at sign-in, makes `~/Apps` and `~/Start menu` and lists the user's entries
+in the Start menu (`td_wm_set_start_provider()`).
+
+## Store
+
+```c
+void td_store_register(void);
+int td_store_parse(char *text, void *list, int max);
+int td_store_entry_size(void);
+const char *td_store_cannot_run(const void *entry);
+void td_store_sha256(const void *data, uint32_t len, char out[65]);
+```
+
+`apps/store.c`, the Store app. It reads a `catalog.txt` (format 1: a line
+`TDSTORE 1`, then per app `app <id>`, `key value` lines and `end`; the
+format is described in the tinydesk-apps repository's
+`tools/make_index.py`) through the port's downloads (`td_fetch_ops_t`, see
+[sysinfo.md](sysinfo.md#downloads)), installs packages into `~/Apps`,
+adds them to the Start menu with `td_shortcut_make()` and records them in
+`~/Apps/.store`. An app is installed only when
+`td_store_cannot_run()` returns NULL: its tdui API is this firmware's (the
+Store's `TDUI_MAJOR`/`TDUI_MINOR`, checked against `tdui_contract.json` by
+`tools/check_tdui_contract.py`), its `cells` fit `TD_PYUI_MAX_CELLS`, its
+capabilities are there and native code matches the CPU. The other
+functions are for `tests/test_store.c`.

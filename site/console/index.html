@@ -59,6 +59,8 @@
         <option value="desktop/esp32">Desktop · ESP32 + PSRAM (WROVER)</option>
         <option value="desktop/esp32-4mb">Desktop · ESP32, 4 MB (WROOM)</option>
         <option value="desktop/esp32s3">Desktop · ESP32-S3</option>
+        <option value="desktop/crowpanel7">Desktop · CrowPanel 7.0 (keyboard; the screen is the panel)</option>
+        <option value="desktop/nanoesp32">Desktop · Arduino Nano ESP32</option>
         <option value="shell/esp32c6">Shell · ESP32-C6</option>
         <option value="shell/esp32">Shell · ESP32 (any)</option>
         <option value="shell/esp32s3">Shell · ESP32-S3</option>
@@ -69,9 +71,20 @@
     <label>Size
       <select id="size">
         <option value="fit">Fit the window</option>
+        <option value="80x24">80 × 24</option>
         <option value="80x25">80 × 25</option>
         <option value="100x30">100 × 30</option>
         <option value="132x43">132 × 43</option>
+      </select>
+    </label>
+    <label title="Text size when the terminal fits the window (a fixed size uses the largest that fits)">Text
+      <select id="font">
+        <option value="14">14 px</option>
+        <option value="16" selected>16 px</option>
+        <option value="20">20 px</option>
+        <option value="24">24 px</option>
+        <option value="28">28 px</option>
+        <option value="32">32 px</option>
       </select>
     </label>
     <button id="connect" class="primary" type="button">Connect</button>
@@ -97,6 +110,7 @@
   <script src="https://cdn.jsdelivr.net/npm/@xterm/xterm@6.0.0/lib/xterm.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@xterm/addon-fit@0.11.0/lib/addon-fit.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@xterm/addon-webgl@0.19.0/lib/addon-webgl.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@xterm/addon-image@0.9.0/lib/addon-image.js"></script>
   <script>
   (function () {
     'use strict';
@@ -109,6 +123,8 @@
       'desktop/esp32':     { baud: 921600, size: 'fit',   desktop: true },
       'desktop/esp32-4mb': { baud: 921600, size: '80x25', desktop: true },
       'desktop/esp32s3':   { baud: 921600, size: 'fit',   desktop: true },
+      'desktop/crowpanel7': { baud: 921600, size: '100x30', desktop: true },
+      'desktop/nanoesp32': { baud: 115200, size: 'fit',   desktop: true },
       'shell/esp32c6':     { baud: 115200, size: 'fit',   desktop: false },
       'shell/esp32':       { baud: 115200, size: 'fit',   desktop: false },
       'shell/esp32s3':     { baud: 115200, size: 'fit',   desktop: false },
@@ -121,6 +137,9 @@
     var term = new Terminal({
       fontFamily: '"IBM Plex Mono", "Cascadia Mono", Consolas, "DejaVu Sans Mono", Menlo, monospace',
       fontSize: 16, lineHeight: 1, cursorBlink: false, scrollback: 0, allowProposedApi: true,
+      /* Pictures: TinyDesk asks for the cell size (ESC [ 16 t) to draw them
+       * at the screen's own pixels; Sixel itself comes from the image add-on. */
+      windowOptions: { getCellSizePixels: true },
       macOptionIsMeta: true, rightClickSelectsWord: false, drawBoldTextInBrightColors: false,
       theme: {   /* Windows Terminal's Campbell colours for 0..15 */
         background: '#0c0c0c', foreground: '#cccccc', cursor: '#cccccc',
@@ -142,7 +161,7 @@
     function layout() {
       var mode = $('size').value;
       if (mode === 'fit') {
-        term.options.fontSize = 16;
+        term.options.fontSize = parseInt($('font').value, 10) || 16;
         try { fit.fit(); } catch (e) {}
         return;
       }
@@ -157,6 +176,13 @@
     }
     var pending = 0;
     window.addEventListener('resize', function () { clearTimeout(pending); pending = setTimeout(layout, 80); });
+    /* Bigger text: the desktop gets fewer, larger cells (it follows the
+     * terminal's size), so everything on it grows and stays sharp. */
+    try { var savedFont = localStorage.getItem('tdFontSize'); if (savedFont) $('font').value = savedFont; } catch (e) {}
+    $('font').addEventListener('change', function () {
+      try { localStorage.setItem('tdFontSize', $('font').value); } catch (e) {}
+      layout();
+    });
 
     /* ------------------------------------------------------------ I/O */
     function send(data) {
@@ -282,6 +308,8 @@
 
     function start() {
       term.open($('term'));
+      /* Sixel pictures (TinyDesk's buttons and panels at full resolution). */
+      try { term.loadAddon(new ImageAddon.ImageAddon({ sixelScrolling: true, pixelLimit: 4194304 })); } catch (e) {}
       /* The DOM renderer works everywhere. ?renderer=webgl draws box drawing
        * and shade characters itself (faster on big screens, needs WebGL). */
       if (new URLSearchParams(location.search).get('renderer') === 'webgl') {

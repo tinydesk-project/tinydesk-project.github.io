@@ -127,6 +127,8 @@ Hello root, from TinyDesk Shell on esp32.</pre>
       <button class="platform" type="button" data-platform="esp32" aria-pressed="false">ESP32 + PSRAM (WROVER)</button>
       <button class="platform" type="button" data-platform="esp32-4mb" aria-pressed="false">ESP32, 4 MB (WROOM)</button>
       <button class="platform" type="button" data-platform="esp32s3" aria-pressed="false">ESP32-S3</button>
+      <button class="platform" type="button" data-platform="crowpanel7" aria-pressed="false">CrowPanel 7.0</button>
+      <button class="platform" type="button" data-platform="nanoesp32" aria-pressed="false">Arduino Nano ESP32</button>
       <button class="platform" type="button" data-platform="linux" aria-pressed="false">Linux</button>
       <button class="platform" type="button" data-platform="windows" aria-pressed="false">Windows</button>
       <button class="platform" type="button" data-platform="other" aria-pressed="false">macOS and others</button>
@@ -201,7 +203,16 @@ Hello root, from TinyDesk Shell on esp32.</pre>
       });
 
       var NAME = { desktop: 'TinyDesk Desktop', shell: 'TinyDesk Shell' };
-      var BOARD = { esp32c6: 'an ESP32-C6', esp32: 'an ESP32 with PSRAM', 'esp32-4mb': 'an ESP32 with 4 MB flash', esp32s3: 'an ESP32-S3' };
+      var BOARD = { esp32c6: 'an ESP32-C6', esp32: 'an ESP32 with PSRAM', 'esp32-4mb': 'an ESP32 with 4 MB flash', esp32s3: 'an ESP32-S3',
+                    crowpanel7: 'a CrowPanel 7.0', nanoesp32: 'an Arduino Nano ESP32' };
+      var ESP = ['esp32c6', 'esp32', 'esp32-4mb', 'esp32s3', 'crowpanel7', 'nanoesp32'];
+      /* Boards built on another board's chip: esptool and the installer see an ESP32-S3. */
+      var CHIP = { esp32c6: 'esp32c6', esp32s3: 'esp32s3', crowpanel7: 'esp32s3', nanoesp32: 'esp32s3' };
+      /* The Shell edition has no build of its own for these: the CrowPanel takes
+       * the ESP32-S3 one (on its UART0), the Nano none (its USB-C is the desktop's). */
+      function shellBoard(board) {
+        return board === 'esp32-4mb' ? 'esp32' : (board === 'crowpanel7' ? 'esp32s3' : board);
+      }
       var NEEDS = {
         desktop: {
           esp32c6: ['8 MB flash (e.g. ESP32-C6-DevKitC-1-N8)',
@@ -214,7 +225,16 @@ Hello root, from TinyDesk Shell on esp32.</pre>
                         'the board’s USB-UART chip needs its driver (CP210x or CH340)'],
           esp32s3: ['16 MB flash <b>and</b> 8 MB Octal PSRAM (e.g. ESP32-S3-DevKitC-1 N16R8); screens up to 256x96',
                     'connect the port marked <b>UART</b> (the USB-UART chip, often a CH343), not the one marked USB',
-                    'the board’s USB-UART chip needs its driver (CH343, CH340 or CP210x)']
+                    'the board’s USB-UART chip needs its driver (CH343, CH340 or CP210x)',
+                    'optional: a USB keyboard and mouse on the other port (<code>usb.host = 1</code>); one device, ' +
+                      'no hubs: a set with one receiver (<a href="../#/guide/using?id=usb-keyboard-and-mouse-esp32-s3">details</a>)'],
+          crowpanel7: ['the Elecrow CrowPanel 7.0 (DIS08070H): the desktop on its 800x480 touch screen',
+                       'connect its USB-C port (the board’s CH340 chip, which needs its driver); a keyboard over that port at 921600 baud',
+                       'no over-the-air updates (one app slot, so a kiosk app fits): update by installing here again'],
+          nanoesp32: ['the Arduino Nano ESP32 (16 MB flash, 8 MB PSRAM): the desktop on its USB-C port, no driver needed',
+                      'this replaces the Arduino partition table and its 9 MB file volume: back it up first if it holds anything ' +
+                        '(<a href="../#/ports/esp?id=arduino-nano-esp32">how</a>)',
+                      'community port (contributed and tested by aquasock); no USB keyboard on this board (its USB carries the desktop)']
         },
         shell: {
           esp32c6: ['8 MB flash (e.g. ESP32-C6-DevKitC-1-N8)',
@@ -226,7 +246,11 @@ Hello root, from TinyDesk Shell on esp32.</pre>
                         'the board’s USB-UART chip needs its driver (CP210x or CH340)'],
           esp32s3: ['any ESP32-S3 with 4 MB flash or more; Octal PSRAM is used when the module has it (N16R8, N8R8)',
                     'connect the port marked <b>UART</b> (the USB-UART chip, often a CH343), not the one marked USB',
-                    'the board’s USB-UART chip needs its driver (CH343, CH340 or CP210x)']
+                    'the board’s USB-UART chip needs its driver (CH343, CH340 or CP210x)'],
+          crowpanel7: ['the ESP32-S3 build of TinyDesk Shell, on the CrowPanel’s USB-C port (UART0) at 115200 baud; the screen stays dark',
+                       'for the touch screen, choose TinyDesk Desktop'],
+          nanoesp32: ['not built for this board: its USB-C port is wired to the desktop’s USB link, and the shell would need ' +
+                      'a USB-serial adapter on D0/D1. Choose TinyDesk Desktop.']
         }
       };
       function password(edition, board) {
@@ -237,12 +261,13 @@ Hello root, from TinyDesk Shell on esp32.</pre>
           'Telnet starts disabled and is root-only. ' + ssh + 'Enable services explicitly after setup.';
       }
       function first(edition, board) {
-        var speed = board === 'esp32c6' ? 'any speed on the ESP32-C6’s USB port'
+        var speed = board === 'esp32c6' || board === 'nanoesp32' ? 'any speed on the board’s USB port'
                   : (edition === 'desktop' ? '<b>921600</b> baud' : '<b>115200</b> baud');
         var term = 'Open the board in the <a href="' + consoleUrl(edition, board) + '">web terminal</a> (Chrome or Edge, nothing to install: ' +
           'pick the board, press Connect and choose its port), or in a terminal of your own (UTF-8' + (edition === 'desktop' ? ', mouse support' : '') +
           '), e.g. PuTTY (<a href="../#/guide/terminals">settings</a>): ' + speed + '. Press a key.' +
-          (board !== 'esp32c6' ? ' On ESP32 dev boards <code>tools\\tinydesk_putty.cmd</code> connects without resetting the board.' : '');
+          (board === 'crowpanel7' && edition === 'desktop' ? ' The desktop is on the touch screen; the terminal is for the keyboard (and shows the desktop too).' : '') +
+          (board !== 'esp32c6' && board !== 'nanoesp32' && board !== 'crowpanel7' ? ' On ESP32 dev boards <code>tools\\tinydesk_putty.cmd</code> connects without resetting the board.' : '');
         var start = edition === 'desktop'
           ? 'The desktop opens as <b>root</b>. ' + password(edition, board)
           : 'The shell starts as <b>root</b>; <code>help</code> lists the commands. ' + password(edition, board);
@@ -256,10 +281,10 @@ Hello root, from TinyDesk Shell on esp32.</pre>
       /* The esptool command for the chosen edition and board (VERSION until
        * the manifest names it). Every image is merged and starts at 0x0. */
       function showEsptool(version) {
-        var board = state.edition === 'shell' && state.platform === 'esp32-4mb' ? 'esp32' : state.platform;
+        var board = state.edition === 'shell' ? shellBoard(state.platform) : state.platform;
         var file = 'tinydesk-' + state.edition + '-' + (version || 'VERSION') + '-' + board + '-factory.bin';
-        var chip = state.platform === 'esp32c6' || state.platform === 'esp32s3' ? state.platform : 'esp32';
-        var speed = chip !== 'esp32c6' ? ' -b 460800' : '';
+        var chip = CHIP[state.platform] || 'esp32';
+        var speed = chip !== 'esp32c6' && state.platform !== 'nanoesp32' ? ' -b 460800' : '';
         document.getElementById('esptool-file').innerHTML = '<code>' + file + '</code>';
         document.getElementById('esptool-cmd').textContent =
           'esptool.py --chip ' + chip + ' -p PORT' + speed + ' write_flash 0x0 ' + file;
@@ -272,16 +297,16 @@ Hello root, from TinyDesk Shell on esp32.</pre>
 
       /* How a board that is set up gets a new version. */
       function updateAdvice(edition, board) {
-        if (edition === 'desktop' && board !== 'esp32-4mb')
+        if (edition === 'desktop' && board !== 'esp32-4mb' && board !== 'crowpanel7')
           return 'To update a Desktop board that is set up, use <b>Software Update</b> on the board instead, which keeps everything.';
         return 'To update this board later, install the new release here again <b>without</b> Erase device ' +
-          (edition === 'desktop' ? '(the 4 MB ESP32 has no Software Update)' : '(TinyDesk Shell has no over-the-air update)') +
+          (edition === 'desktop' ? '(this board has no Software Update: one app slot)' : '(TinyDesk Shell has no over-the-air update)') +
           ': files in <code>/fs</code> stay, users, Wi-Fi networks and passwords start fresh.';
       }
 
       /* The web terminal, preset for this edition and board. */
       function consoleUrl(edition, board) {
-        return '../console/#' + edition + '/' + (edition === 'shell' && board === 'esp32-4mb' ? 'esp32' : board);
+        return '../console/#' + edition + '/' + (edition === 'shell' ? shellBoard(board) : board);
       }
 
       function code(lines) { return '<pre><code>' + lines.join('\n') + '</code></pre>'; }
@@ -347,14 +372,14 @@ Hello root, from TinyDesk Shell on esp32.</pre>
       function readHash() {
         var fromHash = location.hash.replace('#', '').split('/');
         if (NAME[fromHash[0]]) state.edition = fromHash[0];
-        if (['esp32c6', 'esp32', 'esp32-4mb', 'esp32s3', 'linux', 'windows', 'other'].indexOf(fromHash[1]) >= 0) state.platform = fromHash[1];
+        if (ESP.concat(['linux', 'windows', 'other']).indexOf(fromHash[1]) >= 0) state.platform = fromHash[1];
       }
       readHash();
 
       /* One manifest per board: ESP Web Tools picks a build by chip family only.
        * TinyDesk Shell has one classic ESP32 firmware for every classic ESP32 board. */
       function manifestUrl() {
-        var board = state.edition === 'shell' && state.platform === 'esp32-4mb' ? 'esp32' : state.platform;
+        var board = state.edition === 'shell' ? shellBoard(state.platform) : state.platform;
         return 'manifest-' + state.edition + '-' + board + '.json';
       }
 
@@ -366,7 +391,7 @@ Hello root, from TinyDesk Shell on esp32.</pre>
         Array.prototype.forEach.call(document.querySelectorAll('.platform'), function (b) {
           b.setAttribute('aria-pressed', String(b.dataset.platform === state.platform));
         });
-        var esp = ['esp32c6', 'esp32', 'esp32-4mb', 'esp32s3'].indexOf(state.platform) >= 0;
+        var esp = ESP.indexOf(state.platform) >= 0;
         document.querySelector('[data-show="esp"]').hidden = !esp;
         document.querySelector('[data-show="pc"]').hidden = esp;
         document.getElementById('esptool').hidden = !esp;
@@ -383,7 +408,7 @@ Hello root, from TinyDesk Shell on esp32.</pre>
           document.getElementById('version').hidden = true;
           document.getElementById('nomanifest').hidden = true;
           var selectedManifest = manifestUrl();
-          var selectedChip = { esp32c6: 'ESP32-C6', esp32s3: 'ESP32-S3' }[state.platform] || 'ESP32';
+          var selectedChip = { esp32c6: 'ESP32-C6', esp32s3: 'ESP32-S3' }[CHIP[state.platform]] || 'ESP32';
           inst.setAttribute('manifest', selectedManifest);
           fetch(selectedManifest, { cache: 'no-store' }).then(function (r) { if (!r.ok) throw 0; return r.json(); }).then(function (m) {
             if (!m.version || !m.name || !m.builds || m.builds.length !== 1) throw 0;

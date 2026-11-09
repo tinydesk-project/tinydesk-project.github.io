@@ -66,7 +66,7 @@ chip or an SD card, give the firmware your pins. Copy the example and
 remove the `#` from the lines your board has:
 
 ```bash
-cp ports/esp32c6/board.example.conf ports/esp32c6/board.conf   # or ports/esp32/...
+cp ports/esp32c6/board.example.conf ports/esp32c6/board.conf   # or ports/esp32s3/..., ports/esp32/...
 ```
 
 `board.conf` stays on your PC (it is in `.gitignore`). A bare dev board
@@ -110,6 +110,39 @@ No such file or directory`.
 Open the board's USB port (it shows up as "USB JTAG/serial debug unit") in
 a terminal and press a key: the desktop appears. The baud rate does not
 matter on USB Serial/JTAG.
+
+## ESP32-S3
+
+For an ESP32-S3 with PSRAM and 16 MB flash (for example an
+ESP32-S3-DevKitC-1-N16R8, or a board with an ESP32-S3R8). The desktop
+runs on the chip's built-in USB port, on most boards the connector marked
+"USB" (not "UART"); like the C6's it shows up as "USB JTAG/serial debug
+unit", does not reset the board when a terminal opens it, and ignores the
+baud rate. The port expects octal PSRAM ("R8" parts); for a quad-PSRAM
+board ("R2"), remove `CONFIG_SPIRAM_MODE_OCT=y` from `sdkconfig.defaults`.
+
+<!-- tabs:start -->
+
+#### **Windows**
+
+```powershell
+cd ports\esp32s3
+idf.py build
+idf.py -p COM21 flash            # the USB port; close any terminal on it first
+```
+
+#### **Linux / macOS**
+
+```bash
+cd ports/esp32s3
+idf.py build
+idf.py -p /dev/ttyACM0 flash     # macOS: /dev/cu.usbmodem*
+```
+
+<!-- tabs:end -->
+
+The target (`esp32s3`) is set in the project, so no `set-target` is
+needed. There is no official ESP32-S3 release yet: build it yourself.
 
 ## Classic ESP32
 

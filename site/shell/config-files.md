@@ -10,8 +10,9 @@ Shell paths and real paths differ:
 |---|---|---|---|
 | root | `/root` | `/fs/root` | `<cwd>/tinydesk_fs/root` |
 | other users | `/home/<user>` | `/fs/home/<user>` | `<cwd>/tinydesk_fs/home/<user>` |
+| shared folder | `/shared` | `/fs/shared` | (no accounts on the hosts) |
 
-On the ESP32 the LittleFS partition `storage` is mounted at `/fs`. On Windows and Linux the files live in `tinydesk_fs` under the directory the program was started in. Root sees the whole filesystem; every other user is kept inside their home, in the shell, over SFTP and in the desktop apps.
+On the ESP32 the LittleFS partition `storage` is mounted at `/fs`. On Windows and Linux the files live in `tinydesk_fs` under the directory the program was started in. Root sees the whole filesystem; every other user is kept inside their home, in the shell, over SFTP and in the desktop apps. TinyDesk Shell makes `/shared` at start on the boards; accounts with the Shared files right may also read and write there (in the shell, Python, FTP and the desktop apps, not over SFTP). See [Accounts](../guide/first-login.md#accounts).
 
 ## Overview
 
@@ -19,9 +20,13 @@ On the ESP32 the LittleFS partition `storage` is mounted at `/fs`. On Windows an
 |---|---|---|
 | [`~/mqtt.conf`](#mqttconf) | `mqtt config init`, the MQTT app's **Config...** button, the Editor | `mqtt connect`, `mqtt config show`, the MQTT app |
 | [`~/.tinydesk_settings`](#tinydesk_settings) | the Settings app, the Date & time dialog | the desktop, at start-up and after every user switch |
+| [`~/.trash`](#trash) | Files and the Desktop (deleting), the Recycle Bin | the Recycle Bin |
 | [`~/.tdshrc.tdsh`](#tdshrctdsh) | TinyDesk Shell (created with comments only), the user | TinyDesk Shell, when the local console starts a session |
 | [`/etc/board.conf`](#etcboardconf) | `board set`, `board init`, the user | TinyDesk Shell and the ports, at start-up |
 | [`~/Desktop`](#the-desktop-folder) | the desktop (created with `Welcome.txt` and the port's own files), the user | the desktop, every 3 s |
+| [`~/.tinydesk_icons`](#tinydesk_icons) | the desktop, when an icon is moved | the desktop, at start-up and after every user switch |
+| [`~/Apps`, `~/Start menu`](#apps-and-start-menu) | the desktop (made at sign-in), **Copy to Apps**, **Add to Start menu**, the Store, the user | the Start menu, shortcuts |
+| [`~/Apps/.store`, `~/Apps/.catalog.txt`](#apps-and-start-menu) | the Store | the Store |
 | [NVS keys](#nvs-keys) | TinyDesk, TinyDesk Shell | TinyDesk, TinyDesk Shell |
 | [Partition tables](#partition-tables) | the build | the bootloader |
 
@@ -160,7 +165,7 @@ The file may hold passwords. The parser wipes its copy of the file after reading
 
 ## ~/.tinydesk_settings
 
-The desktop settings of one user, written by `apps/settings.c` as soon as something changes in the Settings app or the Date & time dialog. It is a 16-byte binary blob:
+The desktop settings of one user, written by `apps/settings.c` as soon as something changes in the Settings app or the Date & time dialog. It is a 20-byte binary blob:
 
 ```c
 typedef struct {
@@ -175,7 +180,12 @@ typedef struct {
     uint8_t icon_size;
     uint8_t menu_size;
     uint8_t bar_size;
-    uint8_t reserved[2];
+    uint8_t editor;
+    uint8_t win_size;
+    uint8_t picture_detail;
+    uint8_t trash_size;
+    uint8_t trash_keep;
+    uint8_t desk;
 } settings_blob_t;
 ```
 
@@ -192,9 +202,14 @@ typedef struct {
 | 11 | 1 | `icon_size` | Desktop icons: `0` medium, `1` small, `2` large | medium |
 | 12 | 1 | `menu_size` | Start menu: same codes | medium |
 | 13 | 1 | `bar_size` | Taskbar: same codes | medium |
-| 14 | 2 | `reserved` | Written as 0 | |
+| 14 | 1 | `editor` | Bit 0: the Editor's suggestions pop up while typing (Auto-complete) | |
+| 15 | 1 | `win_size` | Window frames: `0` small, `1` medium, `2` large | small |
+| 16 | 1 | `picture_detail` | Pictures: `0` Normal (two pixels per cell), `1` Fine (four) | Normal |
+| 17 | 1 | `trash_size` | Recycle Bin size: `0` 1 MB, `1` off, `2` 256 KB, `3` 4 MB, `4` 16 MB, `5` 64 MB | 1 MB |
+| 18 | 1 | `trash_keep` | Recycle Bin: delete items after `0` never, `1` 1 day, `2` 7 days, `3` 30 days, `4` 90 days | never |
+| 19 | 1 | `desk` | Bit 0: the on-screen keyboard opens for text fields; bit 1: desktop icons stay where they are put (**Auto arrange icons** off) | |
 
-Older versions wrote only the first 8 bytes (magic to `hide_icons`). A file of 8 to 15 bytes with the right magic is accepted, and the missing fields read as 0. In every newer field, 0 means the default: 24-hour clock, day-month-year dates, clock shown, and medium icons, start menu and taskbar. In `hide_icons`, 0 (also in blobs saved before icons existed) means icons are shown.
+Older versions wrote only the first 8 bytes (magic to `hide_icons`). Any file of 8 bytes or more with the right magic is accepted: the missing fields of a shorter one read as 0, and bytes past the 20 that this version knows are ignored. In every newer field, 0 means the default: 24-hour clock, day-month-year dates, clock shown, medium icons, start menu and taskbar, small window frames, and Normal pictures. In `hide_icons`, 0 (also in blobs saved before icons existed) means icons are shown.
 
 ### Where the settings come from
 
@@ -207,6 +222,26 @@ When a user's settings are applied (at start-up and after each user switch), the
 The current code writes only the per-user file; nothing writes the device defaults any more.
 
 ---
+
+## ~/.trash
+
+The user's Recycle Bin, written by `apps/trash.c` (see [Using the
+desktop](../guide/using.md#recycle-bin)). Each deleted item has a folder
+of its own named after the time it was deleted (`1793600000-0`), holding
+the file or folder under its own name and a text file `.tdtrash`:
+
+```text
+path=/fs/root/Desktop/notes.txt
+time=1793600000
+size=417
+dir=0
+```
+
+`path` is where it was (a real path), `time` when it was deleted (UTC
+seconds; 0 when the clock was not set), `size` its bytes (a folder's
+files added up), `dir` 1 for a folder. A folder without `.tdtrash` counts
+as the oldest item with no size. Deleting the folder of an item deletes it
+for good; the Recycle Bin shows what the folders say.
 
 ## ~/.tdshrc.tdsh
 
@@ -268,6 +303,34 @@ Each user's `~/Desktop` holds the files shown as desktop icons (`apps/desktop.c`
 
 After a user switch the desktop shows the new user's folder.
 
+## ~/.tinydesk_icons
+
+Where the desktop icons are, once one has been moved (`apps/settings.c`,
+`td_wm_icon_places()`): the magic `0x54444931`, the count, then per icon a
+32-bit key made from its name (FNV-1a of `a` and the app name, or `f` and
+the file name) and its column and row (16 bits each), little-endian. Icons
+without a place, or whose place is taken or off the screen, fill the
+first free places. A renamed file loses its place.
+
+## Apps and Start menu
+
+`~/Apps` holds a user's app packages (`.tdapp`); **Copy to Apps** puts
+one there. `~/Start menu` holds the user's Start menu entries, shortcuts
+listed in the Start menu's own section (up to 16). A shortcut,
+`NAME.tdlink` (on the Desktop or in `~/Start menu`), is a text file with
+the line `target=` and a shell path:
+
+```text
+target=/root/Apps/hmi.tdapp
+```
+
+The Store keeps two files in `~/Apps`: `.catalog.txt`, the catalog it last
+read, and `.store`, one line per app it installed: its id, version and
+the folder the package unpacks into, such as
+`device_monitor 1.0.0 .tdapp-2c11cd0ada8203de`. Update and Remove use it to
+delete that folder; an app is downloaded as `NAME.tdapp.part` and renamed
+once its SHA-256 matches.
+
 ---
 
 ## NVS keys
@@ -278,13 +341,24 @@ Keys in the ESP32's `nvs` partition used by TinyDesk and TinyDesk Shell:
 |---|---|---|---|---|
 | `tinydesk` | `settings` | blob, 8 bytes | `ports/esp_idf/app/main.c` | Device-default desktop settings (legacy; read only). See [above](#where-the-settings-come-from). |
 | `tinydesk` | `telnet` | u8 | `ports/esp_idf/app/telnet.c` | Telnet remote desktop on port 23: `1` enabled (default when missing), `0` disabled. |
+| `tinydesk` | `telnet_mode` | u8 | `ports/esp_idf/app/hal_mux.c` | 0.2.x builds' Telnet setting (`0` Telnet only, `1` Duplicate, `2` Extend), read once while `disp_src1` / `disp_src2` are missing. |
+| `tinydesk` | `disp_src1`, `disp_src2` | u8 | `ports/esp_idf/app/hal_mux.c` | What display 1 and 2 are shown on (Settings → Displays): `0` off, `1` this board, `2` Telnet, `3` Serial 2 (`TD_DISPLAY_*`). |
+| `tinydesk` | `disp_layout` | blob | `ports/esp_idf/app/hal_mux.c` | Duplicate or extend, where display 2 is, the main display and each resolution (`td_screens_layout_t`). |
+| `tinydesk` | `lcd_rot` | u16 | `ports/crowpanel7/main/link_crowpanel.c` | The CrowPanel LCD's orientation in degrees (Settings → Displays), before the board key `lcd.rotation`. |
 | `tdsh_ssh` | `hostkey` | blob, up to 160 bytes | TinyDesk Shell patch (`tdsh_ssh.c`) | This device's SSH host key: ECDSA P-256, DER (SEC1 with the public key, 121 bytes). Made on the first `ssh start`; deleted by `ssh hostkey new`. |
 | `ush_wifi` | `db` | blob | TinyDesk Shell (`tdsh_wifi.c`) | Saved Wi-Fi networks, version 2: magic `0x55535746`, version `2`, count, then 12 entries of `used`, SSID (33 bytes), password (65 bytes) and owner (32 bytes; empty = shared). A version 1 blob (no owners) is converted on first load. |
 | `ush_time` | `auto` | u8 | TinyDesk Shell patch (`tdsh_time.c`) | Automatic (SNTP) time: `1` on (default when missing), `0` off. |
 | `ush_net` | `wifi_auto` | u8 | TinyDesk Shell | `network autowifi`: `0` off (default), `1` on. |
 | `ush_net` | `mode` | u8 | TinyDesk Shell | `network mode`: auto, lan, wifi or both. |
 
-TinyDesk Shell keeps its user database and boot user in namespace `ush_users`; TinyDesk does not change those.
+| `ush_users` | `db` | blob | TinyDesk Shell (`tdsh_users.c`) | The account database: names, salts and password hashes (SHA-256, 2048 rounds), up to 12 accounts. |
+| `ush_users` | `boot_user` | string | TinyDesk Shell (`tdsh_users.c`) | `bootuser`: the account the console starts as. |
+| `ush_users` | `access` | blob | TinyDesk Shell (`tdsh_users_access.inc`) | Roles and rights: magic `0x54444131`, then per account its name, salt, role (User or Admin) and rights. An entry whose name or salt no longer matches the account is ignored (a User with Apps / Terminal). Written by `useradd`, `userrole`, `userrights` and the Users app. |
+| `ush_users` | `remember` | u8 | TinyDesk Shell (`tdsh_users_access.inc`) | Remembered desktop login: `1` on (set by `bootuser NAME`, the Sign in window's checkbox or the Users app), `0` off (`bootuser --require-password`). |
+| `ush_users` | `proof` | blob, 32 bytes | TinyDesk Shell (`tdsh_users_access.inc`) | The boot user's password hash when it last signed in with its password while remembering was on. A password change makes it stale; turning remembering off erases it. |
+| `ush_users` | `hints` | blob | TinyDesk Shell (`tdsh_users_hint.inc`) | Password hints: magic `0x54444831`, then per account its name and hint (up to 63 bytes). Written by `useradd`, `passwd` and the Users app; making or deleting an account removes a hint left under its name. While root has the factory password, root's hint is `Type: TinyDesk` whatever is stored. |
+
+The `ush_users` keys are written by TinyDesk Shell's account code, which the Sign in window and the Users app call.
 
 Wi-Fi passwords and the host key are stored in NVS in plain form: the ports' `sdkconfig` files enable neither flash encryption nor NVS encryption.
 
@@ -292,7 +366,30 @@ Wi-Fi passwords and the host key are stored in NVS in plain form: the ports' `sd
 
 ## Partition tables
 
-The ESP32-C6, ESP32 with PSRAM and ESP32-S3 ports have two OTA app slots for `ota install` (see [ota](commands.md#ota)).
+The layouts of 0.3.0 are meant to stay for 1.x: a board set up with 0.3.0
+keeps its accounts, Wi-Fi networks, settings and files through later
+updates. The ESP32-C6, ESP32 with PSRAM, ESP32-S3 and Nano ESP32 have two
+OTA app slots for `ota install` (see [ota](commands.md#ota)) and reserve a
+64 KB `coredump` slot for crash dumps (unused for now).
+
+### ESP32 with PSRAM, ESP32-S3, Nano ESP32 (16 MB flash)
+
+`ports/esp32/partitions.csv`, `ports/esp32s3/partitions.csv` and
+`ports/nanoesp32/partitions.csv` (ESP32-WROVER-IE N16R8, ESP32-S3 N16R8,
+Arduino Nano ESP32).
+
+| Name | Type | SubType | Offset | Size |
+|---|---|---|---|---|
+| `nvs` | data | nvs | `0x9000` | `0x10000` (64 KB) |
+| `phy_init` | data | phy | `0x19000` | `0x1000` (4 KB) |
+| `otadata` | data | ota | `0x1A000` | `0x2000` (8 KB) |
+| `coredump` | data | coredump | `0x1C000` | `0x10000` (64 KB) |
+| `ota_0` | app | ota_0 | `0x30000` | `0x400000` (4 MB) |
+| `ota_1` | app | ota_1 | `0x430000` | `0x400000` (4 MB) |
+| `storage` | data | littlefs | `0x830000` | `0x7D0000` (7.8 MB) |
+
+4 MB is the most code the flash cache maps for one app, so larger slots
+would not help.
 
 ### ESP32-C6 (`ports/esp32c6/partitions.csv`)
 
@@ -300,37 +397,52 @@ ESP32-C6-WROOM-1/1U-N8, 8 MB flash.
 
 | Name | Type | SubType | Offset | Size |
 |---|---|---|---|---|
-| `nvs` | data | nvs | `0x9000` | `0x6000` (24 KB) |
-| `phy_init` | data | phy | `0xF000` | `0x1000` (4 KB) |
-| `ota_0` | app | ota_0 | `0x10000` | `0x280000` (2.5 MB) |
-| `ota_1` | app | ota_1 | `0x290000` | `0x280000` (2.5 MB) |
-| `otadata` | data | ota | `0x510000` | `0x2000` (8 KB) |
-| `storage` | data | littlefs | `0x520000` | `0x2E0000` (2.9 MB) |
+| `nvs` | data | nvs | `0x9000` | `0x10000` (64 KB) |
+| `phy_init` | data | phy | `0x19000` | `0x1000` (4 KB) |
+| `otadata` | data | ota | `0x1A000` | `0x2000` (8 KB) |
+| `coredump` | data | coredump | `0x1C000` | `0x10000` (64 KB) |
+| `ota_0` | app | ota_0 | `0x30000` | `0x300000` (3 MB) |
+| `ota_1` | app | ota_1 | `0x330000` | `0x300000` (3 MB) |
+| `storage` | data | littlefs | `0x630000` | `0x1D0000` (1.8 MB) |
 
-NVS stays where it was before OTA support, so users, Wi-Fi networks and settings survive. The `/fs` partition moved and shrank from 4.9 MB to 2.9 MB; the README section "Updating the firmware (OTA)" describes moving its files over with `tools/lfs_migrate.c`. `ports/esp32c6/partitions_single_app.csv` keeps the older single-app layout for reference.
+### ESP32 4 MB, and TinyDesk Shell on the ESP32 and ESP32-S3
 
-### ESP32 (`ports/esp32/partitions.csv`)
-
-ESP32-WROVER-IE, 16 MB flash.
+`ports/esp32-4mb/partitions.csv`, and in TinyDesk Shell
+`projects/esp32/partitions.csv` and `projects/esp32s3/partitions.csv`: one
+layout, so a 4 MB ESP32 switches between the two editions and keeps its
+files.
 
 | Name | Type | SubType | Offset | Size |
 |---|---|---|---|---|
 | `nvs` | data | nvs | `0x9000` | `0x6000` (24 KB) |
 | `phy_init` | data | phy | `0xF000` | `0x1000` (4 KB) |
-| `ota_0` | app | ota_0 | `0x10000` | `0x300000` (3 MB) |
-| `ota_1` | app | ota_1 | `0x310000` | `0x300000` (3 MB) |
-| `otadata` | data | ota | `0x610000` | `0x2000` (8 KB) |
-| `storage` | data | littlefs | `0x620000` | `0x9E0000` (9.9 MB) |
+| `factory` | app | factory | `0x10000` | `0x300000` (3 MB) |
+| `storage` | data | littlefs | `0x310000` | `0xF0000` (960 KB) |
 
-### ESP32-S3 (`ports/esp32s3/partitions.csv`)
+### CrowPanel 7.0 (`ports/crowpanel7/partitions.csv`)
 
-ESP32-S3 with 16 MB flash and 8 MB Octal PSRAM (e.g. N16R8): the same
-layout as the ESP32 with PSRAM above (two 3 MB OTA slots, `otadata` at
-`0x610000`, a 9.9 MB `storage` at `0x620000`).
+ESP32-S3-WROOM-1-N4R8, 4 MB flash: one app, no OTA slots, and a larger
+`/fs` than the 4 MB ESP32, for a kiosk app package and its unpacked copy.
 
-TinyDesk Shell on its own uses a smaller layout on the classic ESP32 and the
-ESP32-S3 (`projects/esp32`, `projects/esp32s3` in its repository): one
-2.5 MB `factory` app at `0x10000` and a 1.4 MB `storage` at `0x290000`, so it
-runs on 4 MB boards.
+| Name | Type | SubType | Offset | Size |
+|---|---|---|---|---|
+| `nvs` | data | nvs | `0x9000` | `0x6000` (24 KB) |
+| `phy_init` | data | phy | `0xF000` | `0x1000` (4 KB) |
+| `factory` | app | factory | `0x10000` | `0x2C0000` (2.75 MB) |
+| `storage` | data | littlefs | `0x2D0000` | `0x130000` (1.19 MB) |
+
+TinyDesk Shell on the ESP32-C6 keeps its own layout (one 3 MB `factory`
+app, a 4.9 MB `storage` at `0x310000`): erase when switching a C6 between
+the editions.
+
+### Moving to the 0.3.0 layouts
+
+Every board but the CrowPanel has a new layout in 0.3.0 (the larger NVS,
+the crash-dump slot, the larger app slots), and `/fs` moved on each of
+them. Install with *Erase device* (or `esptool.py erase_flash` first):
+accounts, Wi-Fi networks, settings and files start fresh, so copy off what
+you need before (`tools/lfs_migrate.c` moves `/fs` files between layouts,
+[lfs_migrate](../tools.md#lfs_migrate)). Software Update from 0.2.0 also
+works and keeps everything, but keeps the old layout.
 
 In every table `storage` is the LittleFS partition that TinyDesk Shell mounts at `/fs`.

@@ -10,12 +10,21 @@ protocols. The C tools are built with the host build (`cmake --build build`).
 | `tools/serial_probe.py` | send keys/clicks to a board over its serial port and capture the output |
 | `build/vtshot` (`tools/vtshot.c`) | render a capture as a text screenshot or an SVG picture |
 | `build/tdsim` (`tools/tdsim.c`) | run the whole host desktop against a simulated terminal |
+| `build/tdsim_lcd` (`tools/tdsim.c`, `tools/sim_lcd.c`) | the same, drawn by the CrowPanel's LCD code, with LCD screenshots |
 | `tools/rtu_slave.py` | a Modbus RTU slave on PC serial ports (USB-RS485 adapters) |
 | `build/lfs_migrate` (`tools/lfs_migrate.c`) | copy a LittleFS image into an image of another size |
 | `tools/make_release.py` | package a release: factory images, web installer manifests, PC programs, checksums |
 | `tools/make_source_zip.py` | the whole project (code, shell, site) in one zip |
 | `tools/serve_bin.py` | serve a firmware `.bin` over HTTP for OTA updates |
-| `tools/micropython/gen.sh` | regenerate the MicroPython sources in `third_party/micropython` |
+| `tools/micropython/gen.sh` | regenerate TinyDesk's MicroPython tables in `ports/common/python/gen` |
+| `tools/make_ui_sheet.py` | the example sprite sheet of UI pieces for Python windows (`examples/python/ui_sheet.ppm`) |
+| `tools/make_ui_skin.py` | the example skin of smooth buttons, tabs and panels for pictures (`examples/python/ui_skin.ppm`) |
+| `tools/make_lcd_font.py` | the CrowPanel's 8 x 16 LCD font (`lcd.font` 16) from the console font Uni2-VGA16 |
+| `tools/make_lcd_font_big.py` | the CrowPanel's larger LCD fonts (`lcd.font` 20, 24, 32) from Terminus Font |
+| `tools/check_tdui_contract.py` | check `ports/common/python/tdui_contract.json` against the C and Python code, including that `tdui`'s public Python names and parameters only grow, and `tdapp.py` against `tdapp_contract.json` the same way (with `tdapp.VERSION`); `--record` adds new names (run by ctest) |
+| `tools/check_tdui_frozen.py` | run the firmware's frozen `tdui` and `tdapp` in the simulator (`tdsim`) and check they have everything `tdui.py` and `tdapp.py` define, so a forgotten `tools/micropython/gen.sh` is caught (run by ctest) |
+| `tools/check_tdapp.py` | run an app on the frozen [`tdapp`](shell/tdapp.md) library in the simulator: pages, page canvases, `Field`, a simulated Modbus slave `Link` with a bound label, `require` (run by ctest) |
+| `tools/make_kbd_layouts.py` | regenerate the USB keyboard layouts (`ports/esp_idf/app/usb_hid_layouts.h`) |
 | `ports/esp32c6/build.ps1` | build and flash the C6 with the right ESP-IDF on Windows |
 
 ## serial_bridge.py
@@ -58,7 +67,8 @@ the actions in order and writes captures:
 `vtshot` replays a capture through the [terminal emulator](api/vterm.md)
 and prints the screen (at most 400x150). With `--svg` it renders the
 screen as an SVG picture instead, with its colours (the 16 basic colours as
-Windows Terminal's Campbell scheme shows them); `--rows A-B` keeps only
+Windows Terminal's Campbell scheme shows them) and the block characters of
+canvases (`▀ ▄ ▌ ▐ █` and the quadrants) drawn as exact rectangles; `--rows A-B` keeps only
 those rows and `--title` adds a window frame with a caption. The cover
 pictures of this site are made that way. A capture contains only what
 the board sent during that run, so send `key=CtrlL` before `shot` for a full
@@ -75,12 +85,26 @@ Runs the complete host desktop (apps and TinyDesk Shell) against a simulated
 terminal and prints text screenshots. Actions: `size=COLSxROWS` (first
 only), `wait=MS`, `type=TEXT`, `key=NAME` (Enter Esc Tab BTab arrows Home
 End PgUp PgDn Del Bksp F1..F12 CtrlA..CtrlZ), `click=X,Y`, `rclick=X,Y`,
-`drag=X1,Y1,X2,Y2`, `move=X,Y`, `wheel=X,Y,up|down`, `shot`, `stats`, and
+`hold=X,Y,MS` (the left button held for MS milliseconds), `drag=X1,Y1,X2,Y2`, `move=X,Y`, `wheel=X,Y,up|down`, `shot`, `stats`, and
 `save=FILE`, which writes everything the desktop sent so far, for
 `vtshot FILE COLS ROWS --svg out.svg`.
 Screen rows in its output start one line down (the first line is a border).
 Settings it changes are saved in `build/tinydesk_fs/root/.tinydesk_settings`.
 A bracketed paste can be simulated with `type="\e[200~text\e[201~"`.
+
+### tdsim_lcd
+
+```bash
+build/tdsim_lcd size=80x24 wait=800 lcdshot=lcd.ppm
+```
+
+`tdsim_lcd` is `tdsim` with the CrowPanel's display code
+(`ports/crowpanel7/main/display.c`, through `tools/sim_lcd.c`) behind it:
+the desktop's output is painted into a simulated 800 x 480 frame buffer
+with the 10 x 20 font (`lcd.font = 20`, 80x24 cells), pictures included.
+Only the LCD peripheral and the RTOS are simulated. It takes the same
+actions, plus `lcdshot=PATH`, which saves the LCD as a P6 (PPM) picture.
+It is built with the tests (`TD_BUILD_TESTS`, on by default).
 
 ## make_release.py
 
@@ -152,8 +176,9 @@ lfs_migrate old.img new.img 0x2E0000
 ```
 
 Copies every file and folder of a raw LittleFS image into a new image of a
-different size and compares them afterwards. It was used to move `/fs` when
-the OTA partition table shrank the storage partition; see the top of
+different size and compares them afterwards. It is used to move `/fs` when
+a new partition table moves or shrinks the storage partition (the image
+must still fit the new size); see the top of
 `tools/lfs_migrate.c` for building it with ESP-IDF's LittleFS sources.
 
 ## serve_bin.py
@@ -170,19 +195,88 @@ Software Update, URL `http://<pc>:8000/tinydesk.bin`, or
 ## micropython/gen.sh
 
 ```bash
-git clone --depth 1 --branch v1.29.0 https://github.com/micropython/micropython.git /tmp/micropython
-tools/micropython/gen.sh /tmp/micropython
+git clone --depth 1 --branch v1.29.0 https://github.com/micropython/micropython.git ../mp
+git -C ../mp submodule update --init lib/micropython-lib
+tools/micropython/gen.sh ../mp
 ```
 
-Regenerates `third_party/micropython`, the interpreter behind
-[`py`](shell/python.md): it copies the sources TinyDesk builds from a
-MicroPython checkout and generates the headers that depend on TinyDesk's
-configuration (the qstr table, the built-in modules, the root pointers),
-and compiles the Python part of `asyncio`, and TinyDesk's `neopixel` and
-`tdui`, into
-the firmware with `mpy-cross`, which it builds in the checkout. Run it after changing
-`ports/common/python/mpconfigport.h` or `manifest.py`, after adding a
-function to the `tinydesk` module (any new `MP_QSTR_` name), or to move to
-another MicroPython release, and commit the result. It needs make, gcc and
-python3 on x86-64: Linux, or WSL on Windows. `tools/micropython/README.md`
-has the details.
+[`py`](shell/python.md) is TinyDesk Shell's MicroPython
+(`third_party/tdsh/python`, the interpreter in
+`third_party/tdsh/third_party/micropython`) with TinyDesk's own modules
+added. MicroPython lists every module and name in tables generated at
+build time, so TinyDesk keeps its own in `ports/common/python/gen`: this
+runs the shell's generator with TinyDesk's sources and manifest, makes the
+qstr table, the built-in modules and the root pointers, and compiles
+`asyncio`, `neopixel`, `websocket`, `tdui` and `tdapp`, and from
+micropython-lib `ssl`, `umqtt`, `requests` and `aiohttp`, with `mpy-cross`,
+which it builds in the checkout. `ssl` needs mbedTLS's headers: ESP-IDF's,
+found through `IDF_PATH`. Run it after adding a function to the `tinydesk` or
+`_tdui` module (any new `MP_QSTR_` name), after changing `tdui.py`,
+`tdapp.py` or `manifest.py`, or after the shell's Python changed, and
+commit the result. It needs make, gcc and Python 3: Linux, WSL, or Git Bash
+on Windows with MinGW-w64 (keep the checkout on a short path there).
+`tools/micropython/README.md` has the details; the shell's own generator
+(and moving to another MicroPython release) is in
+`third_party/tdsh/tools/micropython`.
+
+## make_ui_sheet.py
+
+```bash
+python tools/make_ui_sheet.py
+```
+
+Writes `examples/python/ui_sheet.ppm`, a 64 x 16 sprite sheet for
+[Python windows](shell/python.md#pictures-and-pixels): a button, the same
+button pressed, a panel and an LED, 16 x 16 pixels each on magenta, which
+scripts load as transparent (`key=(255, 0, 255)`). Change the pieces in the
+script to make your own look.
+
+## make_kbd_layouts.py
+
+```bash
+python tools/make_kbd_layouts.py
+```
+
+Writes `ports/esp_idf/app/usb_hid_layouts.h`, the keyboard layouts of the
+[USB keyboard](guide/using.md#usb-keyboard-and-mouse-esp32-s3) on the
+ESP32-S3: for each layout, the character of each of 54 keys (letters,
+digits, punctuation and the extra ISO key left of Z) without Shift, with
+Shift and with AltGr. Dead keys type their accent. To add a layout, add it
+to the script, run it, and add its code to `usb.kbd_layout` in
+[Board configuration](guide/board-config.md#usb-keyboard-and-mouse-esp32-s3).
+
+## make_ui_skin.py
+
+```bash
+python tools/make_ui_skin.py
+```
+
+Writes `examples/python/ui_skin.ppm` (256 x 128): eight 64 x 64 pieces for
+[pictures](shell/python.md#pictures-and-pixels): a button, the button
+pressed, a tab, the active tab, a panel and red, green and grey buttons,
+with gradients, a rim and a lit top edge. They are drawn four times larger
+and averaged, so the round corners are smooth; outside them is magenta,
+loaded as transparent. Draw them with a nine-slice border of 16.
+
+## make_lcd_font.py
+
+```bash
+python tools/make_lcd_font.py Uni2-VGA16.psf.gz > ports/crowpanel7/main/font8x16.c
+```
+
+Makes the CrowPanel's default 8 x 16 LCD font from the Linux console font
+Uni2-VGA16 (console-setup, `/usr/share/consolefonts`; MIT licence), and
+draws the few characters TinyDesk uses that it lacks (half blocks, the
+dark shade, the left and right pointers, the sun).
+
+## make_lcd_font_big.py
+
+```bash
+python tools/make_lcd_font_big.py Uni2-TerminusBold20x10.psf.gz Uni2-VGA16.psf.gz > ports/crowpanel7/main/font10x20.c
+```
+
+Makes a larger font for the CrowPanel's LCD from a Terminus Font console
+font (PSF, from console-setup; SIL Open Font License, see
+`ports/crowpanel7/main/OFL-Terminus.txt`), with the block characters drawn
+to fill the cell exactly and the few characters Terminus lacks taken from
+the 8 x 16 font.

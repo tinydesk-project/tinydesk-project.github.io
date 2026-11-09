@@ -296,7 +296,7 @@ In the full desktop (host `tinydesk` executable, ESP32 firmware) the port owns `
 2. Declare `void stopwatch_register(void);` in a header of your own.
 3. Call it after `td_apps_register_all()`: in `td_host_setup()` in `ports/common/host_main.c` for the hosts, and in `ui_task()` in `ports/esp_idf/app/main.c` for the ESP32 ports. Apps appear in the start menu and on the desktop in registration order.
 
-`td_apps_register_all()` registers 13 apps; `TD_MAX_APPS` is 16, so three more fit without raising it (`td_app_register()` returns -1 when the table is full). The start menu shows at most 17 apps minus its extra entries (such as "Switch user...").
+`td_apps_register_all()` registers 15 apps; `TD_MAX_APPS` is 16, so one more fits without raising it (`td_app_register()` returns -1 when the table is full; build with, for example, `-DTD_MAX_APPS=24` for more). The start menu shows at most 17 apps minus its extra entries (such as "Switch user...").
 
 Inside the full desktop an app can also use the shared services from [apps.md](../api/apps.md): `td_logf()` to write to the Log Viewer, `td_clipboard_set()` / `td_clipboard_get()`, `td_editor_open()` and `td_files_open()`, the current user's folders (`td_home_dir()`, `td_desktop_dir()`), and the platform services in `td_sysinfo()` ([sysinfo.md](../api/sysinfo.md)), whose members must always be checked for `NULL`.
 

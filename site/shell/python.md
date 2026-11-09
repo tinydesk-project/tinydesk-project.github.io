@@ -24,7 +24,7 @@ Usage: `py [-m KB] [FILE [ARG...] | -c CODE [ARG...]]`
 
 | Form | What it does |
 |---|---|
-| `py FILE [ARG...]` | Runs the script: Python source, or a `.mpy` file (see [Precompiled .mpy files](#precompiled-mpy-files)). `sys.argv` is `[FILE, ARG...]`; the script's directory comes first in `sys.path`, so it can import modules next to it. |
+| `py FILE [ARG...]` | Runs the script: Python source, a `.mpy` file (see [Precompiled .mpy files](#precompiled-mpy-files)) or a `.tdapp` [app package](#app-packages-tdapp). `sys.argv` is `[FILE, ARG...]`; the script's directory comes first in `sys.path`, so it can import modules next to it. |
 | `py -c CODE [ARG...]` | Runs `CODE`; `sys.argv` is `['-c', ARG...]`. |
 | `py` | The interactive prompt, with history, auto-indent and paste mode (Ctrl+E, then Ctrl+D to run). Ctrl+D or `exit()` leaves it. `help()` lists what is available. Up and Down (or Ctrl+P and Ctrl+N) recall the last 8 lines, also from earlier prompts: they are kept in `~/.py_history`, as the shell keeps its own in `~/.tdsh_history`. |
 | `-m KB` | Heap size in KB (16 to 65536) instead of the default (see [Memory](#memory)). |
@@ -40,9 +40,29 @@ board and in the PC programs (Telnet shows the same desktop). In an SSH
 session it only interrupts `input()`; the same holds for
 `modbus read -i`.
 
-Who: any user. One script runs at a time on a device: while one runs, `py`
+Who: accounts with the Apps / Terminal right (root has it; see
+[Accounts](../guide/first-login.md#accounts)). One script runs at a time on a device: while one runs, `py`
 in another session (or from `tinydesk.shell()`) says
 `py: Python is already running (one script at a time)`.
+
+### App packages (.tdapp)
+
+A `.tdapp` file is a whole app in one file, made with TinyDesk App
+Builder. `py FILE.tdapp` runs it like a `.mpy` file, and **Run** on the
+desktop and in Files does the same. The file begins with a small compiled
+program that:
+
+1. checks `tdui.API` and `tdui.CAPABILITIES` (and the MicroPython
+   bytecode version) and stops with a message saying what to update when
+   the firmware lacks something the app needs;
+2. checks every file packed in it against its SHA-256 and unpacks them
+   into a folder beside it, `.tdapp-<hash>`, named after that version of
+   the package;
+3. runs the app from there.
+
+Only the one file is copied to the board; the unpacked folder takes space
+in the file system next to it. The checksums find damaged files; they are
+not signatures. A `.tdapp` can be a [kiosk app](#kiosk-mode).
 
 ## Writing scripts on the desktop
 
@@ -83,11 +103,12 @@ cannot leave the TinyDesk root.
 `sys`, `os`, `time`, `json`, `re`, `math`, `cmath`, `random`,
 `binascii`, `hashlib`, `heapq`, `collections`, `struct`, `array`, `errno`,
 `gc`, `io`, `select`, `asyncio`, `micropython`, `machine` and `neopixel`
-(see [Hardware](#hardware-machine)), `tdui` (see [Windows](#windows-tdui))
-and `tinydesk`.
+(see [Hardware](#hardware-machine)), `tdsh` (`tdsh.shell()`, `tdsh.version()`), `network`, `socket`, `ssl`, `requests`,
+`umqtt.simple`, `umqtt.robust`, `websocket` and `aiohttp` (see
+[Network](#network)), `tdui` (see [Windows](#windows-tdui)) and `tinydesk`.
 `help('modules')` lists them on the device.
 
-Not included: `network`, `socket`, `_thread`, `bluetooth`,
+Not included: `_thread`, `bluetooth`,
 `deflate`, `framebuf`, `cryptolib`, `vfs`. Numbers: integers of any size,
 and single-precision floats (about 7 digits, the same on every board and
 PC).
@@ -98,12 +119,99 @@ PC).
   (the same condition as MQTT over TLS).
 * `os.urandom(n)`: `n` random bytes from TinyDesk's random source (the
   chip's hardware generator on a board).
-* `select.poll()` works on objects that support it; TinyDesk has no
-  sockets, and whether a key is waiting on `sys.stdin` is not known, so
-  its main use is `asyncio`'s loop.
+* `select.poll()` works on sockets and other objects that support it;
+  whether a key is waiting on `sys.stdin` is not known.
 
 `time.time()` and `time.localtime()` follow the clock TinyDesk keeps (SNTP
 or `date`); `time.ticks_ms()` and `time.sleep()` work as in MicroPython.
+
+## Network
+
+Scripts use the network TinyDesk already set up (Wi-Fi or Ethernet on a
+board, the PC's in the Windows and Linux programs). They can read its
+state, not change it: connecting and the settings belong to the Network
+app and the shell's commands.
+
+| Module | What |
+| --- | --- |
+| `network` | Read-only status: `isconnected()`, `ifconfig()` (ip, netmask, gateway, dns), `status()` (a dict: `interface`, `connected`, `ip`, `netmask`, `gateway`, `dns`, `mac`, and for Wi-Fi `ssid`, `rssi`, `channel`) and `wait(timeout=None)`, which waits up to `timeout` seconds for a connection and returns `True` once there is one. On a PC only the address is known. |
+| `socket` | `getaddrinfo`, `socket()` with `connect`, `bind`, `listen`, `accept`, `send`, `sendall`, `recv`, `sendto`, `recvfrom`, `settimeout`, `setblocking`, `setsockopt`; also a stream (`read`, `readline`, `write`). Addresses are `(host, port)` tuples; `getaddrinfo` lists IPv4 addresses first. |
+| `ssl`, `tls` | TLS 1.2 (mbedTLS). `ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)` checks the server's certificate (a bad one raises `ValueError` or `OSError`); `ssl.wrap_socket()` checks it only with `cert_reqs=ssl.CERT_REQUIRED` (MicroPython's default). |
+| `requests` | HTTP and HTTPS: `requests.get(url)`, `.post()`, ...; `.status_code`, `.text`, `.json()`. Checks certificates; `verify=False` does not. |
+| `umqtt.simple`, `umqtt.robust` | An MQTT 3.1.1 client of the script's own (any broker, besides `tinydesk.mqtt_publish()` on the MQTT app's): `MQTTClient(client_id, server, port=0, user=None, password=None, ssl=None)`, `connect()`, `publish()`, `subscribe()`, `set_callback()`, `check_msg()`, `wait_msg()`. For TLS: `port=8883, ssl=ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)`. |
+| `websocket` | A blocking WebSocket client: `ws = websocket.create_connection("wss://host/path", timeout=10)`, `ws.send(text_or_bytes)`, `ws.recv()`, `ws.close()`. Checks certificates (`verify=False` does not). |
+| `aiohttp` | `asyncio` HTTP client and WebSockets: `aiohttp.ClientSession()`, `session.get()`, `session.ws_connect()`. Checks certificates. |
+
+```python
+import requests, websocket
+from umqtt.simple import MQTTClient
+
+r = requests.get("https://api.example.com/status")
+print(r.status_code, r.json())
+
+ws = websocket.create_connection("wss://echo.websocket.org/", timeout=10)
+ws.send("hello")
+print(ws.recv())
+ws.close()
+
+c = MQTTClient("tinydesk-demo", "broker.hivemq.com")
+c.connect()
+c.publish(b"demo/topic", b"hello")
+c.disconnect()
+```
+
+* **Certificates.** `https://`, `wss://` and `ssl.SSLContext` check the
+  server against the certificate authorities built into the firmware
+  (ESP-IDF's bundle); the Windows and Linux programs use the computer's.
+  `SSLContext.load_verify_locations(cadata=...)` trusts your own CA
+  instead (a private broker's, say).
+* **Ctrl+C and timeouts.** `connect`, `recv` and `accept` wait in short
+  steps, so Ctrl+C stops a script waiting for the network; after
+  `settimeout(s)` they raise `OSError` with `errno.ETIMEDOUT`.
+* **Cleanup.** Sockets a script leaves open are closed when it ends.
+* **Name lookups** (`getaddrinfo`, `connect` by name) wait for the DNS
+  server and cannot be stopped halfway.
+* **Memory.** A TLS connection needs tens of KB of RAM for mbedTLS
+  besides the script's heap: on the boards without PSRAM (ESP32-C6, ESP32
+  4 MB) keep to one at a time.
+
+## Packages and virtual environments
+
+Packages from [micropython-lib](https://github.com/micropython/micropython-lib)
+(micropython.org's index), GitHub or GitLab are installed with `upip`, a
+shell command, into a **virtual environment** or your own `~/lib`
+(`/lib` for root):
+
+```
+# venv ~/plant              make one: ~/plant/lib and ~/plant/venv.json
+# activate ~/plant
+(plant) # upip install base64 logging
+(plant) # upip list
+(plant) # py report.py      imports from ~/plant/lib first
+(plant) # upip freeze ~/plant/requirements.txt
+(plant) # deactivate
+# venvs                     the environments you made (* the active one)
+```
+
+| Command | What |
+| --- | --- |
+| `venv DIR` | makes a virtual environment: `DIR/lib` for its packages, `DIR/venv.json` for the record of what was installed |
+| `activate DIR` | uses it in this session: `py` puts `DIR/lib` first on `sys.path`, `upip` installs there, the prompt shows `(name)`. It is the session variable `VIRTUAL_ENV` (`tdsh.getvar("VIRTUAL_ENV")` in Python) |
+| `deactivate` | back to `~/lib` |
+| `venvs` | lists the environments you made (`~/.venvs`); removed ones are left out |
+| `upip install PKG[@VERSION] ...` | installs from micropython.org's index (`mip`), or `github:owner/repo/path`, `gitlab:...` or a URL; `-r FILE` reads one name a line |
+| `upip uninstall PKG ...` | removes exactly the files that package installed (`-r FILE` too) |
+| `upip list` | what is installed in the active environment, or in `~/lib` |
+| `upip freeze [FILE]` | the installed packages as a requirements file |
+
+`sys.path` is the script's folder, the active environment's `lib`, the
+frozen modules (`asyncio`, `requests`, `umqtt`...), `~/lib`, then `/lib`:
+a package in an environment wins over a frozen one of the same name.
+Packages are `.mpy` files compiled for this MicroPython (1.29); they need
+the network and run with the script user's rights. `upip` keeps a record
+of the files each package added (`venv.json` in an environment,
+`.upip.json` in `~/lib`), so `uninstall` removes those and nothing else;
+files you copy there yourself are not touched.
 
 ## The tinydesk module
 
@@ -114,7 +222,7 @@ import tinydesk
 | Function | What it does |
 |---|---|
 | `tinydesk.version()` | TinyDesk's version, for example `'0.2.0'`. |
-| `tinydesk.shell(line)` | Runs a shell command line in the script's session and returns its exit status. Its output goes where the script's output goes. It starts in the script's current directory; a `cd` in it does not move the shell. |
+| `tinydesk.shell(line)` | Runs a shell command line in the script's session and returns its exit status. Its output goes where the script's output goes. It starts in the script's current directory; a `cd` in it does not move the shell. The same function is `tdsh.shell(line)`, which TinyDesk Shell's own firmware has too. |
 | `tinydesk.log(text, level='I')` | Adds a line to the Log Viewer. `level` is `'E'`, `'W'`, `'I'` or `'D'`. |
 | `tinydesk.mqtt_publish(topic, payload, qos=0, retain=False)` | Publishes on the broker the MQTT app or `mqtt connect` connected to. `payload` is a `str` or `bytes`; `qos` is 0 or 1. Raises `OSError` when MQTT is not connected. |
 | `tinydesk.modbus_read(target, unit, table, addr, count=1)` | Reads Modbus values and returns a list of ints. Arguments as for [`modbus read`](commands.md#modbus): `target` is `'host[:port]'` or `'rtu[N][:baud[:8N1]]'`, `table` is `'co'`, `'di'`, `'hr'` or `'ir'`, `count` 1..125. |
@@ -175,9 +283,9 @@ How it fits into TinyDesk:
   `mqtt_publish()` and `shell()` are ordinary functions: while one runs
   (a Modbus request up to its timeout, a shell command until it ends), no
   other coroutine runs. Keep them short, or run them less often.
-* **No I/O to wait on.** Without sockets, and without a way to know that
-  a key is waiting, `asyncio`'s streams have nothing to read in TinyDesk:
-  coroutines wait for time, `Event`s and each other.
+* **Sockets.** `asyncio.open_connection()` and `aiohttp` wait for the
+  network without blocking the other coroutines (see [Network](#network));
+  whether a key is waiting on the keyboard is not known.
 
 It is MicroPython's `asyncio` (the functions are listed in
 [its documentation](https://docs.micropython.org/en/v1.29.0/library/asyncio.html)).
@@ -274,7 +382,8 @@ print(i2c.scan())                                 # addresses that answer
   the pins in the [board configuration](../guide/board-config.md)
   (`console.*`, `rs485.*`, `eth.*`, `sd.*`), the desktop's link (UART0 on
   GPIO1 and 3 on the classic ESP32 and GPIO43 and 44 on the ESP32-S3
-  unless `console.*` says otherwise; USB on GPIO12 and 13 of the ESP32-C6),
+  unless `console.*` says otherwise; USB on GPIO12 and 13 of the ESP32-C6;
+  the ESP32-S3's own USB port, GPIO19 and 20, with `usb.host = 1`),
   and the pins the chip keeps (flash, and PSRAM on the ESP32 with PSRAM and
   the ESP32-S3: GPIO26–37 there).
 * **Strapping pins** (ESP32: 0, 2, 5, 12, 15; ESP32-S3: 0, 3, 45, 46;
@@ -317,7 +426,10 @@ uses them. Nothing else stays allocated between scripts.
 
 A script can put windows on the desktop, with labels, buttons, text boxes,
 check boxes, lists, progress bars and character canvases, and handle what
-the user does in Python. That makes a small app without writing C:
+the user does in Python. That makes a small app without writing C. For a
+real app, start from the [app library `tdapp`](tdapp.md): pages, Modbus /
+UART links with widgets bound to registers, and canvas elements that
+redraw themselves, so the app keeps only its own logic. The basics:
 
 ```python
 import tdui
@@ -357,7 +469,8 @@ How it works:
   Files. In an SSH session `tdui.Window()` raises
   `OSError: tdui: no desktop in this session`. It works the same in the
   Windows and Linux programs.
-* **Who:** any user; the windows appear on that user's desktop.
+* **Who:** accounts with the Apps / Terminal right; the windows appear on
+  that user's desktop.
 * **The windows belong to the script.** They close when it ends, also after
   an error or Ctrl+C. Ctrl+C in one of the script's windows stops it as it
   does in the Terminal. A script that does not call `tdui.run()` (or keep
@@ -369,6 +482,23 @@ How it works:
   100x30 canvas is 3000 a page). A canvas has up to 16 pages
   (`tdui.MAX_PAGES`). Past them, `OSError` says which. Labels, buttons and
   text boxes hold up to 63 bytes, a window title 31.
+* **Version:** `tdui.API` is the contract scripts and app packages are
+  made for, as `(major, minor)`: `(1, 0)` now. The minor number grows when
+  something is added; the major one changes only when apps made for the
+  old one would break, and the old one then keeps working for one more
+  major TinyDesk release. `tdui.CAPABILITIES` names the optional parts the
+  firmware has (`"gradient_fills"`, and `"rgb_pictures"` on boards with
+  PSRAM and on the PC). An app package made with TinyDesk App Builder
+  checks these before it starts, whichever Builder version made it, and
+  stops with a message saying what to update. The whole contract, with the
+  request numbers and limits, is `ports/common/python/tdui_contract.json`
+  in the source. Its `python` part lists every public function, class,
+  method, property and constant of `tdui`, with each function's
+  parameters, and a test keeps it: within API 1 a name is never removed or
+  renamed, its parameters keep their names and order, and new parameters
+  come last with a default, so a script or package made for 1.0 runs on
+  every later 1.x. Another test runs the firmware's own `tdui` (frozen
+  into it as bytecode) in the simulator and checks it has all of that.
 
 | Class or function | Notes |
 |---|---|
@@ -415,6 +545,13 @@ def grow(win, width, height):
 
 w.on_resize = grow
 ```
+
+### Kiosk mode
+
+A `tdui` app can be the only thing on the screen: with `kiosk.app` in the
+board configuration the board starts it full screen at every start, with no
+desktop around it, and again if it ends. See [Kiosk
+mode](../guide/using.md#kiosk-mode).
 
 ### Fast screens
 
@@ -473,6 +610,273 @@ ESP32-S3: switching a full-screen 100x30 HMI between six screens took
 and redrew the screen; with a page per screen and `big()` it takes
 33–82 ms and appears at once.
 
+### Pictures and pixels
+
+**Atomic updates.** Use `with cv.batch():` (or `with tdui.batch():` after
+opening a window) for related drawing on visible pages. It holds desktop
+frames until the outer context ends, including nested contexts and queue
+refills. It covers the whole script's drawing, not just that canvas. Input,
+timers and queue processing continue; other windows' frames wait too.
+
+```python
+with cv.batch():
+    cv.bar(4, 12, 60, 4, temperature, maximum=1200,
+           color=40, track=237, edge=120, radius=1)
+    cv.put(2, 8, "%4d C" % temperature, 231, tdui.CLEAR)
+```
+
+Keep batches short: do not sleep, call `poll()`, load files or wait for
+input inside one. After **1000 ms from the outer begin**, the desktop
+releases the partial drawing and posts an error (raised by Python's next
+`poll()`); nesting does not extend that deadline. An exception exits the
+context and releases what was drawn. Script exit also releases it. This
+does not roll back changes or guarantee a terminal displays all transmitted
+bytes simultaneously; it prevents the desktop from sending an intermediate
+frame. Pages remain the best way to prepare a whole screen off-screen.
+The context is reused; it does not collect a Python list of commands or
+allocate a second screen buffer.
+
+**Bars in one request.** `cv.bar(x, y, w, h, value, maximum=100, color=40,
+track=237, edge=-1, radius=0, gradient=None)` uses **pixel** coordinates. It paints the
+track, fill and optional light top edge in one desktop request, including
+the old filled area when the value falls. `maximum` must be positive;
+values clamp to 0..maximum. Colours are 0..255; `edge=-1` disables the
+highlight. Rounded corners leave the surrounding background in place:
+paint that background once and keep the bar's rectangle fixed during
+animation. An even X and width give whole column pairs and symmetric ends
+in Normal pictures. On images, `img.bar(...)` uses individual pixels.
+The most recent three-byte style is cached on the canvas/image; changing
+only the value creates no new style or widget. The normal cell diff sends
+only the cells whose final appearance changed. A bar is a painted meter,
+not an input slider; handle `on_mouse` to change its value interactively.
+
+`CanvasButton.draw()` groups its shape, rim and label automatically. A
+button belongs to the page on which it was created: hidden-page buttons
+do not receive clicks, and updating one draws into its own page, restoring
+the canvas's previous draw page afterwards. Create buttons and images
+once, then update their values or text; do not create them in animation
+callbacks. App Builder follows this rule in generated painters.
+
+The pixel budget includes **every page** of a canvas once it has pixels
+(`width * height * pages * 4` bytes), plus decoded images (`w * h` bytes,
+twice that with a transparent colour mask). Check `MAX_CELLS` and
+`MAX_PIXELS` before allocating a layout: 2000 cells and 16384 pixel bytes
+on C6/4 MB ESP32, 32000 cells and 2097152 pixel bytes with PSRAM. These
+are C drawing budgets, separate from the Python heap. An instrument-panel example
+chooses a single 80×24 page and omits its large skin at small budgets;
+the host checks do not establish whether the full application fits the
+default 64 KB Python heap on boards without PSRAM.
+
+A canvas also has pixels: **2 x 2 to a cell** (`cv.pwidth` x `cv.pheight`
+in all), in a layer under its cells. Pictures, shapes and panels are
+drawn by the desktop in C, so each of these is **one call**, however many
+pixels it covers:
+
+| Call | Draws |
+|---|---|
+| `cv.rect(x, y, w, h, color, radius=0, outline=False, gradient=None)` | a rectangle; `radius` rounds its corners |
+| `cv.line(x0, y0, x1, y1, color)` | a line |
+| `cv.circle(x, y, r, color, outline=False, gradient=None)` | a circle |
+| `cv.gradient(x, y, w, h, (r, g, b), (r, g, b), across=False)` | from one colour to another, top to bottom (`across`: left to right), dithered |
+| `cv.image(img, x, y, w=0, h=0, src=None)` | an image, or its part `src=(sx, sy, sw, sh)`; `w`, `h` stretch or shrink it |
+| `cv.nine(img, x, y, w, h, border, src=None)` | an image (or part) as a `w` x `h` panel: corners of `border` pixels as they are, edges and middle stretched |
+| `cv.pixels(x, y, w, h, data, rgb=False, dither=True)` | `w * h` palette numbers from `bytes`, or with `rgb` three bytes (red, green, blue) a pixel |
+| `cv.draw_text(x, y, text, color, bg=tdui.CLEAR, scale=1, small=False)` | text in pixels: an 8 x 16 font (ASCII and Latin-1, so `°` too), `scale` 1 to 8 times; `small`: the 3 x 5 font of `big()` |
+
+**Gradient fills.** `rect()`, `circle()`, `bar()` and `cv.button()` take
+`gradient={'rgb1': (r, g, b), 'rgb2': (r, g, b), 'across': False}`: the
+shape (for `bar()`, its fill) is drawn from one colour to the other
+instead of in `color`, top to bottom (`across`: left to right), keeping
+its rounded corners. A pressed button swaps the two colours. Values must be 0..255 (`ValueError` otherwise).
+`tdui.SUPPORTS_GRADIENT_FILLS` is 1 on firmware that has them.
+
+Coordinates are pixels. Colours are palette numbers (`tdui.rgb(r, g, b)`
+finds the nearest). A cell drawn in shows its four pixels from then on;
+`put()` or `fill()` there shows text again. Text with the background
+**`tdui.CLEAR`** stands on the pixels (its cell gets the colour most of
+them have), and a blank with `CLEAR` shows them, so labels sit on a
+picture: `cv.put(2, 1, "Start", 231, tdui.CLEAR)`. Pixels follow pages:
+`draw_to()` picks the page they go to, and `copy_page()` copies them.
+
+How a cell shows its pixels is the user's **Settings → Sizes →
+Pictures**: two (Normal, upper half blocks) or all four (Fine, quadrant
+characters; needs a font that has them, such as Cascadia Mono).
+
+**Big text.** `draw_text()` draws in pixels, so text can be any size and
+colour and stand on a picture: at `scale=1` a character of the 8 x 16
+font is 4 cells wide and 8 high, at `scale=2` twice that.
+`tdui.text_size(text, scale, small)` gives its size in pixels, for
+centring. With Normal pictures a cell shows one of its two pixel columns,
+which thin letters lose: use the small font at `scale=2` or more there, or
+Fine pictures. `big()` (half blocks, cells) remains the cheapest for big
+digits on plain colours.
+
+**Buttons.** `cv.button(x, y, w, h, text, on_click, ...)` puts a button
+drawn in pixels on a canvas (cells `x`, `y`, `w` x `h`). It is rounded
+(`radius` pixels) in `color`, `down` while held and with an outline in
+`rim`, or a piece of a sprite sheet stretched to its size (`sheet`, `src`,
+`src_down`, `border`); its text is cell text standing on it, or pixel text
+with `scale`. The canvas handles the press: the button looks down while
+the mouse button is held on it and calls `on_click(button)` when it is let
+go there. `button.text = "..."` changes the text, `button.draw()` draws it
+again (after a background was drawn over it), `button.enabled = False`
+ignores clicks, `button.remove()` forgets it. Every look is a few desktop
+calls, nothing per pixel.
+
+Optional `on_press`, `on_release`, and `on_cancel` keywords also take a
+`callback(button)`. Press runs after the down appearance is drawn. Release
+runs wherever the pointer is let go, including outside the canvas/window;
+then click runs if it is still over the enabled button on its shown page,
+otherwise cancel runs. Removing a held button also calls cancel. Updating
+its label during a press keeps its down appearance. Native `w.button`
+continues to expose `on_click`; use a canvas button for separate press and
+release actions. Use window timers for repeating work and `on_close` for
+application cleanup.
+
+For smooth UI skins, load with `dither=False`. Dithering intentionally
+spreads palette colors into dots; it is useful for photos but noisy on a
+button. `tools/make_ui_skin.py` now makes keyed corners without blending
+against a guessed background. Transparent pictures retain the canvas
+pixels beneath them, so their corners match the actual background even
+on Sixel displays. This saved background costs at most `4 * w * h` bytes
+per keyed picture (cell dimensions), within `MAX_PIXELS`. Copied pages
+share it; it is freed when the picture is removed. Palette gradients can
+still have visible color bands without dithering.
+
+```python
+ok = cv.button(2, 10, 12, 3, "OK", lambda b: print("OK"),
+               rim=tdui.rgb(170, 210, 255))                  # rounded, in colours
+cv.button(16, 10, 12, 3, "Quit", lambda b: w.close(),
+          sheet=sheet, src=(0, 0, 16, 16), src_down=(16, 0, 16, 16))
+cv.draw_text(4, 2, "21.5°C", tdui.rgb(255, 220, 0), scale=1)
+```
+
+**Optional RGB565 colors (PSRAM firmware).** Check
+`tdui.SUPPORTS_RGB_PICTURES`, then call `tdui.enable_rgb_pictures()` before
+creating windows/images/fonts. Native images, gradients and transparent
+underlays retain RGB565 colors. CrowPanel renders them directly to its LCD;
+the App Builder helper uses native RGB frames. Sixel terminals use a
+per-picture palette (up to 256 source colors, then RGB332 fallback).
+This is opt-in: palette mode and smaller-target budgets remain unchanged.
+RGB mode adds two bytes per decoded image/coarse canvas/background pixel,
+plus a native backdrop picture per two canvas rows. Builder's RGB export setting
+includes these costs and checks the required firmware capability.
+
+**Optional rendered-artwork cache.** Updated PSRAM firmware automatically
+reuses lossless RGB565 artwork within a bounded arena and warms hidden
+pictures while idle. `tdui.render_cache(0)` disables it;
+`tdui.render_cache(128, warm=True)` requests up to 128 KiB plus its index.
+Allocation can be skipped when memory is low. `tdui.render_cache_info()`
+provides cache and native drawing counters. Existing page state remains
+retained, and changed pictures/source images invalidate cached output.
+App Builder 0.10 exposes Auto/Off/64/128 KiB in Export options.
+`tdui.scanout_info()` adds optional local RGB telemetry: VSYNCs, prepared
+frames, missed preparations, peak preparation gap in microseconds, submitted
+frames, pixel-clock Hz, interrupt CPU and bounce-buffer lines. Unsupported
+ports/runtimes return eight zeroes. These counters describe completed frame
+preparations rather than every individual DMA refill, and do not measure
+physical touch-to-LCD latency.
+`tdui.scanout_timing()` returns the last LCD submission timestamp in
+monotonic milliseconds, then last/peak/total LCD paint work in microseconds.
+Unsupported ports/runtimes return four zeroes. On CrowPanel, the timestamp
+shares the script's monotonic clock; mask to the `time.ticks_ms()` period
+before using `time.ticks_diff()`. It records driver submission, before the
+following physical scanout refresh.
+
+**Pictures at the screen's own resolution.** `cv.picture(img, x, y, w, h,
+src=None, border=0, text="", fg=231, scale=0, font=None)` puts an image (or its part
+`src`, nine-slice with `border` > 0) over cells `x`, `y`, `w` x `h`, drawn
+by the terminal in real pixels: smooth round corners, gradients and
+shadows, like an LCD panel's UI (a Nextion's, say). `text` is a label
+drawn into the picture in colour `fg` (`scale` 1: the 8 x 16 font, sharp;
+0: as large as fits; `font`: a loaded [`tdui.Font`](#fonts)). Terminals
+that can show pictures:
+
+| Terminal | Pictures |
+|---|---|
+| The CrowPanel's LCD | yes, at its 800 x 480 pixels |
+| The web terminal | yes (Sixel, xterm.js's image add-on) |
+| Windows Terminal 1.22+, xterm `-ti vt340`, WezTerm, foot | yes (Sixel) |
+| PuTTY, the Windows console | no: the canvas's pixels show the same, made smaller |
+
+TinyDesk asks the terminal at every setup whether it has Sixel and how
+big its cells are in pixels, and draws the pictures to that size; a
+picture is sent once, and again only when it changes or something was
+drawn over it. Drawing over a picture's cells (text, fills, pixels)
+removes it. `cv.button(..., sheet=..., src=..., src_down=...)` makes its
+button a picture with its text in it. `tools/make_ui_skin.py` makes an
+example skin of glossy buttons, tabs and panels (`ui_skin.ppm`, 64 x 64
+pieces with smooth corners, for a nine-slice border of 16):
+
+```python
+skin = tdui.Image.load("ui_skin.ppm", key=(255, 0, 255))
+BUTTON, DOWN = (0, 0, 64, 64), (64, 0, 64, 64)
+cv.button(2, 10, 14, 3, "START", start, sheet=skin, src=BUTTON, src_down=DOWN, border=16, scale=1)
+cv.picture(skin, 20, 10, 14, 3, src=(128, 64, 64, 64), border=16, text="OK", fg=16, scale=1)
+```
+
+Over a serial line a picture costs a few KB (a 12 x 3-cell button about
+5 KB), sent once; on the CrowPanel nothing goes over a line.
+
+**Images** are pictures the desktop keeps for the script and draws into
+canvases:
+
+```python
+sheet = tdui.Image.load("ui.ppm", key=(255, 0, 255), dither=False)
+photo = tdui.Image.load("/root/plant.ppm", w=60)   # 60 pixels wide, shape kept
+blank = tdui.Image(32, 32, tdui.CLEAR)              # transparent; draw into it
+blank.circle(16, 16, 12, tdui.rgb(255, 200, 0))
+```
+
+`Image.load()` reads PPM and PGM (binary or text) and BMP files. The
+file is decoded in C on the script's own task, scaled to `w` x `h` if
+given (only one: the other keeps the shape) and turned into palette
+colours, dithered unless `dither=False` (dithering is for photos and
+gradients; flat UI pieces look best without it). `key=(r, g, b)` makes that
+colour transparent. An image has the same drawing calls as a canvas, so a
+script can compose one (`CLEAR` makes pixels transparent there), and
+`img.free()` lets the desktop forget it before the script ends.
+
+**A sprite sheet is the fastest way to a UI of pictures:** load one small
+image with every piece in it once, then each button, panel or icon is one
+`image()` or `nine()` call with its `src`, at any size. A pressed button
+is another piece of the sheet drawn over it. `tools/make_ui_sheet.py`
+makes an example sheet (buttons, a panel, an LED), and
+`examples/python/pixels_demo.py` in the `tinydesk` repository uses it:
+
+```python
+import tdui
+
+BUTTON, DOWN = (0, 0, 16, 16), (16, 0, 16, 16)
+sheet = tdui.Image.load("ui_sheet.ppm", key=(255, 0, 255), dither=False)
+w = tdui.Window("Pixels", 40, 10)
+
+def on_mouse(c, x, y, button, action):
+    if 2 <= x < 14 and 6 <= y < 9 and action in (0, 1):
+        c.nine(sheet, 4, 12, 24, 6, 4, src=DOWN if action == 0 else BUTTON)
+        c.put(6, 7, "Press me", 231, tdui.CLEAR)
+
+cv = w.canvas(0, 0, 40, 10, on_mouse=on_mouse)
+cv.gradient(0, 0, cv.pwidth, cv.pheight, (20, 40, 110), (250, 150, 90))
+cv.nine(sheet, 4, 12, 24, 6, 4, src=BUTTON)          # cells 2..13, 6..8
+cv.put(6, 7, "Press me", 231, tdui.CLEAR)
+tdui.run()
+```
+
+Speed: the script never handles single pixels. A picture crosses to the
+desktop as one pointer, a drawing call is one small message, and the
+window turns each cell's pixels into a character only when it draws. What
+the terminal gets is, as always, only the cells that changed; a cell of
+pixels takes a few more bytes than one of text (two colours), so a
+full-screen picture is the slowest thing to send. Draw it once, into a
+page, and change only what changes.
+
+Images and pixel layers share a budget, `tdui.MAX_PIXELS` bytes (a byte a
+pixel, another for an image with transparency; a canvas's pixel layer is
+4 bytes a cell on every page, taken when its first pixel is drawn): 2 MB
+on boards with PSRAM and in the PC programs, 16 KB on the ESP32-C6 and the
+4 MB ESP32. Beyond it, `OSError`.
+
 The dialogs wait for the answer, while the script's other windows and
 timers keep working. Each script has its own windows: they are not in the
 start menu, and two scripts cannot run at once (see
@@ -481,7 +885,61 @@ start menu, and two scripts cannot run at once (see
 Cost: about 14 KB of flash. Nothing in RAM until a script opens a window;
 then about 12 KB of internal RAM for the queues and the window table while
 it runs, plus 6 bytes per canvas cell on every page (in PSRAM on boards
-that have it) and the list items, all freed when it ends.
+that have it), the list items, and the images and pixel layers (see
+[Pictures and pixels](#pictures-and-pixels)), all freed when it ends.
+
+### Fonts
+
+`tdui.Font.load(path)` (or `tdui.Font(path)`) loads a generated bitmap font,
+a `.tdfont` file, into the desktop's graphics memory once; its glyphs are
+drawn in C. `.height`, `.ascent`, `.glyphs` (how many), `.size` (the
+nominal size in pixels) and `.bpp` (1 or 4 bits per pixel) describe it;
+`font.free()` releases it (the end of the script does too).
+
+`cv.font_text(font, x, y, w, h, text, fg=231, bg=tdui.CLEAR,
+align="left", valign="top", wrap=False)` draws text in that font inside
+cells `x`, `y`, `w` x `h`, at the screen's own pixels: `align` is
+`"left"`, `"center"` or `"right"`, `valign` `"top"`, `"middle"` or
+`"bottom"`, `wrap` breaks lines at words, `"
+"` starts a line. The text is
+clipped to the cells. `cv.button(..., font=font)` and `cv.picture(...,
+font=font)` draw their label with it.
+
+```python
+font = tdui.Font.load("/root/display_28.tdfont")
+cv.font_text(font, 2, 2, 40, 4, "Temperature
+123.4 °C",
+             fg=231, bg=25, align="center", valign="middle", wrap=True)
+cv.button(2, 10, 20, 3, "Apply", apply, font=font)
+```
+
+The size is in pixels, so the same font looks larger on a screen with
+small cells: a CrowPanel cell is 8 x 16 pixels with `lcd.font = 16` and
+10 x 20 with 20.
+
+A `.tdfont` file (format `TDFONT01`, little endian) has a 32-byte header
+(the magic, the line height and ascent, the glyph count, the nominal size,
+1 or 4 bits per pixel), a 16-byte record per glyph (code point, bitmap
+offset, width, left bearing, advance) and the bitmaps, each the full line
+height. It holds 1 to 512 glyphs sorted by code point, `?` among them (it
+stands in for missing ones), and is at most 256 KB. TinyDesk App Builder
+makes them from a desktop font; the C side is
+[`td_font.h`](../api/screen.md#bitmap-fonts).
+
+### Graphics limits and counters
+
+| Name | Value |
+|---|---|
+| `tdui.MAX_PICTURES` | pictures (`cv.picture()`, picture buttons) a script may keep, every page counted: 512 with PSRAM and on the PC, 48 otherwise |
+| `tdui.MAX_VISIBLE_PICTURES` | pictures on the screen at once: 128 with PSRAM and on the PC, 64 otherwise |
+| `tdui.SUPPORTS_GRADIENT_FILLS` | 1: the `gradient=` fills above |
+| `tdui.SUPPORTS_RGB_PICTURES` | true where `enable_rgb_pictures()` works (PSRAM and the PC) |
+
+`tdui.graphics_info()` returns `(renders, allocation_failures,
+sink_failures, psram_free, psram_largest, frame_ms)`: pictures rendered,
+renders that found no memory, pictures a local display refused (all
+counted since start), free PSRAM and its largest free block (0 without
+PSRAM), and the last frame's time in ms.
 
 ## Memory
 
@@ -496,29 +954,17 @@ under 1 KB of RAM.
 | ESP32 4 MB (no PSRAM) | 64 KB, usually less (see below) | internal RAM |
 | Windows, Linux | 1 MB | the PC's memory |
 
-From internal RAM `py` always leaves 32 KB free for Wi-Fi, SSH and the
-desktop, and takes less than the default when that is all there is. With
-less than 16 KB to give it does not start, and prints how much RAM was
-free. On the 4 MB ESP32 the desktop leaves about 65 KB free with Wi-Fi
-off, so a script gets about 31 KB; with Wi-Fi connected there may not be
-enough to start one. `heap` in the shell shows the free RAM;
+From internal RAM `py` leaves room for the system, and takes less than
+the default when that is all there is: 48 KB while Wi-Fi and Ethernet are
+off (so the network can still start while a script runs, from the Network
+app or from the script with `tdsh.shell("wificonnect")`), 20 KB once one
+is up. With less than 16 KB to give it does not start, and prints how much
+RAM was free. On the 4 MB ESP32 the desktop leaves about 70 KB free, so a
+script gets about 21 KB before Wi-Fi and about 16 KB with Wi-Fi connected:
+enough for small scripts and plain sockets, not for TLS (`https://`,
+`wss://`). The ESP32-C6 keeps its full 64 KB either way. `heap` in the shell shows the free RAM;
 `gc.mem_free()` shows what is left inside a script, and
 `micropython.mem_info()` shows more.
 
 A script's frames use the shell task's stack; deep recursion ends with
 `RuntimeError: maximum recursion depth exceeded`, not a crash.
-
-## For developers
-
-The interpreter is in `third_party/micropython`, generated from the
-MicroPython release by `tools/micropython` (see its README), including
-`asyncio`'s Python part, compiled to bytecode and built into the firmware
-(`frozen/`). TinyDesk's port of it, including the configuration
-(`mpconfigport.h`), the frozen-module list (`manifest.py`), the file
-system, the `tinydesk` module and the `machine` module, is in
-`ports/common/python`; the chip side of `machine` (ESP-IDF's drivers, and
-the rules for which pins a script may use) is in its `hw/` folder. `tdui`
-is `modules/tdui.py` there, over the small C module `_tdui`; the desktop
-side, which makes the windows, is `apps/pyui.c`, and the messages between
-the two are in `apps/td_apps.h`. Builds can
-leave it out with `-DTD_WITH_PYTHON=OFF` (PC). See [Tools](../tools.md).

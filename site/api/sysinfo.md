@@ -65,11 +65,15 @@ typedef struct {
     bool (*set_tz)(long seconds);
 
     const td_net_ops_t *net;
+    const td_display_ops_t *displays;
     const td_ota_ops_t *ota;   /* NULL: no updates on this platform */
     const char *no_ota_text;   /* with ota NULL: why, and how to update instead */
+    const td_fetch_ops_t *fetch;   /* downloads (the Store), NULL: none */
+    const char *store_url;     /* the Store's catalog, NULL: the official one */
 
     bool (*user_exists)(const char *user);
     bool (*authenticate)(const char *user, const char *password);
+    const td_user_ops_t *users;        /* NULL: no roles, rights or Sign in list */
 
     bool (*settings_load)(void *data, int len);
     bool (*settings_save)(const void *data, int len);
@@ -78,6 +82,13 @@ typedef struct {
 
     const char *extra;
     const td_desktop_file_t *desktop_files;
+
+    const char *kiosk_app;              /* NULL or "": no kiosk mode */
+    const char *kiosk_splash;           /* picture while the app starts, or NULL */
+    bool kiosk_hide_status;             /* no status line behind the app */
+
+    const td_mouse_ops_t *mouse;        /* NULL: no Mouse app */
+    const td_keyboard_ops_t *keyboard;  /* NULL: no Keyboard app */
 } td_sysinfo_t;
 ```
 
@@ -99,12 +110,19 @@ typedef struct {
 | `time_auto_get`, `time_auto_set`, `time_sync` | TinyDesk Shell's SNTP settings; sync in a short-lived task | not set |
 | `get_tz`, `set_tz` | `~/.tdsh_tz` (TinyDesk Shell's `tz` file) | `~/.tdsh_tz`, else the PC's offset |
 | `net` | `net_esp_ops()` (`net_esp.c`) | only through `td_host_use_net()` (the `tools/tdsim.c` simulator uses a fake one) |
+| `displays` | `hal_mux_displays()` (`hal_mux.c`) | none ([Displays](#displays)) |
 | `ota` | `ota_esp_ops()` (`ota_esp.c`) | not set |
+| `fetch` | `fetch_esp_ops()` (`fetch_esp.c`) | `host_fetch_ops()` (`ports/common/host_fetch.c`: files copied, URLs through `curl`) |
+| `store_url` | board key `store.url` (a shell path becomes a real one) | environment variable `TINYDESK_STORE` |
 | `user_exists`, `authenticate` | TinyDesk Shell's user database | only through `td_host_use_users()` (tdsim test accounts) |
+| `users` | TinyDesk Shell's accounts, roles and remembered login (`main.c`) | not set |
 | `settings_load`, `settings_save` | NVS namespace `"tinydesk"`, key `"settings"` | file `tinydesk_settings.bin` in the working directory |
 | `fs` | `td_fs_stdio("/fs")`, TinyDesk Shell's LittleFS mount point | `td_fs_stdio("<cwd>/tinydesk_fs")` |
 | `extra` | `"Shell:     TinyDesk Shell <version>"` | the same with `TD_WITH_TDSH` |
 | `desktop_files` | not set | not set |
+| `kiosk_app` | board key `kiosk.app`, unless `board_maintenance_start()` | environment variable `TINYDESK_KIOSK` |
+| `kiosk_splash`, `kiosk_hide_status` | board keys `kiosk.splash` and `kiosk.status = 0`, with `kiosk_app` | `TINYDESK_KIOSK_SPLASH`, `TINYDESK_KIOSK_HIDE_STATUS` set |
+| `mouse`, `keyboard` | the ESP32-S3 with `usb.host = 1` (`usb_hid.c`); not set elsewhere | not set |
 
 ### Identification
 
@@ -223,9 +241,58 @@ The time zone is per user (`td_session_user()` and `td_session_home()` from [app
 | Member | Meaning |
 |---|---|
 | `user_exists` | True if a user with that name exists. Asked by Start > Switch user... before the password prompt. |
-| `authenticate` | True if the password is right for that user. When set, the session code adds "Switch user..." to the start menu at start-up. |
+| `authenticate` | True if the password is right for that user. When set, the desktop starts behind the Sign in window, and the session code adds "Switch user..." and "Sign out" to the start menu. |
+| `users` | Optional: accounts with roles and rights, for the Sign in list, the Users app, rights checks and remembered login. |
 
 Without them the desktop always belongs to root (unless the terminal backend reports another shell user).
+
+```c
+#define TD_USER_ROLE_USER 0
+#define TD_USER_ROLE_ADMIN 1
+#define TD_USER_ROLE_ROOT 2
+#define TD_RIGHT_USERS    (1u<<0)   /* Manage accounts (with the Admin role) */
+#define TD_RIGHT_SYSTEM   (1u<<1)   /* System settings */
+#define TD_RIGHT_NETWORK  (1u<<2)
+#define TD_RIGHT_HARDWARE (1u<<3)   /* Hardware / I/O */
+#define TD_RIGHT_SHARED   (1u<<4)   /* the /shared folder */
+#define TD_RIGHT_TIME     (1u<<5)   /* Clock */
+#define TD_RIGHT_APPS     (1u<<6)   /* Apps / Terminal */
+#define TD_RIGHT_ALL      127u
+
+typedef struct {char name[32];int role;uint32_t rights;} td_user_info_t;
+typedef struct {
+    int (*list)(int index,td_user_info_t *out);
+    int (*role)(const char *username);
+    uint32_t (*rights)(const char *username);
+    uint32_t (*generation)(const char *username);
+    int (*create)(const char *actor,const char *name,const char *password,int role,uint32_t rights);
+    int (*access_set)(const char *actor,const char *name,int role,uint32_t rights);
+    int (*password_set)(const char *actor,const char *name,const char *old_password,const char *password);
+    uint32_t (*remembered)(char *name,int cap);
+    bool (*remember_allowed)(const char *name);
+    uint32_t (*login)(const char *name,const char *password);
+    int (*boot_user_set)(const char *actor,const char *name);
+    int (*require_password)(const char *actor);
+    int (*hint_get)(const char *name,char *out,int cap);
+    int (*hint_set)(const char *actor,const char *name,const char *hint);
+} td_user_ops_t;
+#define TD_HINT_MAX 64
+```
+
+`list` fills the account at `index` (0 on success, otherwise past the
+last). `generation` is a number that changes when the account's password
+is replaced or the account is made again; the desktop locks a session
+whose generation changed. `login` checks a password and returns the
+account's generation (0: wrong), and records the proof for a remembered
+login. `remembered` returns the generation of the remembered account (and
+its name), or 0. `create`, `access_set`, `password_set`, `boot_user_set`
+and `require_password` act as the account `actor` and return 0 or a
+negative `errno` value (`-EACCES` when that account may not). The
+optional `hint_get` and `hint_set` read and set an account's password
+hint (up to `TD_HINT_MAX - 1` bytes; `""` none or remove): anyone may read
+it, it is shown by Sign in's **Hint**; the account itself and whoever may
+manage it set it. Without them Sign in has no Hint button. The ESP ports
+implement it with TinyDesk Shell's account store.
 
 ### Settings storage
 
@@ -254,7 +321,15 @@ typedef struct {
     int (*write)(const char *path, const char *data, int len);
     int (*rename)(const char *from, const char *to);
     int (*exists)(const char *path);
+    int (*read_at)(const char *path, uint32_t offset, char *buf, int cap);
+    int (*append)(const char *path, const char *data, int len);
 } td_fs_ops_t;
+
+#define TD_FS_READ 0     /* actions for a path guard */
+#define TD_FS_WRITE 1
+#define TD_FS_LIST 2
+#define TD_FS_EXISTS 3
+#define TD_FS_REMOVE 4
 ```
 
 Minimal file access for Files, the Editor, the Desktop folder, per-user settings and the MQTT app's saved configuration. Paths are real paths: `root` followed by the path the shell sees (`"/fs" + "/root/Desktop/a.txt"`). Paths passed in are at most about 160 bytes.
@@ -269,6 +344,8 @@ Minimal file access for Files, the Editor, the Desktop folder, per-user settings
 | `remove` | yes | Delete a file, or a folder with everything in it. Return 0 on success. |
 | `rename` | yes | Rename or move a file or folder. Return 0 on success. Should fail rather than overwrite an existing target. |
 | `exists` | no | Return 1 if the path exists, else 0. Used to refuse names that are taken; without it, `rename` and `write` decide. |
+| `read_at` | no | Read up to `cap` bytes starting `offset` bytes into the file; return the byte count (0 at the end) or -1. The Image Viewer reads large files with it. |
+| `append` | no | Add `len` bytes to the end of the file, making it if missing; return 0 on success. **Copy to Apps** copies files larger than memory with `read_at` and `append`. |
 
 The apps check `fs` and a few members (Files checks `list`, the Editor `read` and `write`), but Files and the Desktop menus then call `write`, `mkdir`, `remove` and `rename` without checking, so implement all members except `exists`. All calls are made on the UI task and should finish in milliseconds; a flash filesystem is fine.
 
@@ -280,7 +357,7 @@ Every port uses the same implementation on top of the C library and `<dirent.h>`
 const td_fs_ops_t *td_fs_stdio(const char *root);
 ```
 
-Declared in `ports/common/td_fs_stdio.h`. Returns a static table (one per program; a second call replaces the root). `root` is copied into a 128-byte buffer, so longer paths are cut. Behaviour: `remove` deletes folders recursively up to 8 levels deep; `rename` refuses to overwrite an existing target; `write` writes the whole file in one `fopen("wb")`; `mkdir` uses mode 0755 (`_mkdir` on Windows); entries whose `stat()` fails are listed as files of size 0.
+Declared in `ports/common/td_fs_stdio.h`. Returns a static table (one per program; a second call replaces the root). `root` is copied into a 128-byte buffer, so longer paths are cut. `td_fs_stdio_guard(allow)` installs a check that every call passes through: `allow(path, action)` with a `TD_FS_*` action, false refuses it. The ports install `td_session_path_allowed()` ([apps.md](apps.md#rights-and-sign-in)), so the apps cannot reach paths the desktop's account may not. Behaviour: `remove` deletes folders recursively up to 8 levels deep; `rename` refuses to overwrite an existing target; `write` writes the whole file in one `fopen("wb")`; `mkdir` uses mode 0755 (`_mkdir` on Windows); entries whose `stat()` fails are listed as files of size 0.
 
 ## Network
 
@@ -359,7 +436,57 @@ Network control for the Network app and the taskbar indicator. Every call return
 | `telnet_enable` | no | Turn remote desktop over Telnet on or off. |
 | `telnet_peer` | no | Address of the connected Telnet client, or `NULL`. |
 
+Which display a Telnet client gets is a [Displays](#displays) setting.
+
 Implementation: `ports/esp_idf/app/net_esp.c` (`net_esp_ops()`), on top of TinyDesk Shell's Wi-Fi and Ethernet modules (so the Network app and TinyDesk Shell share saved networks) and `telnet.c`. Scans and connects run in a worker task with a 6 KiB stack; one job at a time. The host build has no network backend unless one is installed with `td_host_use_net()` (declared in `ports/common/td_host_hal.h`).
+
+## Displays
+
+```c
+enum
+{
+    TD_DISPLAY_OFF = 0,
+    TD_DISPLAY_BOARD = 1,    /* the board's own link (USB serial, UART, LCD) */
+    TD_DISPLAY_TELNET = 2,
+    TD_DISPLAY_SERIAL = 3,   /* a second serial port */
+    TD_DISPLAY_SOURCES = 4
+};
+typedef struct
+{
+    bool (*source_available)(int display, int src);
+    int (*source)(int display);
+    void (*set_source)(int display, int src);
+    const char *(*source_label)(int src);
+    void (*status)(int display, char *buf, int cap);
+    void (*save_layout)(const td_screens_layout_t *layout);
+    int (*rotation)(int display);
+    bool (*set_rotation)(int display, int degrees);
+} td_display_ops_t;
+```
+
+`td_sysinfo()->displays` (optional) is what **Settings → Displays** shows
+and changes beside the core's layout ([core.md](core.md#second-screen)):
+which terminal display 1 (0) and display 2 (1) are. Without it the app
+still arranges a second screen the port attached itself.
+
+| Member | What it must do |
+|---|---|
+| `source_available` | Whether `display` can be shown on `src` (display 1: the board or Telnet; display 2: off, Telnet, or a second serial port when one is configured). |
+| `source`, `set_source` | The source in use; setting one saves it and applies at once (the port attaches or detaches display 2). Needs `TD_RIGHT_SYSTEM`. |
+| `source_label` | A label, such as the board's link or `Serial 2: UART1, TX 17 / RX 18`. |
+| `status` | What the display shows now: a Telnet client's address and user, "waiting for a client", "no terminal answers yet". |
+| `save_layout` | Keep `td_screens_layout_t` for the next start (the app sets the layout itself first). |
+| `rotation`, `set_rotation` | A display the board drives itself (the CrowPanel's LCD): its orientation, 0, 90, 180 or 270 degrees, saved for the next start. `rotation` returns -1 when the display's terminal decides (a PuTTY window). |
+
+Implementation: `ports/esp_idf/app/hal_mux.c` (`hal_mux_displays()`):
+NVS keys `disp_src1`, `disp_src2`, `disp_layout`
+([config files](../shell/config-files.md)); Telnet clients from
+`telnet.c` (two at once when both displays are Telnet); the second serial
+port from the board keys `display2.*`
+([board configuration](../guide/board-config.md#second-display-serial)).
+The CrowPanel's `link_crowpanel.c` provides `board_display_rotation()` and
+`board_set_display_rotation()` (NVS `lcd_rot`; `display_set_rotation()`
+in `display.c` turns the frame).
 
 ## Software update
 
@@ -463,3 +590,96 @@ The ESP port reads `update-desktop-<board>.json` from the web installer's site (
 When `ota` is set, the first six members must be set; the app calls them without checking. The app only lets root start, cancel or roll back; everyone can look.
 
 Implementation: `ports/esp_idf/app/ota_esp.c` (`ota_esp_ops()`), shared with the `ota` shell command. An update is written to the slot that is not running, checked (image format, chip, SHA-256) and made the boot slot. HTTPS is checked against the ESP-IDF certificate bundle. The new version runs on trial after the restart until `ota_esp_boot_ok()` confirms it (30 s after start-up, or on a requested restart); a crash before that makes the bootloader go back. The hosts have no `ota`.
+
+## Downloads
+
+```c
+enum { TD_FETCH_IDLE, TD_FETCH_RUNNING, TD_FETCH_DONE, TD_FETCH_FAILED };
+typedef struct
+{
+    int state;                 /* TD_FETCH_* */
+    uint32_t done, total;      /* bytes; total 0 while unknown */
+    char message[96];          /* why it failed */
+} td_fetch_status_t;
+typedef struct
+{
+    bool (*start)(const char *source, const char *dest, uint32_t max);
+    void (*status)(td_fetch_status_t *out);
+    void (*cancel)(void);
+} td_fetch_ops_t;
+```
+
+`start()` copies `source`, an `http://` or `https://` URL or a real file
+path (also `file://`), into the real file path `dest`, replacing it, in
+the background; one download at a time (false while one runs). HTTPS is
+checked against the port's trusted certificates and redirects are
+followed. More than `max` bytes (0: no limit) fails. A failed or cancelled
+download removes `dest`. Poll `status()`; the Store does every 100 ms.
+
+The ESP port (`ports/esp_idf/app/fetch_esp.c`) uses `esp_http_client`
+with the ESP-IDF certificate bundle (up to 4 redirects) in a short-lived
+task; the PC programs (`ports/common/host_fetch.c`) copy files themselves
+and hand URLs to `curl` in a thread.
+
+`store_url` is the catalog the Store reads (`apps/store.c`): a URL or a
+real file path of a `catalog.txt`; the packages come from the same folder.
+NULL: `https://tinydesk-project.github.io/tinydesk-apps/catalog.txt`.
+
+### Kiosk mode
+
+`kiosk_app` is a Python script's shell path (`/root/hmi.py`, or a `.mpy`).
+When it is set, the desktop starts in [kiosk mode](apps.md#kiosk-mode) and
+runs it full screen. It must be set before `td_apps_register_all()` and stay
+valid. `kiosk_splash` is a picture's shell path (BMP, PPM or PGM, up to
+800 x 480 pixels) shown while the app starts; `kiosk_hide_status` leaves
+the screen black instead of showing the status line. The app starts after
+Sign in, for an account with `TD_RIGHT_APPS`, and not for a non-root
+account when the path is under `/root`.
+
+### Mouse and keyboard
+
+A port whose board reads a mouse or keyboard itself (not through the
+terminal), such as the ESP32-S3 with a USB keyboard and mouse, sets `mouse`
+and `keyboard`. The Mouse and Keyboard apps are only registered when they
+are set, so they must be in place before `td_apps_register_all()`.
+
+```c
+typedef struct {
+    int speed;       /* percent; 100: 8 mouse counts a column, 16 a row */
+    int accel;       /* percent; 0: none, 100: fast moves go up to 4 times as far */
+    int precision;   /* percent; 0: none, 100: slow moves go 0.4 times as far */
+} td_mouse_settings_t;
+
+typedef struct {
+    bool (*status)(char *buf, int cap);   /* what is attached; false: nothing */
+    void (*get)(td_mouse_settings_t *s);
+    bool (*set)(const td_mouse_settings_t *s);   /* apply and save */
+} td_mouse_ops_t;
+
+typedef struct {
+    int layout;      /* index for layout_name() */
+    int delay_ms;    /* before a held key repeats */
+    int rate;        /* repeats a second */
+} td_keyboard_settings_t;
+
+typedef struct {
+    bool (*status)(char *buf, int cap);
+    void (*get)(td_keyboard_settings_t *s);
+    bool (*set)(const td_keyboard_settings_t *s);
+    const char *(*layout_name)(int i);    /* NULL past the last layout */
+} td_keyboard_ops_t;
+```
+
+| Member | Meaning |
+|---|---|
+| `status` | Writes what is attached (for example `"USB mouse 04ca:00bd, with its wheel"`) and returns `true`; `false` when nothing is plugged in. The apps call it once a second. |
+| `get` | The settings in use. |
+| `set` | Applies the settings at once and saves them; returns `false` when saving failed (they still apply). The ESP32-S3 saves them in `/etc/board.conf` (`usb.*`, see [Board configuration](../guide/board-config.md#usb-keyboard-and-mouse-esp32-s3)). |
+| `layout_name` | The name of layout `i` (`"US (English)"`, `"German"`...), `NULL` for `i` past the last. |
+
+The keys and mouse themselves reach TinyDesk as the bytes a terminal
+would send (mixed into the port's `link_read()`), so the rest of TinyDesk
+does not know where they came from. The one difference is the Windows key,
+which arrives as `TD_MOD_SUPER` (see [input.md](input.md)). A port that
+draws no pointer of its own calls `td_wm_set_pointer(true)` while a mouse
+is attached.

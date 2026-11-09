@@ -25,6 +25,20 @@ loop, for callers that drive `td_step()` themselves (the simulator).
 simulated network and test accounts; the normal desktop build has neither
 (no Network app backend, and the desktop belongs to root).
 
+The environment variable `TINYDESK_KIOSK` starts the desktop in [kiosk
+mode](../guide/using.md#kiosk-mode) with that Python script, a path in the
+TinyDesk Shell file system (`TINYDESK_KIOSK=/root/hmi.py`).
+`TINYDESK_KIOSK_SPLASH` names a picture shown while the app starts, as
+the board key `kiosk.splash` does, and `TINYDESK_KIOSK_HIDE_STATUS` (set
+to anything) hides the status line, as `kiosk.status = 0` does
+([Board configuration](../guide/board-config.md#kiosk-mode)). The normal
+desktop build has no accounts, so there is no Sign in before the app.
+
+The Store downloads with `curl` (part of Windows 10 and later and of most
+Linux systems). `TINYDESK_STORE` names another catalog for it: a URL or a
+`catalog.txt` on the PC (`TINYDESK_STORE=C:/apps/site/catalog.txt`), as the
+board key `store.url` does.
+
 ## Helpers
 
 ```c

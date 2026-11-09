@@ -1,10 +1,10 @@
 # Shell commands
 
-This page lists the shell commands that TinyDesk adds to TinyDesk Shell (`mqtt`, `modbus`, `py`, `ota`) and the shell commands that matter most on the desktop: `board`, `hwtest`, `lan`, `ssh`, `ftp` and the Wi-Fi commands. `help` in the Terminal lists all commands.
+This page lists the shell commands that TinyDesk adds to TinyDesk Shell (`mqtt`, `modbus`, `py`, `ota`) and the shell commands that matter most on the desktop: `board`, `hwtest`, `lan`, `ssh`, `ftp`, the Wi-Fi commands and the [account commands](#accounts). `help` in the Terminal lists all commands.
 
 Commands run on the TinyDesk Shell task: in the desktop's Terminal window (the local console), or in an SSH or Telnet session. Their output goes to that session.
 
-Examples use `$` as the prompt of any user and `#` for root.
+Examples use `$` as the prompt of any user and `#` for root. Accounts other than root need a right for some commands (Network, Hardware / I/O, Apps / Terminal...); see [Accounts](../guide/first-login.md#accounts).
 
 "Local console" below means the desktop's Terminal window. On the ESP32 ports TinyDesk runs the TinyDesk Shell console loop in its own `tdsh` task and registers it as the local console, whether the desktop is shown on the local screen or over Telnet.
 
@@ -14,15 +14,19 @@ Examples use `$` as the prompt of any user and `#` for root.
 |---|---|---|---|
 | `mqtt` | `ports/common/td_proto_cmds.c` | all | any user |
 | `modbus` | `ports/common/td_proto_cmds.c` | all (RTU where the board configuration has RS-485 lines) | any user |
-| `py` | `ports/common/python/td_py.c` | all | any user |
+| `py` | TinyDesk Shell (`python/td_py.c`); TinyDesk's modules in `ports/common/python` | all | accounts with the Apps / Terminal right |
+| `upip` | TinyDesk Shell (`python/modules/upip.py`, run in `py`) | all | as `py` |
+| `venv`, `activate`, `deactivate`, `venvs` | TinyDesk Shell (`src/core/tdsh_venv.c`) | all | any user |
 | `ota` | `ports/esp_idf/app/ota_esp.c` | ESP32-C6, ESP32 | root |
-| `ssh` | TinyDesk Shell | ESP32-C6, ESP32 | `status`, `hostkey`: any user; `hostkey new`: root; `start`, `stop`, `restart`: root, or any user on the local console |
+| `ssh` | TinyDesk Shell | ESP32-C6, ESP32 | the Network right; `hostkey new`: root; `start`, `stop`, `restart`: root, or any account with it on the local console |
 | `ftp` | TinyDesk Shell | ESP32-C6, ESP32 | as `ssh` (no `hostkey`) |
 | `board` | TinyDesk Shell (`tdsh_commands_espidf.c`) | ESP32-C6, ESP32 | `show`, `get`: any user; `set`, `unset`, `init`, `save`: root |
-| `hwtest` | TinyDesk Shell | ESP32-C6, ESP32 (pins from the board configuration) | root |
-| `lan` | TinyDesk Shell | ESP32-C6, ESP32 (only with `eth.chip = w6100`) | as in TinyDesk Shell |
-| `networks`, `wifiadd`, `wifiremove`, `wificonnect` | TinyDesk Shell | ESP32-C6, ESP32 | any user, with per-user networks |
-| `network` | TinyDesk Shell | ESP32-C6, ESP32 | showing: any user; changing `mode` or `autowifi`: root |
+| `hwtest` | TinyDesk Shell | ESP32-C6, ESP32 (pins from the board configuration) | the Hardware / I/O right |
+| `lan` | TinyDesk Shell | ESP32-C6, ESP32 (only with `eth.chip = w6100`) | the Network right |
+| `networks` | TinyDesk Shell | ESP32-C6, ESP32 | any user |
+| `wifiadd`, `wifiremove`, `wificonnect` | TinyDesk Shell | ESP32-C6, ESP32 | the Network right, with per-user networks |
+| `network` | TinyDesk Shell | ESP32-C6, ESP32 | the Network right |
+| `useradd`, `userdel`, `userrole`, `userrights`, `bootuser` | TinyDesk Shell | ESP32-C6, ESP32 | see [Accounts](#accounts) |
 | `peek`, `poke` | TinyDesk Shell (regions in `tdsh_platform_espidf.c`) | ESP32-C6, ESP32, ESP32-S3 | root |
 
 Exit status, as the code returns it: 0 success, 1 failure, 2 usage error.
@@ -391,8 +395,9 @@ Errors: `modbus: bad port`, `modbus: bind: ...` (port in use), `modbus: count mu
 
 ## py
 
-MicroPython: runs a Python script (source or a precompiled `.mpy` file),
-one line of code, or the interactive prompt. See
+MicroPython: runs a Python script (source, a precompiled `.mpy` file or a
+`.tdapp` [app package](python.md#app-packages-tdapp)), one line of code,
+or the interactive prompt. See
 [Python scripts](python.md) for the files, modules, `asyncio`, the
 `tinydesk` module, native code and memory.
 
@@ -400,13 +405,14 @@ Help line: `py [-m KB] [FILE [ARG...] | -c CODE [ARG...]]`
 
 ```
 usage: py                    interactive prompt (Ctrl+D leaves)
-       py FILE [ARG...]      run a script (.py or .mpy)
+       py FILE [ARG...]      run a script (.py, .mpy or .tdapp)
        py -c CODE [ARG...]   run CODE
        py -m KB ...          heap size in KB
 ```
 
 ```
 # py ~/report.py today
+# py /root/panel.tdapp
 # py -c "import time; print(time.localtime())"
 (2026, 10, 27, 18, 40, 12, 1, 300)
 ```
@@ -416,10 +422,35 @@ exception, 130 after Ctrl+C, 2 for a usage error or a missing script.
 Ctrl+C in the Terminal window stops the script. One script runs at a time
 on a device.
 
-Who: any user; machine code (`@micropython.native`, `@micropython.viper`,
+Who: accounts with the Apps / Terminal right (root has it); machine code (`@micropython.native`, `@micropython.viper`,
 `.mpy` files with machine code) and the hardware (`machine`: pins and
 buses) only root. Windows (`tdui`) only for a script started from the
 desktop's own console (the Terminal window, the Editor, Run).
+
+## upip, venv, activate, deactivate, venvs
+
+Python packages and virtual environments, after ushell's: `venv DIR`
+makes an environment, `activate DIR` uses it in this session (the prompt
+shows `(name)`), `upip install | uninstall | list | freeze` manages the
+packages in it, or in `~/lib` without one. See
+[Packages and virtual environments](python.md#packages-and-virtual-environments).
+
+```
+# venv ~/plant
+Created /root/plant. Use it with: activate ~/plant
+# activate ~/plant
+(plant) # upip install base64
+Installing base64 (latest) from https://micropython.org/pi/v2 to .
+Copying: ./binascii.mpy
+Copying: ./base64.mpy
+Done
+(plant) # upip list
+/root/plant/lib (environment plant):
+  base64                   latest   2 files
+```
+
+Exit status: 0, 1 when a package could not be installed or removed, 2 for
+a usage error.
 
 ## ota
 
@@ -546,7 +577,8 @@ Who:
 
 | Subcommand | Who |
 |---|---|
-| `status`, `hostkey` | any user |
+| every subcommand | accounts with the Network right (`tdsh: permission denied: account right required`) |
+| `status`, `hostkey` | any of them |
 | `hostkey new` | root (`ssh: permission denied: root required`) |
 | `start`, `stop`, `restart` | root anywhere, or any user on the local console (`ssh: permission denied: root, or any user on the local console/desktop`) |
 
@@ -600,7 +632,7 @@ SSH and SFTP clients will then warn that the host key changed.
 
 ## ftp
 
-Control the FTP server. Same permission rules as `ssh start|stop|restart`. `status` works for everyone.
+Control the FTP server. Same permission rules as `ssh start|stop|restart`. `status` works for every account with the Network right.
 
 ```
 usage: ftp <start|stop|restart|status> [port]
@@ -650,7 +682,7 @@ open files).
 
 ## hwtest
 
-Loopback tests for the board's SD card, TTL UART and RS-485 pair. Root only. The pins come from the [board configuration](../guide/board-config.md) (`sd.*`, `eth.*` for the shared SPI bus, `rs485.1.*`, `rs485.2.*`); a test whose pins are not configured is skipped. The TTL UART test uses the ESP32-C6's LP UART (GPIO5 TX, GPIO4 RX) and is skipped on other chips.
+Loopback tests for the board's SD card, TTL UART and RS-485 pair. Root, or an account with the Hardware / I/O right. The pins come from the [board configuration](../guide/board-config.md) (`sd.*`, `eth.*` for the shared SPI bus, `rs485.1.*`, `rs485.2.*`); a test whose pins are not configured is skipped. The TTL UART test uses the ESP32-C6's LP UART (GPIO5 TX, GPIO4 RX) and is skipped on other chips.
 
 ```
 usage: hwtest <sd|uart|rs485> [count] | hwtest <status|all>
@@ -865,4 +897,41 @@ Wi-Fi auto-connect set to off.
 Existing Wi-Fi connection is unchanged; future automatic reconnects are suppressed.
 ```
 
-A wrong value prints `usage: network autowifi <on|off>`. The setting is stored in NVS (`ush_net` / `wifi_auto`, default off). Any user may show it; only root may change it, as `network mode` (others get `network: permission denied: root required`, exit status 1).
+A wrong value prints `usage: network autowifi <on|off>`. The setting is stored in NVS (`ush_net` / `wifi_auto`, default off). `network` needs the Network right, for showing and changing (others get `tdsh: permission denied: account right required`).
+
+---
+
+## Accounts
+
+The account commands of TinyDesk Shell, with the roles and rights it has
+on the ESP boards. The rights, the defaults and the Users app are
+described in [First login and users](../guide/first-login.md#accounts).
+
+| Command | Who | What it does |
+|---|---|---|
+| `useradd <username> [admin\|user]` | root, or an Admin with the Manage accounts right | create an account; asks for the password twice, then for an optional password hint (shown by Sign in's **Hint**; one that contains the password is not saved). A User by default, with Apps / Terminal; `admin`: every right except Hardware / I/O. Only rights the creator holds are given. |
+| `passwd` | anyone | change your own password: the old one, the new one twice, then the hint (Enter keeps it, `-` removes it) |
+| `userdel <username> [-f]` | the same | delete an account and its home; without `-f` it asks for that account's password; root cannot be deleted |
+| `userrole <username> [admin\|user]` | show: anyone; set: the same | show the role (`root`, `admin` or `user`); setting it resets the rights to the role's defaults, limited to the setter's rights |
+| `userrights <username> [+right\|-right ...]` | show: anyone; change: the same | show the rights, or add (`+`) and remove (`-`) them: `users`, `system`, `network`, `hardware`, `shared`, `time`, `apps` |
+| `bootuser [username\|--require-password]` | show: anyone; set: root | without an argument, print the boot user. With a name, the console starts as that account, and the desktop starts without Sign in once that account has signed in with its password. `--require-password` (or `off`) turns that off. |
+
+An Admin cannot change root or itself, cannot change an account that has
+rights it lacks, and cannot give rights it does not hold. A refused change
+prints `userrole: permission denied or account update failed` or
+`userrights: update refused`.
+
+```
+# useradd operator
+New password:
+Retype new password:
+Password hint (optional, shown at Sign in): the blue notebook
+Created operator (user).
+# userrights operator +shared +network
+operator: network shared apps
+# userrole operator
+operator: user
+# bootuser operator
+Boot user set to operator. Remembered login requires a successful password login.
+# bootuser --require-password
+```

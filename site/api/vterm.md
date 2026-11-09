@@ -53,6 +53,7 @@ typedef struct {
     bool autowrap;
     bool cursor_visible;
     bool newline_mode;
+    uint16_t mouse;
 
     uint8_t state;
     char params[40];
@@ -83,6 +84,7 @@ typedef struct {
 | `autowrap` | DECAWM (`CSI ? 7 h/l`); on after init. |
 | `cursor_visible` | DECTCEM (`CSI ? 25 h/l`); on after init. |
 | `newline_mode` | When true, LF (and VT, FF) also returns the cursor to column 0. On after init; no escape sequence changes it, but you may set the field after `td_vterm_init()`. |
+| `mouse` | The mouse reports the program asked for (`CSI ? 1000/1002/1003 h`): 0 none (after init, and after any of them is reset), 1000 presses and releases, 1002 also drags, 1003 also plain moves. The emulator sends no reports itself; a front end such as Remote Desktop checks it before sending any. |
 | `state`, `params`, `plen`, `priv`, `utf8` | Parser state; private. |
 | `reply`, `reply_user` | Reply callback and its argument (may be NULL: queries are then ignored). |
 | `dirty` | Set whenever content may have changed (`td_vterm_init()`, `td_vterm_resize()`, any `td_vterm_write()` with `len > 0`). The emulator never clears it; clear it yourself after scheduling a redraw. |

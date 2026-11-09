@@ -9,6 +9,14 @@ Source: `src/td.c`
 
 ## Threading model
 
+`td_frame_hold(timeout_ms)` defers all composition and rendering, including
+resize/reconnect repaints, for at most the specified duration. Zero releases
+the hold. Call it only on the UI task. Input and timers continue, and the
+unsigned elapsed-time check handles clock wrap. `tdui` uses it for short
+drawing batches; its outer begin sets 1000 ms, nested begins do not renew
+it, and script cleanup releases it. It is a single desktop hold, not a
+per-window buffer, reference-counted lock or rollback transaction.
+
 The UI core is single-threaded. Every function on this page and on the [Screen](screen.md), [Input](input.md), [Window manager](wm.md) and [Widgets](widgets.md) pages uses static state without locks and must be called from the task that runs `td_step()` / `td_run()` (the "UI task"). Other tasks must hand data to the UI task through their own queue or buffer, polled from a timer or `on_tick` callback. The HAL callbacks are also only called from the UI task.
 
 ## Hardware abstraction layer
@@ -112,7 +120,7 @@ A pass does the following:
 4. **Timers.** Runs every due timer (`td_timers_run()`), which includes the windows' `on_tick` callbacks.
 5. **Clock.** Once a second (whenever `td_millis() / 1000` changes), the whole screen is marked for recomposition so the taskbar clock updates. Because the renderer only sends changed cells, this costs a compose per second but very few bytes.
 6. **Size poll / link retry.** While the link is up, the terminal size is queried every `TD_SIZE_POLL_MS` (serial terminals do not report resizes on their own), except while a bracketed paste is arriving. While the link is down, a resync is scheduled every `TD_LINK_RETRY_MS` instead.
-7. **Render.** If a resync is pending, the setup sequence and a size query are sent and the whole screen is redrawn. Otherwise, if the link is up and the window manager reports a change (`td_wm_needs_redraw()`), the screen is composed into the back buffer and the difference to the front buffer is sent.
+7. **Render.** If a resync is pending, the setup sequence and a size query are sent and the whole screen is redrawn. A pending repaint (after a resize) clears the screen and redraws it; a pending redraw (after dropped frames) resends every cell without clearing. Otherwise, if the link is up, the window manager reports a change (`td_wm_needs_redraw()`) and the terminal has shown the previous frame ([Frame pacing](#frame-pacing)), the screen is composed into the back buffer and the difference to the front buffer is sent, followed by `ESC [ 5 n`.
 8. **Statistics.** Updates `bytes_sent`, `bytes_per_sec` and `loop_ms`.
 
 ### td_quit
@@ -161,21 +169,95 @@ Size queries are sent at start-up, with every resync, and every `TD_SIZE_POLL_MS
 
 Gotcha: a program that sends its own `ESC [ 6 n` to the *host* terminal would have the reply taken as a resize. Cursor position reports with a row of 1 are not treated as resizes (they are indistinguishable from Shift+F3, `ESC [ 1 ; 2 R`).
 
+## Second screen
+
+```c
+enum { TD_SCREENS_DUPLICATE = 1, TD_SCREENS_EXTEND = 2 };
+enum { TD_PLACE_RIGHT, TD_PLACE_LEFT, TD_PLACE_BELOW, TD_PLACE_ABOVE };
+typedef struct
+{
+    uint8_t mode;              /* TD_SCREENS_DUPLICATE or _EXTEND */
+    uint8_t place;             /* TD_PLACE_*: display 2 beside display 1 */
+    int16_t offset;            /* along that edge, in cells */
+    uint8_t main;              /* the display with the taskbar: 0 or 1 */
+    int16_t cols[2], rows[2];  /* each display's resolution; 0: its terminal's */
+} td_screens_layout_t;
+typedef struct
+{
+    int term_cols, term_rows;  /* the size its terminal reported */
+    td_rect_t area;            /* the part of the screen it shows */
+} td_display_info_t;
+bool td_screen2_attach(int (*read_byte)(void *ctx), int (*write)(void *ctx, const uint8_t *buf, int len), void *ctx);
+void td_screen2_detach(void);
+bool td_screen2_attached(void);
+void td_screens_set_layout(const td_screens_layout_t *layout);
+void td_screens_layout(td_screens_layout_t *out);
+bool td_screens_display(int index, td_display_info_t *out);
+void td_screens_set_mode(int mode);
+int td_screens_mode(void);
+```
+
+Beside the HAL's terminal (display 1, the primary) a port can attach a
+second one (display 2), such as a Telnet client or a terminal on another
+serial port (`ports/esp_idf/app/hal_mux.c` does both). `read_byte` and
+`write` behave as the HAL's. Each terminal has its own input parser,
+size, frame pacing, link watch and front buffer (one screen buffer,
+`TD_MAX_COLS x TD_MAX_ROWS x 8` bytes, from the heap while attached), so a
+slow or new terminal never holds up the other; one composition per frame
+serves both. The layout (the types are in `td_screen.h`) can be set
+before `td_init()` and at any time; `td_screens_set_mode()` changes only
+its mode.
+
+* **Duplicate:** both show the same screen; the desktop takes the smaller
+  columns and rows of the two.
+* **Extend:** each display keeps its size: its terminal's, or
+  `cols[i]` x `rows[i]` when that is smaller (the rest of the terminal
+  stays empty). Display 2 touches display 1 along one edge (`place`),
+  moved along it by `offset` cells (display 2's top minus display 1's to
+  the right or left; its left minus display 1's above or below; kept so
+  that they touch). The screen is their bounding box; each terminal shows
+  its own area of it (`td_screens_display()`), and mouse positions from it
+  are moved by that area's corner. The screen may be up to
+  `TD_MAX_SCREEN_COLS` x `TD_MAX_SCREEN_ROWS` as long as its cells fit a
+  buffer (`TD_MAX_COLS x TD_MAX_ROWS`); if they do not, display 2 gets
+  smaller across the edge it touches, then along it, and as a last resort
+  the two are duplicated. The window manager learns the displays' places
+  and the main one (`td_wm_set_monitors`, [wm.md](wm.md#monitors));
+  pictures outside display 1 are not sent, and display 1's are placed
+  from its area's corner (`td_pictures_clip(area)`).
+
+Pictures go to the primary only; the second terminal gets the cells
+under them. `td_render_diff_region(r, front, back, x0, y0, w, h)` sends a
+terminal its area. `tests/test_screens.c` drives two emulated terminals
+through both modes, every side, a chosen resolution, the main display on
+display 2 and the move-to-display shortcut.
+
 ## Link supervision
 
 TinyDesk is designed for links where the far end may not be there (a USB-serial port with no terminal open, a dropped Telnet session). The renderer detects this from the HAL `write` callback:
 
 - **Dropped frame.** When `write` returns `<= 0`, the rest of the frame is discarded instead of stalling the UI. The core then counts a dropped frame, sets `link_up` to false and invalidates the front buffer so the next successful frame resends everything.
-- **While the link is down**, no normal frames are rendered and the size is not polled. Every `TD_LINK_RETRY_MS` a resync (setup sequence, size query, full redraw) is attempted. The first frame that is accepted completely sets `link_up` back to true.
+- **While the link is down**, no normal frames are rendered and the size is not polled. Every `TD_LINK_RETRY_MS` the whole screen is sent again. The first frame that is accepted completely sets `link_up` back to true.
+- **A slow terminal or a lost one.** An outage shorter than `TD_LINK_LOST_MS` is a terminal that reads too slowly (PuTTY while it draws): every cell is sent again over the picture it still shows, after CAN (`0x18`, which ends a cut-off escape sequence) and `ESC [ 0 m`, without clearing the screen, so nothing flickers. A frame that got any bytes through counts as the terminal still being there. Only when no bytes at all have got through for `TD_LINK_LOST_MS` is the terminal treated as gone (closed, unplugged): the retry is then a full resync with the setup sequence and a cleared screen.
 
 ### Reconnect detection
 
 The first input byte of a pass schedules a resync when either:
 
 - input has been received before and the link has been silent for more than `TD_RECONNECT_SILENCE_MS`, or
-- `link_up` is false (frames are being dropped).
+- `link_up` is false and nothing has got through for `TD_LINK_LOST_MS` (the terminal was gone).
+
+Silence while frames were being dropped does not count: no size query went out then, so the terminal had nothing to answer. A terminal closed and opened again within `TD_LINK_LOST_MS` is taken for the same one and gets every cell but not the setup sequence; Ctrl+L (or `td_full_redraw()`) sends it.
 
 Both usually mean that a terminal has just been opened on the other end and shows nothing yet; the resync sends it the setup sequence and the whole screen.
+
+## Frame pacing
+
+After every frame that went out completely, the core asks the terminal `ESC [ 5 n` (device status report). A terminal answers `ESC [ 0 n` only after it has processed everything sent before the question, so the answer (the event `TD_EV_ACK`, see [Input](input.md)) means it has shown the frame. The next ordinary frame waits for it: a terminal that draws slowly never has more than one frame on its way, input is handled meanwhile, and the next frame shows the newest state, so the mouse and keys show up at once instead of after a backlog. A fast terminal answers within milliseconds and is not slowed down.
+
+Without an answer within `TD_ACK_TIMEOUT_MS` the next frame goes anyway. A terminal that has not answered at all after three such frames is not asked again until the next resync (a new terminal starts afresh). Resyncs, repaints and redraws after dropped frames do not wait. `TD_ACK_TIMEOUT_MS` = 0 turns pacing off.
+
+Measured in PuTTY on an ESP32-C6 while the Pixels demo animated: a key took 2.4 s (median; at worst 4.7 s) to show without pacing, and 0.1 s (at worst 0.2 s) with it.
 
 ## Statistics
 
@@ -209,6 +291,110 @@ const td_stats_t *td_stats(void);
 | `dropped_frames` | Frames the link did not accept completely. |
 | `link_up` | False while writes are being dropped. |
 
+## Pictures
+
+```c
+#include "tinydesk/td_picture.h"
+bool td_term_images(void);
+void td_term_cell_px(int *w, int *h);
+void td_picture_add(int x, int y, int cols, int rows, uint32_t id, td_picture_render_fn render, void *user);
+```
+
+Pictures are drawn by the terminal at its own resolution, as Sixel
+graphics, over a rectangle of cells. At every terminal setup the core asks
+`ESC [ c` (device attributes: 4 means Sixel) and `ESC [ 16 t` (a cell's
+size in pixels); `td_term_images()` is true when both came back. A window
+adds its pictures from `on_draw` with `td_picture_add()` and leaves the
+cells under them blank in colour 0 on 0; `render` fills `cols * cell_w` x
+`rows * cell_h` palette indexes when the picture is sent. After the cells
+of a frame, the core sends a picture that is new (another `id`), or whose
+cells were sent in this frame (something was drawn over them), saving and
+restoring the cursor around it; one whose cells are not the blanks it
+expects (a menu over it) is not sent. Without Sixel nothing is sent and
+the cells show what the window drew there. Python's `canvas.picture()`
+uses this (see [Python scripts](../shell/python.md#pictures-and-pixels)).
+
+`td_sixel_encode()` turns palette indexes into Sixel data (colours as RGB
+percentages, runs compressed) and `td_palette_rgb()` gives a palette
+colour's RGB. The terminal emulator (`td_vterm_t`) hands DCS strings to an
+optional `dcs` hook and answers `ESC [ c` with Sixel and `ESC [ 16 t` with
+its cell size when its owner sets `sixel`, `cell_w` and `cell_h`: the
+CrowPanel's LCD decodes Sixel that way.
+
+### RGB pictures and local displays
+
+```c
+void td_term_set_sixel(bool on);
+void td_term_set_cell_px(int w, int h);
+void td_picture_add_rgb(int x, int y, int cols, int rows, uint32_t id,
+                        td_picture_render_fn fallback, td_picture_render_rgb_fn render, void *user);
+void td_picture_set_sink(td_picture_sink_fn sink, void *user);
+void td_picture_set_rgb_sink(td_picture_rgb_sink_fn sink, void *user);
+void td_picture_set_runs_sink(td_picture_runs_sink_fn sink, void *user);
+bool td_picture_local_rgb(void);
+void td_picture_set_scanout_monitor(void (*monitor)(uint32_t out[12]));
+void td_picture_scanout_info(uint32_t out[8]);
+void td_picture_scanout_timing(uint32_t out[4]);
+void td_picture_stats(uint32_t *renders, uint32_t *allocation_failures, uint32_t *sink_failures);
+void td_picture_profile_reset(void);
+void td_picture_profile(uint32_t out[4]);
+uint16_t td_rgb565(uint8_t r, uint8_t g, uint8_t b);
+uint16_t td_palette_rgb565(uint8_t index);
+void td_rgb565_rgb(uint16_t pixel, uint8_t rgb[3]);
+bool td_sixel_encode_rgb(const uint16_t *px, int w, int h,
+                         void (*write)(void *user, const char *s, int n), void *user);
+typedef bool (*td_picture_runs_fn)(void *user, int w, int h, const uint16_t **runs, size_t *words);
+void td_picture_add_rgb_runs(int x, int y, int cols, int rows, uint32_t id,
+                             td_picture_render_fn fallback, td_picture_render_rgb_fn render,
+                             td_picture_runs_fn cached, void *user);
+uint32_t td_picture_runs_ms(void);
+```
+
+`td_sixel_encode_rgb()` is `td_sixel_encode()` for RGB565 pixels (false
+when it cannot, out of memory). `td_picture_add_rgb_runs()` adds an RGB
+picture that may also come as runs: `cached` lends pairs (count, RGB565)
+that expand to exactly `w * h` pixels, for a runs sink, and returns false
+to use `render` instead. `td_picture_runs_ms()` is the time spent on runs
+so far (reset with `td_picture_profile_reset()`).
+
+The core (`src/td.c`) frames each update with `td_pictures_begin()`,
+`td_pictures_available()`, `td_pictures_mark()`, `td_pictures_send()` and,
+after the terminal was set up again, `td_pictures_forget()`; apps and ports
+do not call them. `td_pictures_begin()`, `_mark()`, `_send()`, `_count()`,
+`_cover()` and `_clip()` are internal (`src/td_internal.h`) and may change in
+any release; see [API stability](stability.md). The window manager calls `td_pictures_count()` and
+`td_pictures_cover(first, last, rect)` while it composes: pictures added
+by a window (numbers `first` to `last - 1`) that a later window, the
+taskbar or a menu overlaps are not sent this frame, so a dialog over a
+picture app (the kiosk's unlock window over its artwork) stays visible.
+
+`td_term_set_sixel()` and `td_term_set_cell_px()` set what the terminal
+can show without asking it, for a port whose display is local.
+`td_picture_add_rgb()` adds a picture with RGB565 pixels (`render`) and
+a palette version (`fallback`) for terminals that only take palette
+Sixel. A port with its own display installs sinks: `td_picture_set_sink()`
+takes palette pixels, `td_picture_set_rgb_sink()` RGB565 pixels and
+`td_picture_set_runs_sink()` run-length RGB565 (from
+`td_picture_add_rgb_runs()`), each synchronously; a sink that returns
+false falls back to Sixel. `td_picture_local_rgb()` is true when an RGB
+sink is installed. The CrowPanel port uses all three when UART0 does not
+mirror the picture.
+
+`td_picture_set_scanout_monitor()` lets a port report its LCD scan-out
+counters; `td_picture_scanout_info()` returns VSYNCs, prepared frames,
+missed preparations, the peak preparation gap (µs), submitted frames, the
+pixel clock (Hz), the interrupt's CPU and the bounce-buffer lines, and
+`td_picture_scanout_timing()` the last submission time (ms) and the
+last, peak and total paint work (µs); zeroes without a local display.
+`td_picture_stats()` counts renders, allocation failures and sink
+failures; `td_picture_profile()` gives picture frames, total, peak and
+last time in ms, and `td_picture_profile_reset()` starts it again.
+Python's `tdui.graphics_info()`, `scanout_info()` and `scanout_timing()`
+read them.
+
+`td_rgb565()` packs an 8-bit RGB colour, `td_palette_rgb565()` gives a
+palette index's colour as RGB565, and `td_rgb565_rgb()` unpacks one.
+
 ## Host clipboard (OSC 52)
 
 ```c
@@ -231,12 +417,15 @@ Notes:
 ## Version
 
 ```c
-#define TD_VERSION "0.2.0"
+#define TD_VERSION "0.3.0"
+#define TD_VERSION_MAJOR 0
+#define TD_VERSION_MINOR 3
+#define TD_VERSION_PATCH 0
 #define TD_REPO_URL "https://github.com/tinydesk-project/tinydesk"
 #define TD_SHELL_REPO_URL "https://github.com/tinydesk-project/tinydesk-shell"
 ```
 
-`TD_VERSION` is the core version string. The ESP-IDF projects set their own firmware version (`PROJECT_VER`, overridable with the `TD_VERSION` environment variable at build time); that does not change this macro. The About app shows `TD_REPO_URL` and `TD_SHELL_REPO_URL`, the public desktop and shell repositories.
+`TD_VERSION` is the core version string, and `TD_VERSION_MAJOR`, `_MINOR`, `_PATCH` the same as numbers for `#if` ([API stability](stability.md)). The ESP-IDF projects set their own firmware version (`PROJECT_VER`, overridable with the `TD_VERSION` environment variable at build time); that does not change this macro. The About app shows `TD_REPO_URL` and `TD_SHELL_REPO_URL`, the public desktop and shell repositories.
 
 ## System information
 
@@ -246,7 +435,7 @@ Notes:
 
 Every static pool in the core is sized in `td_config.h`. Each value except `TD_MIN_COLS` and `TD_MIN_ROWS` is wrapped in `#ifndef`, so it can be overridden from the build system (for example `-DTD_MAX_COLS=100`). Override a value consistently for every translation unit that includes the TinyDesk headers, because several of them size public structures (`td_buffer_t`, `td_renderer_t`, `td_vterm_t`).
 
-The host build (top-level `CMakeLists.txt`, used for the Windows and POSIX ports) uses the defaults. The ESP-IDF component (`ports/esp_idf/components/tinydesk/CMakeLists.txt`) is shared by the three ESP-IDF projects (ESP32-C6, ESP32, ESP32 4 MB) and sets `PUBLIC` compile definitions, with different screen limits depending on `CONFIG_SPIRAM`:
+The host build (top-level `CMakeLists.txt`, used for the Windows and POSIX ports) uses the defaults. The ESP-IDF component (`ports/esp_idf/components/tinydesk/CMakeLists.txt`) is shared by the four ESP-IDF projects (ESP32-C6, ESP32-S3, ESP32, ESP32 4 MB) and sets `PUBLIC` compile definitions, with different screen limits depending on `CONFIG_SPIRAM`:
 
 - **Without PSRAM** (the ESP32-C6 port): the buffers live in internal RAM, which TinyDesk Shell, Wi-Fi and SSH also need, so the screen is limited to 80x25.
 - **With PSRAM** (the classic ESP32 port on an ESP32-WROVER and the ESP32-S3 port, `CONFIG_SPIRAM=y`; their TinyDesk statics are placed in PSRAM by `main/extram.lf`): large enough for a maximised PuTTY.
@@ -259,6 +448,8 @@ In the table, "ESP-IDF value" lists `no PSRAM / PSRAM` where they differ; "-" me
 |---|---|---|---|
 | `TD_MAX_COLS` | 400 | 80 / 256 | Largest number of columns the screen buffers hold. Each `td_buffer_t` costs `TD_MAX_COLS * TD_MAX_ROWS * 8` bytes and the core has two (80x25: 32 KB total; 256x96: about 384 KB; 400x150: about 938 KB). The default is sized for a maximised terminal on a large PC screen. |
 | `TD_MAX_ROWS` | 150 | 25 / 96 | Largest number of rows. |
+| `TD_MAX_SCREEN_COLS`, `TD_MAX_SCREEN_ROWS` | `2 * TD_MAX_COLS`, `2 * TD_MAX_ROWS` | (follow `TD_MAX_COLS`, `TD_MAX_ROWS`) | Widest and tallest extended screen ([second screen](#second-screen)); its columns x rows must still fit `TD_MAX_COLS * TD_MAX_ROWS` cells. |
+| `TD_MAX_MONITORS` | 2 | - | Displays the window manager knows ([Monitors](wm.md#monitors)). |
 | `TD_DEFAULT_COLS` | 80 | - | Columns used until the terminal answers the size query (and if it never does). |
 | `TD_DEFAULT_ROWS` | 25 | - | Rows used until the terminal answers. |
 | `TD_MIN_COLS` | 40 | - | Smallest desktop width; smaller reported sizes are raised to it. Not overridable. |
@@ -271,7 +462,9 @@ In the table, "ESP-IDF value" lists `no PSRAM / PSRAM` where they differ; "-" me
 | `TD_OUT_BUF_SIZE` | 4096 | 1024 | Renderer output buffer (bytes, inside `td_renderer_t`). Output is written to the HAL whenever it fills and at the end of each frame. |
 | `TD_SIZE_QUERY_TIMEOUT_MS` | 300 | - | How long `td_init()` waits for the start-up size answer. |
 | `TD_SIZE_POLL_MS` | 1000 | - | Interval of the periodic size query while the link is up. 0 disables it. |
-| `TD_LINK_RETRY_MS` | 500 | - | After a dropped frame, how often a full resync is retried. |
+| `TD_LINK_RETRY_MS` | 500 | - | After a dropped frame, how often the whole screen is sent again. |
+| `TD_LINK_LOST_MS` | 3000 | - | Frames dropped with nothing getting through for this long mean the terminal is gone: the retry sets it up and clears it. Shorter outages resend the cells without clearing ([Link supervision](#link-supervision)). |
+| `TD_ACK_TIMEOUT_MS` | 500 | - | [Frame pacing](#frame-pacing): how long the next frame waits for the terminal's answer to `ESC [ 5 n`. 0 turns pacing off. |
 | `TD_RECONNECT_SILENCE_MS` | 5000 | - | Input after this much silence is treated as a (re)connected terminal and triggers a resync. |
 | `TD_LOOP_SLEEP_MS` | 5 | - | Sleep between passes in `td_run()` (the ESP-IDF UI task uses it too). |
 | `TD_OSC52_MAX` | 8192 | - | Largest text `td_host_clipboard_set()` sends; longer text is not sent. 0 disables OSC 52. |

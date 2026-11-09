@@ -225,6 +225,13 @@ Keys: Up, Down, PgUp, PgDn, Home, End move the selection. A click selects; a sec
 void td_list_set_count(td_widget_t *w, int count);
 int td_list_selected(const td_widget_t *w);
 void td_list_select(td_widget_t *w, int index);
+void td_list_set_view(td_widget_t *w, int selected, int scroll);
+void td_list_set_multi(td_widget_t *w, bool on);
+int td_type_ahead(int count, int from, uint32_t key, const char *(*name)(int index, void *user), void *user);
+bool td_list_marked(const td_widget_t *w, int index);
+void td_list_mark(td_widget_t *w, int index, bool on);
+void td_list_mark_all(td_widget_t *w, bool on);
+int td_list_marked_count(const td_widget_t *w);
 ```
 
 | Function | Description |
@@ -232,6 +239,10 @@ void td_list_select(td_widget_t *w, int index);
 | `td_list_set_count()` | Sets the item count (negative is 0). The selection is moved to the last item if it was past the end; the scroll offset is clamped. Call it whenever the underlying data changes. |
 | `td_list_selected()` | Selected index, or -1 when the list is empty (or `NULL`). |
 | `td_list_select()` | Selects `index`, clamped to the items, and scrolls it into view. Does nothing on an empty list. Does not call `fn`. |
+| `td_list_set_view()` | Restores a selection and scroll offset together, for a list rebuilt from live data, without scrolling the selection into view. `selected` -1 (or an empty list) clears the selection; both values are clamped. |
+| `td_list_set_multi()` | Several selected items, as in a file manager (off by default). A click selects one item, **Ctrl+click** adds or removes one, **Shift+click** and Shift+Up / Down / PgUp / PgDn / Home / End select from the last clicked item, **Ctrl+A** all, **Space** toggles the current item. Dragging from an item that is not selected selects the rows dragged over (scrolling at the edges); dragging from a selected one is a drag and drop of the selection (`on_drag_start` and `on_drag_more`, [wm.md](wm.md#drag-and-drop)); a click on one of several selected items, without dragging, keeps just that one. `td_list_selected()` stays the current item (marked with `►`). The marks take one bit per item from the heap; `td_list_set_count()` with another count clears them. |
+| `td_type_ahead()` | A letter or digit typed into a focused list selects the next item whose text starts with it (leading symbols such as `[/ ` skipped, case ignored), going round; with multi, that item alone. The window manager does the same for desktop icons and the start menu. Apps with their own lists of names can call it: `td_type_ahead(count, from, key, name, user)` returns the index or -1. |
+| `td_list_marked()`, `td_list_mark()`, `td_list_mark_all()`, `td_list_marked_count()` | Read and change the selected items. Without multi, the current item is the only one marked. |
 
 ```c
 static const char *const s_names[] = { "red", "green", "blue" };
@@ -382,7 +393,10 @@ The same as `td_inputbox()` with an empty start and the typed text shown as `*`.
 
 ## Used by the window manager
 
-These are called by `src/wm.c`; apps do not need them.
+These are called by `src/wm.c`; apps do not need them. They are internal
+(`src/td_internal.h`, with `td_widgets_keeps_drag()` and
+`td_widgets_cancel_press()`) and may change in any release; see
+[API stability](stability.md).
 
 ```c
 void td_widgets_draw(td_window_t *win);

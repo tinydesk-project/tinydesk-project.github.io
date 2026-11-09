@@ -15,9 +15,10 @@ All functions on this page must be called from the UI task (the task that runs `
 |---|---|---|
 | `TD_MAX_WINDOWS` | 12 | Open windows at once, dialogs included. `td_win_create()` returns `NULL` beyond it. |
 | `TD_MAX_TIMERS` | 16 | Shared timer pool; each window with an `on_tick` uses one. |
-| `TD_MAX_APPS` | 16 | Registered apps (start menu entries and desktop icons). |
+| `TD_MAX_APPS` | 32 | Registered apps (start menu entries and desktop icons). |
 | `TD_TITLE_MAX` | 32 | Bytes of a window title, including the NUL. Longer titles are cut. |
 | `TD_DOUBLE_CLICK_MS` | 400 | Double-click window for title bars, desktop icons and lists. |
+| `TD_DRAG_MAX` | 64 | Items one drag and drop can carry (`on_drag_more`); they are kept on the heap during the drag. |
 
 All of them live in `include/tinydesk/td_config.h` and can be overridden from the build system.
 
@@ -32,6 +33,7 @@ All of them live in `include/tinydesk/td_config.h` and can be overridden from th
 #define TD_WIN_HIDDEN     0x0100u  /* minimised to the taskbar */
 #define TD_WIN_MAXIMIZED  0x0200u
 #define TD_WIN_FULLSCREEN 0x0400u  /* no frame, covers the taskbar */
+#define TD_WIN_NO_FOCUS   0x0800u  /* a tool: on top, never the focus */
 
 #define TD_WIN_DEFAULT (TD_WIN_MOVABLE | TD_WIN_RESIZABLE | TD_WIN_CLOSABLE)
 ```
@@ -43,11 +45,13 @@ All of them live in `include/tinydesk/td_config.h` and can be overridden from th
 | `TD_WIN_CLOSABLE` | you | Shows `[x]` in the title bar and "Close" in the window menu. Ctrl+Q and Alt+F4 close any window, closable or not. |
 | `TD_WIN_MODAL` | you | A dialog: it stays above ordinary windows, keeps the keyboard and mouse until closed, has no `[-]` button, cannot be minimised, closes on Esc and has no taskbar button. |
 | `TD_WIN_RAW_KEYS` | you | Every key the window manager does not handle itself goes straight to `on_event`; widgets get no keys (see [Keyboard](#keyboard)). Used by the Terminal and the Editor. |
+| `TD_WIN_MOUSE_MOVES` | you | `on_event` also gets plain pointer moves (`TD_MOUSE_MOVE`, no button held) over the client area. Off by default, since few windows need them. Used by Remote Desktop, which passes them on so the remote's hover highlights follow the pointer. |
+| `TD_WIN_NO_FOCUS` | you | A tool window, such as the on-screen keyboard: it stays above all other windows, also dialogs, and gets its mouse events even while a dialog is open, but it never becomes the focused window, so keys keep going to the window that has the focus. `td_win_focused()` skips it. |
 | `TD_WIN_HIDDEN` | window manager | The window is minimised. |
 | `TD_WIN_MAXIMIZED` | window manager | The window covers the desktop area above the taskbar. |
 | `TD_WIN_FULLSCREEN` | window manager | No frame; the client area is the whole screen. The taskbar is hidden while this window is on top. |
 
-Set the first five in `td_window_desc_t.flags`. Read the last three from `td_window_t.flags`, but change them only through `td_win_minimize()`, `td_win_toggle_maximize()` and `td_win_set_fullscreen()`.
+Set `TD_WIN_MOVABLE` to `TD_WIN_MOUSE_MOVES` and `TD_WIN_NO_FOCUS` in `td_window_desc_t.flags`. Read the last three from `td_window_t.flags`, but change them only through `td_win_minimize()`, `td_win_toggle_maximize()` and `td_win_set_fullscreen()`.
 
 ## Creating windows
 
@@ -88,6 +92,7 @@ Everything needed to open a window. The descriptor is only read during `td_win_c
 | `on_tick` | Called every `tick_ms` milliseconds while the window is open. |
 | `tick_ms` | Tick interval. The timer is only started when both `on_tick` and `tick_ms > 0` are set. |
 | `on_drag_start` | Optional: start dragging a file or folder from the client area. |
+| `on_drag_more` | Optional: the other items of a drag of several (a multi-select list's selection): item `index` 1, 2, ... until it returns `false`, at most `TD_DRAG_MAX`. The drop hands every item to the target's `on_drop` (or the desktop provider's `drop`), one after the other, so targets need nothing new. |
 | `on_drop` | Optional: receive a file or folder dropped on the client area. |
 | `icon` | Two-cell glyph for the taskbar button (large taskbar only). `NULL` takes the icon of the app being launched, if the window is opened from `td_app_launch()`, the start menu or a desktop icon. The pointer is stored, not copied: use a string literal. |
 | `user` | Your pointer, stored in `td_window_t.user`. |
@@ -298,7 +303,7 @@ bool (*on_event)(td_window_t *win, const td_event_t *ev);
 Receives the events of this window that no widget consumed:
 
 - key events (`TD_EV_KEY`) while the window has the focus; with `TD_WIN_RAW_KEYS`, every key the window manager does not handle itself;
-- mouse events (`TD_EV_MOUSE`) over the client area, with coordinates relative to the client area; after a press in the client area, the drag motion and the release are delivered to the same window even outside it (coordinates may then be negative or past the edge). Wheel events go to the window under the pointer without focusing it;
+- mouse events (`TD_EV_MOUSE`) over the client area, with coordinates relative to the client area; after a press in the client area, the drag motion and the release are delivered to the same window even outside it (coordinates may then be negative or past the edge). Wheel events go to the window under the pointer without focusing it, and so do plain moves for a window with `TD_WIN_MOUSE_MOVES`;
 - pasted text (`TD_EV_PASTE`) when no text box took it; read the text with `td_paste_text()` (see [input.md](input.md)).
 
 Return `true` when the event was handled. For keys, returning `false` lets the window manager handle Tab (next widget) and Esc (closes a modal dialog). The return value is ignored for mouse and paste events. `TD_EV_RESIZE` and `TD_EV_TICK` events are not delivered to windows.
@@ -384,7 +389,7 @@ void td_wm_toggle_start_menu(void);
 Opens the start menu at the bottom-left corner, or closes it when it is open. F10, a click on `[Start]`, and Enter or Esc while no window is focused call it. The menu lists, from the top:
 
 1. every registered app in registration order (with its glyph for the medium and large start menu sizes),
-2. a separator,
+2. a separator, then the user's entries from the start provider (below), if any, and another separator,
 3. the entries added with `td_wm_add_start_item()`,
 4. "Redraw screen" (calls `td_full_redraw()`),
 5. "Exit" (calls `td_quit()`; on the ESP32 ports the board then restarts).
@@ -399,6 +404,27 @@ void td_wm_add_start_item(const char *label, void (*fn)(void));
 
 Adds an entry to the start menu's lower section, above "Redraw screen". `fn` runs when it is chosen. At most 4 entries can be added; further calls, and calls with `NULL` arguments, are ignored. The `label` pointer is stored, not copied: pass a string that stays valid (a literal). There is no way to remove an entry. The session code adds "Switch user..." when the port supplies `authenticate` (see [sysinfo.md](sysinfo.md)).
 
+### td_wm_set_start_provider
+
+```c
+#define TD_START_USER_MAX 16
+typedef struct
+{
+    int (*count)(void *user);
+    const char *(*label)(int i, void *user);
+    const char *(*icon)(int i, void *user);   /* two cells, or NULL */
+    void (*open)(int i, void *user);
+    void *user;
+} td_start_provider_t;
+void td_wm_set_start_provider(const td_start_provider_t *provider);
+```
+
+The user's own start menu entries, asked each time the menu opens (up to
+`TD_START_USER_MAX`): `count`, then `label` and `icon` for each (the
+pointers must stay valid until the menu is open; labels are copied then),
+and `open` when one is chosen. `apps/shortcut.c` lists the shortcuts in
+`~/Start menu` with it.
+
 ## Taskbar
 
 The taskbar is the bottom row (two rows for the large size). From the left: `[Start]`, one button per open window except dialogs (in pool order, so buttons do not move when the focus changes; buttons that do not fit are left out), and on the right the user name, the network indicator and the clock.
@@ -407,6 +433,37 @@ The taskbar is the bottom row (two rows for the large size). From the left: `[St
 - The network indicator appears when the port supplies `td_sysinfo()->net` with a `status` callback. It shows "LAN", "Wi-Fi" with 1 to 3 signal bars (-60 dBm and above: 3, -72 dBm and above: 2), or "Offline". Clicking it runs `td_app_launch("Network")`. `status` is called on every frame, so it must be cheap (see [sysinfo.md](sysinfo.md#network)).
 - The taskbar and the start menu stay usable while a modal dialog is open; windows opened from them are placed below the dialog.
 - The taskbar is hidden while a full-screen window is on top.
+
+### td_wm_set_input_gate
+
+```c
+void td_wm_set_input_gate(bool locked, td_window_t *window);
+```
+
+The authentication gate. While `locked`, only `window` gets input and is
+composed; unlike a modal dialog it also blocks the taskbar, the Start
+menu and the global shortcuts. `window` may be `NULL` (the screen stays
+empty, as while a remembered login starts). `td_wm_set_input_gate(false,
+NULL)` lifts it. The Sign in window (`td_login_open()`, see
+[apps.md](apps.md#rights-and-sign-in)) uses it.
+
+### td_wm_set_kiosk
+
+```c
+void td_wm_set_kiosk(bool on, bool (*hook)(const td_event_t *ev));
+bool td_wm_kiosk(void);
+```
+
+Kiosk mode: one application on the whole screen. While it is on, there is
+no taskbar, Start menu, desktop icons or window menus; every window except
+a `TD_WIN_MODAL` dialog is full screen without a frame (also windows
+created later); and the keys that open the Start menu, switch, close or
+resize windows (F6, F10, F11, Alt+Tab, Ctrl+Q, Alt+F4, any key with
+`TD_MOD_SUPER`) go nowhere. Other keys go to the focused window; with no
+window focused they are dropped. `hook` (optional) sees every mouse and key
+event first and returns `true` to take it. Turning kiosk mode off gives
+the windows their frames back and shows minimised ones. `apps/kiosk.c`
+uses it (see [apps.md](apps.md#kiosk-mode)).
 
 ### td_wm_set_user_label
 
@@ -453,18 +510,22 @@ void td_wm_set_start_menu_size(td_ui_size_t size);
 td_ui_size_t td_wm_start_menu_size(void);
 void td_wm_set_taskbar_size(td_ui_size_t size);
 td_ui_size_t td_wm_taskbar_size(void);
+void td_wm_set_window_size(td_ui_size_t size);
+td_ui_size_t td_wm_window_size(void);
+int td_wm_title_rows(void);                        /* 1, or 2 with large frames */
 const char *td_ui_size_name(td_ui_size_t size);   /* "Small", "Medium", "Large" */
 ```
 
-Three independent size settings. All default to `TD_UI_MEDIUM`; values outside the enum are treated as `TD_UI_MEDIUM`. The Settings app stores them per user (see `td_settings_save()` in [apps.md](apps.md#settings)).
+Four independent size settings. The first three default to `TD_UI_MEDIUM`, the window frames to `TD_UI_SMALL`; values outside the enum are treated as the default. The Settings app stores them per user (see `td_settings_save()` in [apps.md](apps.md#settings)).
 
 | Setting | Small | Medium | Large | Fallback |
 |---|---|---|---|---|
 | Desktop icons | One line per icon: glyph and name (21-column slots). | 4 x 3 box with the glyph, name on up to two lines (12 x 6 slots). | 8 x 5 double-framed box, one wider name line (16 x 7 slots). | When the icons do not all fit on the desktop at the chosen size, the next smaller size that fits is drawn. `td_wm_icon_size()` still returns the chosen size. |
 | Start menu | Names only. | Glyph and name. | Glyph and name with a blank row per item. | When the large menu is taller than the desktop, it uses one row per item. |
+| Window frames | One title row, buttons `[-][x]`, a 2-column resize corner. | Buttons `[ - ][ x ]` and a 4-column resize corner, easier to hit with a mouse. | As medium, with a two-row title bar; the title and buttons on its lower row. | None. |
 | Taskbar | One row; the time only (with a `parts` clock); titles cut to 8 columns; no user name. | One row; the clock `text`; titles cut to 14 columns. | Two rows; glyph and title (18 columns); the time over the date; a line under each button (bright for the focused window, dim for others, none for minimised ones). | None. |
 
-Changing the taskbar size changes the desktop height: open windows are clamped to it again and an open menu is closed. `td_ui_size_name()` returns `"Small"`, `"Medium"` or `"Large"` (anything unknown gives `"Medium"`).
+Changing the taskbar size changes the desktop height: open windows are clamped to it again and an open menu is closed. The window frame size changes the frame of every framed window: the client area starts `td_wm_title_rows()` rows below the window's top, `td_win_create()` adds the extra title row to the requested height, and changing the size makes open windows taller or shorter by the difference, so client areas keep their size. Code that sizes a window from its client area adds `td_wm_title_rows() + 1` rows for the frame. `td_ui_size_name()` returns `"Small"`, `"Medium"` or `"Large"` (anything unknown gives `"Medium"`).
 
 ## Themes
 
@@ -550,7 +611,63 @@ void td_desktop_set_icons(bool on);
 bool td_desktop_icons(void);
 ```
 
-Shows or hides all desktop icons (default: shown). There is one icon per registered app, in registration order, followed by the desktop provider's items. Icons are laid out in columns from the top-left corner; windows cover them.
+Shows or hides all desktop icons (default: shown). There is one icon per registered app, in registration order, followed by the desktop provider's items. Icons are laid out in columns from the top-left corner, in slots spread over the whole desktop; windows cover them.
+
+### Monitors
+
+```c
+void td_wm_set_monitors(const td_rect_t *mons, int count, int main);
+int td_wm_monitors(td_rect_t *mons, int max, int *main);
+td_rect_t td_wm_main_monitor(void);
+int td_wm_monitor_of(td_window_t *win);
+bool td_win_move_to_monitor(td_window_t *win, int index);
+```
+
+On an extended screen (a second display, [core.md](core.md#second-screen))
+the core tells the window manager where each display is on the screen and
+which is the main one (`count` 0 or 1: one display, the whole screen).
+The taskbar (with the Start button and the clock) is at the bottom of the
+main display, the desktop icons and new windows are on it, and a window's
+own place (`td_window_desc_t.rect`) counts from its corner;
+`td_wm_desktop_rows()` is its rows above the taskbar. Maximise, full
+screen and Win+Left / Right use the display that holds the window's
+centre (where it was before maximising), at that display's size; a window
+left in the gap beside a smaller display is moved onto the nearest one.
+When the displays move, their windows move with them.
+
+`td_wm_monitors()` copies the displays' rectangles and returns how many
+there are (1 with one display). `td_wm_monitor_of()` is the display a
+window is on. `td_win_move_to_monitor()` moves a window to another
+display, at the same place from its corner (kept inside it), and focuses
+it; **Alt+Shift+Left / Right**, **Win+Shift+Left / Right** and the title
+bar menu's **Other display** call it.
+
+### Icon places
+
+```c
+typedef struct { uint32_t key; int16_t col, row; } td_icon_place_t;
+#define TD_MAX_ICON_PLACES 96
+void td_wm_set_icon_arrange(bool on);
+bool td_wm_icon_arrange(void);
+int td_wm_icon_places(td_icon_place_t *out, int max);
+void td_wm_set_icon_places(const td_icon_place_t *places, int count);
+void td_wm_on_icons_moved(void (*fn)(void));
+void td_wm_pin_icon(const char *app_name);
+uint32_t td_wm_icon_key(bool file, const char *name);
+```
+
+Arranged (the default), icons fill the columns from the top left and the
+pinned app's icon (`td_wm_pin_icon()`; the Recycle Bin pins itself) takes
+the bottom-right slot. Any icon, an app's too, can be dragged: dropped on
+an empty slot it goes there, dropped on another icon the two swap (a file
+dropped on a folder still goes to the provider's `drop`). The first move
+stops arranging and gives every icon its current slot as its place, so
+the others stay put. `td_wm_icon_places()` copies the places (a key from
+`td_wm_icon_key()` with the icon's name, and a column and row of slots);
+`td_wm_set_icon_places()` restores them, and the function set with
+`td_wm_on_icons_moved()` is called after each move. Icons without a place,
+or whose place is taken or off the screen, fill the first free slots.
+`apps/settings.c` keeps them per user in `~/.tinydesk_icons`.
 
 - A click selects an icon, a double-click opens it (the app's `launch`, or the provider's `open`).
 - While no window is focused, the arrow keys move the selection and Enter opens the selected icon.
@@ -570,9 +687,11 @@ typedef struct {
     bool (*drag)(int index, td_drag_item_t *item, void *user);
     void (*drop)(int index, const td_drag_item_t *item, void *user);
     void *user;
+    void (*remove)(bool for_good, void *user);       /* Del / Shift+Del */
 } td_desktop_provider_t;
 
 void td_desktop_set_provider(const td_desktop_provider_t *provider);
+int td_desktop_selection(int *items, int max);
 ```
 
 Adds icons after the app icons, for example the files in the user's Desktop folder (the built-in `apps/desktop.c` is such a provider, see [apps.md](apps.md#files-and-desktop-folder)). Index arguments count from 0 within the provider's own items. `td_desktop_set_provider()` stores the pointer, so the structure must stay valid; `NULL` removes the provider. Only one provider is active.
@@ -586,8 +705,19 @@ Adds icons after the app icons, for example the files in the user's Desktop fold
 | `open` | Double-click or Enter on item `index`. |
 | `context` | Right-click on item `index`, or on the empty desktop (`index` -1), at screen cell (x, y). Usually opens a `td_menu_popup()` there. |
 | `drag` | A drag starts on item `index`: fill `*item` (it is zeroed first) and return `true`, or return `false` to refuse. `NULL` makes the items not draggable. |
-| `drop` | An item was released over provider item `index`, or over the empty desktop or an app icon (`index` -1). |
+| `drop` | An item was released over provider item `index`, or over the empty desktop or an app icon (`index` -1). A drag of several items calls it once for each. |
 | `user` | Passed to every callback. |
+| `remove` | Optional. Del (or Shift+Del, `for_good`) on the desktop with items selected: delete `td_desktop_selection()`. |
+
+Icons can be selected together: **Ctrl+click** adds or removes one, a
+rectangle dragged over the empty desktop selects the icons it touches
+(with Ctrl, in addition to those already selected), **Ctrl+A** selects
+all and **Esc** none. Dragging a selected icon drags the provider items
+selected with it (`drag` for each); dropped on the desktop, only the icon
+pressed moves to the new place. `td_desktop_selection()` copies the
+selected provider items' indexes (app icons are not counted) and returns
+how many; a right-click on an icon outside the selection selects that icon
+alone, so a provider's `context` menu can act on the selection.
 
 ## Drag and drop
 
@@ -626,10 +756,12 @@ The window manager looks at every key first. In this order:
 
 | Key | Action |
 |---|---|
+| any key in kiosk mode | First to the kiosk hook (`td_wm_set_kiosk()`); then the window keys below are dropped and the rest goes to the focused window. |
 | F10 (no modifiers) | Opens or closes the start menu, always, even in `TD_WIN_RAW_KEYS` windows. |
 | any key while a menu is open | Goes to the menu (Up, Down, Home, End, Enter, Esc, F10); nothing else sees it. |
-| F6 (no modifiers), Alt+Tab | Cycles the windows: the top window goes to the bottom. Does nothing while a modal dialog is open. |
+| F6 (no modifiers), Alt+Tab | Cycles the windows: the top window goes to the bottom. Alt+Shift+Tab goes the other way: the bottom visible window comes to the top. Does nothing while a modal dialog is open. |
 | Ctrl+L | Resends the terminal setup and redraws the whole screen (`td_full_redraw()`). In a `TD_WIN_RAW_KEYS` window the key is then also passed to `on_event` (the Terminal forwards it to the shell). |
+| any key with `TD_MOD_SUPER` | The Windows-key shortcuts, never passed on (ignored while a modal dialog is open): Up maximises a `TD_WIN_RESIZABLE` window; Down restores a maximised window, otherwise minimises; Left / Right make a resizable window fill that half of the desktop; D minimises every window, or, when all are minimised, shows them again; E, R and I launch Files, Terminal and Settings (`td_app_launch()`). Only a keyboard the board reads itself sends Super (see [input.md](input.md)). |
 | Ctrl+Q, Alt+F4 | `td_win_request_close()` on the focused window, in every window. Alt+F4 only arrives where the terminal passes it through. |
 | no window focused | The arrow keys and Enter move between and open desktop icons; Enter (with no icon selected) or Esc opens the start menu. |
 | F11 (no modifiers) | Toggles full screen for the focused window if it has `TD_WIN_RESIZABLE`. |
@@ -681,6 +813,22 @@ bool td_wm_mouse_pos(int *x, int *y);
 ```
 
 Last known mouse position in screen cells. Returns `false` (and leaves `*x`, `*y` alone) before the first mouse event. Use it for hover effects in `on_draw`; the frame is recomposed when the pointer moves onto a different element.
+
+### td_wm_set_pointer
+
+```c
+void td_wm_set_pointer(bool on);
+```
+
+Draws the mouse pointer: a `▲` in the cell under it, black on light backgrounds and white on dark ones. Off by default, because a terminal's mouse needs no pointer. A port turns it on for a mouse the terminal does not show, such as a USB mouse on the ESP32-S3 (on while one is plugged in). May be called from any task.
+
+### td_wm_screen_size
+
+```c
+void td_wm_screen_size(int *cols, int *rows);
+```
+
+The screen size in cells, taskbar included (`td_wm_desktop_rows()` is the part above the taskbar).
 
 ## Used by the core
 

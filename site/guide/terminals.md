@@ -21,6 +21,17 @@ browser window's size.
    the whole window elsewhere).
 3. Press **Connect** and pick the port. The desktop draws itself at once.
 
+**Bigger text:** with the size **Fit the window**, **Text** sets the font
+size (14 to 32 px, remembered by the browser). A larger font gives the
+desktop fewer, larger cells, so everything on it grows and stays sharp; a
+fixed size (such as **80 × 24**) uses the largest font that fits instead.
+In PuTTY the same is Window → Appearance → Font.
+
+**Pictures:** the web terminal shows Sixel graphics, so a Python app's
+pictures (buttons and panels at full resolution, `canvas.picture()`) look
+as on an LCD panel. So does Windows Terminal (1.22 or later); PuTTY shows
+them in block pixels.
+
 DTR and RTS are released when the port opens, so an ESP32 dev board is not
 reset. The buttons send keys the browser keeps for itself (F10, F6, F11,
 Ctrl+Q); **Redraw** repaints the whole screen. Add `?renderer=webgl` to the
@@ -105,12 +116,86 @@ have this problem.
 
 ## Remote desktop over Telnet (port 23)
 
-After changing the root password with `passwd`, enable Telnet in Network.
-With Wi-Fi up, choose *Telnet* in PuTTY, the board's address and port 23,
-and log in as **root**. Non-root accounts use SSH shell sessions instead. The client then owns the desktop and the local screen shows
-a notice until the session ends; the desktop switches to the user who
-logged in and back afterwards. Telnet is plain text: use it on a trusted
-network. The Network app has a switch to turn it off (saved in NVS).
+After changing the root password with `passwd`, enable **Telnet desktop**
+in Network. With Wi-Fi up, choose *Telnet* in PuTTY, the board's address
+and port 23, and log in as **root**. Non-root accounts use SSH shell
+sessions instead. Telnet is plain text: use it on a trusted network. The
+Network app turns it off again (saved in NVS). Up to two clients can be
+logged in at once, when both displays are Telnet; another one is told the
+desktop is in use.
+
+Which display a Telnet client gets is chosen in **Settings → Displays**
+(below): by default it takes the desktop over (display 1), the board's
+own screen showing a notice until the session ends, and the desktop
+switches to root and back afterwards. As display 2 it is a second screen
+beside the board's own instead, and the desktop stays as it is.
+
+## Two displays
+
+**Settings → Displays.** The desktop can be on two displays at once, like a PC with two monitors.
+Each display is a terminal:
+
+| Display | Can be |
+| --- | --- |
+| 1 | **This board**: its own link (USB serial, the UART, the CrowPanel's LCD); or **Telnet**: the first Telnet client to log in takes it over |
+| 2 | **Off**; **Telnet**: a Telnet client (the second one when display 1 is Telnet too); or **Serial 2**: a terminal on a second serial port |
+
+So the two can be one serial and one Telnet, two Telnet clients, or two
+serial terminals. For **Serial 2**, connect a USB-serial adapter (CH340,
+CP2102, FTDI; 3.3 V levels) to two spare pins and a hardware UART, set
+the board keys [`display2.*`](board-config.md#second-display-serial) and
+restart. (A bit-banged software UART is not offered: at the speeds a
+desktop needs it would hold up the board while Wi-Fi runs.)
+
+**Settings → Displays** (or **Displays...** in Settings and Network)
+shows the two displays as boxes:
+
+* **Duplicate these displays / Extend these displays:** both show the
+  same desktop (at the smaller size of the two), or display 2 extends it.
+* **Arrangement:** drag display 2 to any side of display 1 (right, left,
+  above, below) and along that side, or select it and press an arrow key
+  (Shift+arrows move it along the edge). The mouse and windows go across
+  where the two touch.
+* **Display 1 / Display 2** select the display the settings below are for:
+  * **Shown on:** the terminal the display is (above); **Now:** whether
+    one is connected.
+  * **Resolution:** **Auto** (the terminal's window size) or a fixed size
+    such as 80 x 24, 100 x 30 or 120 x 40, smaller than the terminal (the
+    rest of its window stays empty).
+  * **Orientation:** a terminal's window decides its own shape (make
+    the PuTTY window tall for a portrait display). The CrowPanel's LCD can
+    be turned: Landscape, Portrait (90°), Landscape flipped (180°) or
+    Portrait flipped (270°); it applies at the next start.
+  * **Make this my main display:** the taskbar, the desktop icons and new
+    windows are on the main display.
+* **Identify** shows each display's number on it for three seconds.
+
+**Moving a window to the other display:** drag it across; or press
+**Alt+Shift+Right / Left** (works through PuTTY), **Win+Shift+Right /
+Left** (a USB keyboard on the board), or right-click its title bar →
+**Other display**. Maximise, full screen and Win+Left / Right work on the
+display a window is on, at that display's size.
+
+Each display keeps its own size; both together have to fit the board's
+screen memory (on an S3, 256 x 96 = 24,576 cells: for example 120 x 60
+beside 200 x 60). When they do not, display 2 gets fewer columns (or rows,
+above or below), and if even that is not enough, both are duplicated.
+Extending needs a board with PSRAM: the C6's screen is at most 80
+columns, so there the displays duplicate. Pictures (Python canvases, kiosk
+artwork) go to display 1 only; display 2 sees what the windows drew under
+them. A second display leaves the desktop as it is (its user, its
+windows, a kiosk app): useful for watching or servicing a running
+machine. The settings are kept in NVS; boards updated from 0.2.x keep
+what the Network app's old Telnet setting chose.
+
+### From another TinyDesk: Remote Desktop
+
+**Start → Remote Desktop** shows another TinyDesk's Telnet desktop in a
+window, from a board or the PC programs: its address and port (23),
+**Connect**, then sign in as root in the window. Keys, mouse clicks,
+the wheel and pastes go to the remote desktop; it takes the window's size
+(it asks every second, so resizing or maximising the window resizes it).
+**Disconnect** ends it. Its pictures are not passed on.
 
 ## SSH and SFTP
 

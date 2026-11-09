@@ -7,8 +7,315 @@ that reaches users or changes an API (see [Maintaining these docs](maintaining.m
 Versions follow [Semantic Versioning](https://semver.org/): until 1.0.0 the
 API may still change between minor versions.
 
-## Unreleased
+## 0.3.0
 
+* **API freeze for 1.0:** TinyDesk and the shell follow semantic versioning
+  from 1.0 ([API stability](api/stability.md)); `TD_VERSION_MAJOR`,
+  `_MINOR`, `_PATCH`. The public C API (`api/tinydesk.api`), the board.conf
+  keys (`api/board_keys.txt`) and the Python contracts are checked by ctest.
+  **Moved out of the public headers** into `src/td_internal.h`:
+  `td_pictures_begin`, `_mark`, `_send`, `_count`, `_cover`, `_clip` and
+  `td_widgets_draw`, `_event`, `_free`, `_focus_next`, `_reset`,
+  `_keeps_drag`, `_cancel_press` (the core's own plumbing).
+* **Python packages and virtual environments** (from ushell): `upip
+  install | uninstall | list | freeze` (with `-r FILE`) installs from
+  micropython.org's index, GitHub or GitLab into the active virtual
+  environment or `~/lib`, and removes exactly what it installed; `venv DIR`,
+  `activate DIR` (the prompt shows `(name)`), `deactivate`, `venvs`. Scripts
+  see the environment's packages first on `sys.path`. `requests` and `ssl`
+  now check server certificates by default (`verify=False` in `requests`).
+* **`tdsh.shell()`:** `tinydesk.shell()` moved into TinyDesk Shell as
+  `tdsh.shell(line)`, so scripts on the shell's own firmware can run shell
+  commands too; `tinydesk.shell()` stays and is the same function.
+* **Network in Python:** scripts get `network` (read-only status:
+  connected, addresses, Wi-Fi signal, and `wait()` for a connection), `socket`, `ssl` (TLS 1.2, server
+  certificates checked against the firmware's CA bundle, or the PC's own
+  roots), `requests` (HTTP and HTTPS), `umqtt.simple` and `umqtt.robust`
+  (an MQTT client of their own, any broker), a blocking `websocket` client
+  and `aiohttp` (asyncio HTTP and WebSockets). They come from TinyDesk
+  Shell, so the shell's own firmware has them too. Blocking calls stop on
+  Ctrl+C; sockets a script leaves open are closed when it ends. See
+  [Python: Network](shell/python.md#network).
+* **MicroPython moved into TinyDesk Shell:** the interpreter, the `py`
+  command, files and `machine` now live in the shell
+  (`third_party/tdsh/python`), so the shell's own firmware can get them
+  and TinyDesk inherits what the shell adds. TinyDesk keeps its own modules
+  (`tinydesk`, `_tdui`, frozen `tdui` and `tdapp`) and their generated
+  tables in `ports/common/python/gen`. `tools/micropython/gen.sh` now also
+  runs on Windows (Git Bash with MinGW-w64), not only in WSL. Scripts and
+  apps see no difference.
+* **Search (Alt+S, Win+S):** one box finds apps, files and folders by part
+  of the name as you type, and Enter opens the result.
+* **Type-ahead:** a letter or digit in Files and every list, on the desktop
+  and in the start menu goes to the next item starting with it; pressing it
+  again goes round them (`td_type_ahead()`).
+* **Remote Desktop:** moving the pointer now reaches the remote board, so
+  its desktop icons, menus and buttons highlight under it (hover was lost
+  because plain moves never reached the window; new window flag
+  `TD_WIN_MOUSE_MOVES`).
+* **Remote Desktop:** mouse reports are sent only once the remote asks
+  for them, so moving the pointer over the login prompt no longer types
+  `[<35;...M` into the user name (`td_vterm_t.mouse`).
+* **New flash layouts, meant to stay for 1.x:** 16 MB boards (ESP32,
+  ESP32-S3, Nano ESP32) get two 4 MB OTA slots, a 64 KB NVS, a 64 KB
+  crash-dump slot (reserved) and a 7.8 MB `/fs`; the ESP32-C6 two 3 MB
+  slots, the same NVS and crash-dump slot and a 1.8 MB `/fs`; the 4 MB ESP32 one 3 MB app and a 960 KB `/fs`; the CrowPanel 7.0
+  one 2.75 MB app and a 1.19 MB `/fs` (room for a kiosk app and its
+  unpacked copy). `/fs` moves on every board: back up its files, then flash
+  everything (bootloader, partition table, app). NVS (users, Wi-Fi,
+  settings) is kept. See [Partition tables](shell/config-files.md#partition-tables).
+* **Several items selected at once:** in Files, Ctrl+click, Shift+click,
+  Shift+arrows, Ctrl+A and dragging down the list from an unselected entry;
+  on the desktop, Ctrl+click, a rectangle dragged over the empty desktop,
+  Ctrl+A and Esc. Dragging a selected item drags them all; Del, Shift+Del
+  and the right-click menu delete them with one question. For apps:
+  `td_list_set_multi()` and friends, `on_drag_more`, `TD_DRAG_MAX`,
+  `td_desktop_selection()`, the provider's `remove` and
+  `td_trash_ask_delete_many()`.
+* **App library `tdapp`:** a MicroPython library frozen next to `tdui`
+  with what most apps share: `App` with pages, `Link` (Modbus RTU master /
+  slave, UART protocols) with widgets bound to registers, self-redrawing
+  canvas elements (`Field`, `gauge`, `slider`, `panel`), canvas pages and
+  `require()` for firmware features. Its names are pinned like `tdui`'s
+  (`tdapp_contract.json`, `tdapp.VERSION` 1.0) and a ctest runs it in the
+  simulator. See [Python apps library](shell/tdapp.md).
+* **Two displays (Settings → Displays):** the desktop on two terminals at
+  once, duplicated or extended like a PC's two monitors. Display 1 is the
+  board's own link or a Telnet client; display 2 is a Telnet client or a
+  terminal on a second serial port (board keys `display2.*`), so one
+  serial and one Telnet, two Telnet clients or two serial terminals.
+  Display 2 goes on any side of display 1, moved along it; each display
+  has its own resolution (its terminal's or a chosen smaller one), either
+  can be the main one (taskbar, icons, new windows), and the CrowPanel's
+  LCD can be turned (90, 180, 270 degrees; `lcd.rotation`). Windows move
+  to the other display with Alt+Shift+Left / Right, Win+Shift+Left /
+  Right or the title bar menu. The core drives two terminals, each at its
+  own pace (`td_screen2_attach`, `td_screens_set_layout`); an extended
+  screen may be wider or taller than one terminal while it fits a buffer
+  (`TD_MAX_SCREEN_COLS`, `TD_MAX_SCREEN_ROWS`); the window manager knows
+  the displays' rectangles (`td_wm_set_monitors`,
+  `td_win_move_to_monitor`); ports describe the sources with
+  `td_display_ops_t`. Network's Telnet mode button became Displays...;
+  a 0.2.x board keeps what it chose.
+* **One on-screen keyboard:** Sign in and the kiosk's unlock window open
+  the On-screen keyboard app (`td_osk_show`) instead of keys of their own.
+* **Kiosk way out over pictures:** the unlock window was hidden under a
+  kiosk app's artwork; pictures under a later window, the taskbar or a
+  menu are now held back (`td_pictures_cover`).
+* **Remote Desktop:** a new app that shows another TinyDesk's Telnet
+  desktop in a window, from a board or the PC programs, for service work.
+
+* **Store:** a new app that lists the apps of the
+  [tinydesk-apps](https://github.com/tinydesk-project/tinydesk-apps)
+  catalog and installs, updates and removes them (`~/Apps`, the Start
+  menu). Downloads are checked against the catalog's SHA-256; apps the
+  board cannot run are listed but not installed. Board key `store.url`
+  (`TINYDESK_STORE` on a PC) chooses another catalog. Ports can offer
+  downloads with `td_fetch_ops_t`.
+* **Password hints:** an account can have a hint, set with `useradd`,
+  `passwd` or the Users app (when it is made or its password changes) and
+  shown by the new **Hint** button of Sign in. A hint that contains the
+  password is refused. TinyDesk Shell keeps it in NVS (`hints`). While
+  root has the factory password, its hint is **Type: TinyDesk**.
+* **On-screen keyboard:** one set of large touch keys, sized to the
+  screen (3 lines tall on a 30-line screen; a touch between two keys counts
+  for one of them), with Shift as on a phone (one tap for the next letter,
+  two quick taps for Caps lock), for Sign in, the kiosk's way out and a new **On-screen
+  keyboard** app that types into the focused window, also dialogs. Settings
+  can open it whenever a text box has the focus. Windows can be tools that
+  stay on top without taking the focus (`TD_WIN_NO_FOCUS`).
+* **Desktop icons:** drag any icon to a new place (or onto another to swap
+  them); the places are kept per user (`~/.tinydesk_icons`). **Auto arrange
+  icons** (right-click the desktop) lines them up again. The Recycle Bin
+  sits in the bottom-right corner.
+* **Shortcuts and the Start menu:** **Send to Desktop** in Files makes a
+  shortcut (`.tdlink`); app packages can be added to the Start menu, which
+  lists a user's entries (`~/Start menu`) under the built-in apps, and
+  copied to `~/Apps`, each user's folder for app packages.
+
+* **CrowPanel 7.0 port:** `ports/crowpanel7` runs the desktop on the
+  Elecrow CrowPanel 7.0 (ESP32-S3-WROOM-1-N4R8, 7" 800x480 LCD, GT911
+  touch). The touch screen is the mouse (a long press is the right
+  button), UART0 is the keyboard and also shows the picture
+  (`lcd.mirror`), `lcd.font` picks 100x30, 80x24, 66x20 or 50x15 cells,
+  and `console.uart = -1` leaves UART0 to a kiosk app. 4 MB flash, one
+  app, no OTA; build it from source. See [ESP-IDF
+  ports](ports/esp.md#crowpanel-70) and [Board
+  configuration](guide/board-config.md#crowpanel-70).
+* **Sign in, roles and rights:** the boards start behind a full-screen
+  Sign in window (account list, password, touch keys; 10 seconds' wait
+  after 5 wrong passwords) and the Start menu has **Sign out**. Accounts
+  other than root are Admin or User with seven rights (Manage accounts,
+  System settings, Network, Hardware / I/O, Shared files, Clock, Apps /
+  Terminal); Admins grant only what they hold and never reach `/root` or
+  other homes. The new **Users** app and the shell's `useradd NAME
+  admin|user`, `userrole` and `userrights` manage them; `/shared` is a
+  folder for accounts with Shared files. A changed password ends the
+  account's open sessions. See [First login and
+  users](guide/first-login.md).
+* **Remembered login:** root can let the board start as one account
+  without Sign in: the **Remember root on this device** box, the Users
+  app or `bootuser NAME`. It starts only after that account signed in
+  once with its password and ends with a password change;
+  `bootuser --require-password` turns it off. New `td_user_ops_t`,
+  `td_session_has_right()`, `td_session_lock()`, `td_login_open()` and
+  `td_wm_set_input_gate()`.
+* **Kiosk artwork:** `kiosk.splash` shows a picture while the kiosk app
+  starts and `kiosk.status = 0` hides the status line
+  (`TINYDESK_KIOSK_SPLASH` and `TINYDESK_KIOSK_HIDE_STATUS` in the PC
+  programs; `kiosk_splash` and `kiosk_hide_status` in `td_sysinfo_t`).
+  The kiosk app starts after Sign in.
+* **Fonts in Python windows:** `tdui.Font.load()` loads a generated
+  `.tdfont` bitmap font and `cv.font_text()` draws text in it at the
+  screen's own pixels, aligned and wrapped in a box of cells; buttons and
+  pictures take `font=`. New `td_font.h`. See [Python
+  scripts](shell/python.md#fonts).
+* **Gradient fills:** `rect()`, `circle()`, `bar()` and `cv.button()` take
+  `gradient=` (two RGB colours, down or across); `tdui.SUPPORTS_GRADIENT_FILLS`.
+* **RGB pictures:** on boards with PSRAM and on the PC,
+  `tdui.enable_rgb_pictures()` keeps images, gradients and pictures in
+  RGB565 instead of the 256 colours; the CrowPanel draws them directly.
+  `tdui.SUPPORTS_RGB_PICTURES`, `MAX_PICTURES`, `MAX_VISIBLE_PICTURES`
+  and `graphics_info()`; in C `td_picture_add_rgb()`, the picture sinks
+  and `td_picture_stats()`.
+* **App packages:** `py FILE.tdapp` and **Run** in Files and on the
+  desktop start a `.tdapp` package made with TinyDesk App Builder; it
+  checks `tdui.API` and `tdui.CAPABILITIES`, verifies its files and
+  unpacks them into a `.tdapp-<hash>` folder beside it. See [Python
+  scripts](shell/python.md#app-packages-tdapp).
+* **tdui version:** `tdui.API` (`(1, 0)`) and `tdui.CAPABILITIES` tell
+  scripts and app packages which tdui contract the firmware has, and
+  `ports/common/python/tdui_contract.json` writes it down (request,
+  widget and event numbers, limits, capabilities, the compatibility rule)
+  for app makers such as TinyDesk App Builder; a test checks it against
+  the code. Its `python` part pins every public `tdui` name and its
+  parameters: removing or renaming one, or adding a required parameter,
+  fails the build. Another test checks, in the simulator, that the `tdui`
+  frozen into the firmware is the current one.
+* **Bounded artwork reuse:** RGB PSRAM apps reuse losslessly compressed
+  native artwork and warm hidden pictures while idle. App Builder 0.10
+  exposes Automatic/Off/64/128 KiB export choices. Existing RGB packages
+  benefit without re-exporting; allocation can be skipped when memory is low.
+* **CrowPanel scanout under load:** UI rendering and LCD painting now share
+  the RGB interrupt's CPU, avoiding simultaneous bulk pixel copies across
+  both CPUs. The tested 24 MHz clock and safe framebuffer handoff remain.
+  Optional `tdui.scanout_info()` distinguishes missed frame preparation from
+  image-allocation or UART failures; native cache statistics expose reuse
+  and drawing time independently.
+  The LCD now waits for a slow frame as long as it is still arriving
+  (up to 8 s) instead of painting it half done after 1.5 s, which
+  sometimes showed a kiosk app's first page blank for a moment (a logo
+  that blinked at start-up).
+
+* **Clean button skins:** the sample UI skin loads without dithering, and its
+  keyed corners no longer bake in a fixed background. Sixel pictures keep
+  the original canvas background instead of sampling the already drawn
+  block fallback. These small background regions count against pixel
+  budgets and are shared by page copies.
+* **Button events in TinyDesk App Builder:** canvas buttons support press,
+  release, click and cancel callbacks, including release outside the
+  canvas. TinyDesk App Builder edits their Python bodies and starter
+  actions directly, supports optional normal/pressed sprite regions, and
+  exports the event wiring.
+
+* **Atomic Python drawing:** `with cv.batch():` / `tdui.batch()` prevents
+  intermediate frames across queued drawing calls, with nested groups and
+  a 1000 ms recovery deadline. `cv.bar()` repaints track, fill and highlight
+  in one request; instrument panels use it instead of erasing each bar first.
+  Canvas buttons draw atomically and belong to their creation page.
+* **App Builder pixels:** drawing controls and exports for shapes,
+  gradients, pixel text, images, nine-slice panels, pictures, canvas buttons
+  and bars; cell/pixel budget checks include pages and image masks. Images
+  and buttons are created once and reused. The current API references and
+  export fixtures are refreshed; 80×24 is a screen preset.
+
+* **Pictures at the screen's own resolution:** a Python app's
+  `canvas.picture()` (and buttons from a sprite sheet) are drawn by the
+  terminal in real pixels, as Sixel graphics: smooth corners, gradients and
+  sharp labels, like an LCD panel's UI. TinyDesk asks every terminal
+  whether it has Sixel and how big its cells are; the web terminal (with
+  xterm.js's image add-on), Windows Terminal and the CrowPanel's LCD show
+  them, PuTTY shows the same in block pixels. A picture is sent once and
+  again only when something drew over it. New `td_picture.h` (Sixel
+  encoder, picture list), a DCS hook and Sixel answers in `td_vterm_t`, and
+  `tools/make_ui_skin.py` for a skin of glossy buttons, tabs and panels.
+* **Full-size file system:** a board whose LittleFS was made for a
+  smaller partition (after the Shell firmware, say) now grows it to the
+  whole partition at start, keeping its files; an ESP32-S3 used 1.9 MB of
+  its 9.9 MB.
+* **Bigger text in the web terminal:** a **Text** size (14 to 32 px) for
+  the size **Fit the window**, kept by the browser, and an **80 × 24**
+  size. The desktop gets fewer, larger cells, so all text grows and stays
+  sharp. See [Terminals](guide/terminals.md#web-terminal-in-the-browser).
+* **Round shapes look the same on both sides:** a rounded rectangle on a
+  Python canvas (`rect(..., radius)`, `button()`) is rounded in whole
+  cells, so its left and right ends match with Normal pictures (one pixel
+  column per cell shown) as with Fine.
+* **Recycle Bin:** deleting on the desktop or in Files moves the file or
+  folder to the user's Recycle Bin (`~/.trash`), and the new **Recycle
+  Bin** app restores it where it was (making missing folders, and
+  `name (2)` when the name is taken), deletes it for good or empties the
+  bin. The bin has a size limit (off, 256 KB to 64 MB, 1 MB by default;
+  the oldest items go first) and can delete items after 1, 7, 30 or 90
+  days; both are saved per user (bytes 17 and 18 of the settings file).
+  **Delete for good** in the menus (Shift+Del in Files) deletes at once.
+  New `td_trash_*()` in `td_apps.h` and `td_date_time()`.
+* **USB keyboard and mouse on the ESP32-S3:** with `usb.host = 1` in the
+  [board configuration](guide/board-config.md#usb-keyboard-and-mouse-esp32-s3),
+  the board reads a keyboard and mouse set (one USB receiver; no hubs yet)
+  on the chip's own USB port, next to the terminal's keyboard and mouse.
+  The desktop draws a ▲ pointer for it, and the wheel works. The new
+  **Mouse** app sets the speed, acceleration and precision, and the
+  **Keyboard** app the layout (US, UK, German, French, Spanish) and key
+  repeat; both are only there with such a keyboard and mouse. Ports
+  provide them through the new optional `mouse` and `keyboard` in
+  `td_sysinfo_t`.
+* **Windows-key shortcuts:** from a USB keyboard on the board, the
+  Windows key opens the start menu, Win+arrows maximise, minimise and snap
+  windows to half the screen, Win+D shows the desktop, Win+E, Win+R and
+  Win+I open Files, the Terminal and Settings, and Alt+Shift+Tab goes to
+  the previous window. A PC terminal cannot send these keys, so they never
+  clash with the PC's own; F6 and the other keys are unchanged. The input
+  parser has a new modifier, `TD_MOD_SUPER`, and reads `ESC [ 27 ; m ; c ~`
+  and `ESC [ 1 ; m Z`.
+* **Window frame sizes:** Settings → Sizes → Windows makes the title bar
+  buttons and the resize corner wider (Medium) and the title bar two rows
+  high (Large), for the mouse on big screens; Small stays the default.
+  New `td_wm_set_window_size()`, `td_wm_window_size()` and
+  `td_wm_title_rows()`, plus `td_wm_screen_size()` and
+  `td_wm_set_pointer()`.
+* **Ctrl+wheel in the Editor** scrolls half a page instead of 3 lines.
+* **Kiosk mode:** with `kiosk.app` in the [board
+  configuration](guide/board-config.md#kiosk-mode), a board runs one
+  Python `tdui` app on the whole screen instead of the desktop, on every
+  board and over the serial link: no taskbar, Start menu, icons or window
+  keys, and the app starts again if it ends. Root's password leaves it
+  (asked after a 5-second hold on the top-right corner, F10 three times or
+  Ctrl+Alt+Delete); holding BOOT just after a reset starts the board
+  without it once. New `td_wm_set_kiosk()`, `kiosk_app` in `td_sysinfo_t`,
+  `td_kiosk_start()` and `td_pyui_running()`; `TINYDESK_KIOSK` in the PC
+  programs; `hold=` in tdsim.
+* **Sure clicks with a USB mouse:** a press holds the pointer on its cell
+  until the mouse has moved a whole cell, so a hand that nudges the mouse
+  while clicking no longer moves the release off the button.
+* **Pictures and pixels in Python windows (`tdui`):** a canvas has 2 x 2
+  pixels to a cell under its text. One call draws a rectangle (with round
+  corners), line, circle, dithered gradient, an image, part of one (a
+  sprite sheet) or a nine-slice panel of any size, and text with the
+  background `tdui.CLEAR` stands on the picture. `tdui.Image.load()`
+  reads PPM, PGM and BMP files, scaled and with a transparent colour if
+  asked; the file is decoded in C on the script's task and handed to the
+  desktop whole, so no Python runs per pixel. Images and pixels share
+  `tdui.MAX_PIXELS` (2 MB with PSRAM and on the PC, 16 KB otherwise).
+  `draw_text()` writes text in pixels in an 8 x 16 font (ASCII and
+  Latin-1) or a 3 x 5 one, 1 to 8 times as big, and `canvas.button()`
+  makes buttons drawn in pixels, rounded in colours or from a sprite sheet,
+  that look pressed while held. `tools/make_ui_sheet.py` makes an example
+  sprite sheet of buttons, a panel and an LED, used by
+  `examples/python/pixels_demo.py`. See
+  [Pictures and pixels](shell/python.md#pictures-and-pixels).
+* **The settings file grows to 20 bytes:** the picture detail moves to
+  byte 16 (see [~/.tinydesk_settings](shell/config-files.md#tinydesk_settings)).
 * **Fast Python screens:** a `tdui` canvas can keep up to 16 pages on the
   desktop (`w.canvas(..., pages=n)`): a script draws into a hidden page
   with `draw_to()` and shows it whole with `show()`, so switching screens
@@ -28,6 +335,41 @@ API may still change between minor versions.
   built-in sensor (for example `Chip: 47.3 °C`). The classic ESP32 has no
   such sensor. Ports provide it through the new optional `chip_temp` in
   `td_sysinfo_t`.
+* **Pixel canvas:** apps can draw pixels (`td_canvas.h`): each cell
+  shows two, as an upper half block with two colours, so it works in
+  every terminal TinyDesk runs in and only changed cells are sent. On
+  boards with PSRAM the pixels are kept there
+  (`td_canvas_set_allocator()`). `td_rgb256_dither()` dithers pictures
+  and gradients to the 256 colours. See [Pixel canvas](api/canvas.md).
+* **Fine pictures** (Settings → Sizes → Pictures): four pixels per cell
+  with quadrant characters instead of two, twice the detail across, for
+  the Image Viewer, Pixels and any canvas (`td_canvas_fit()`,
+  `td_canvas_detail()`). Needs a font with the quadrants, such as
+  Cascadia Mono; PuTTY's default Courier New lacks them. Saved per user
+  (byte 16 of `~/.tinydesk_settings`). vtshot draws block characters as
+  rectangles in its SVG pictures.
+* **Pixels** app: an animated plasma and the palette with pictures per
+  second, to see what a terminal link can show (up to 24 full-screen
+  pictures a second at 80x25 on the ESP32-S3).
+* **Image Viewer** app: BMP (uncompressed, 1 to 32 bits per pixel), PPM
+  and PGM pictures (binary or plain text) up to 4096 x 32768 pixels,
+  scaled to fit the window and dithered to the 256 colours (D, on by
+  default), with reload (R) and open (O). Double-click a picture in Files
+  or on the desktop (icon `▓▒`). Pictures are read in 4 KB parts through the new
+  optional `td_fs_ops_t.read_at`, so they may be larger than the RAM;
+  other apps can use the decoder (`td_image_load()`, `td_image_row()`).
+  See [Using the desktop](guide/using.md#pictures-bmp-ppm-pgm).
+* **No lag in slow terminals (frame pacing):** after each frame the
+  terminal is asked `ESC[5n`, and the next frame waits for its answer, so
+  a terminal that draws slowly (PuTTY) never builds up a backlog; a key
+  in PuTTY during an animation showed after 0.1 s instead of 2-5 s
+  (`TD_ACK_TIMEOUT_MS`, `TD_EV_ACK`).
+* **No flicker after dropped frames:** frames a slow terminal could not
+  take are sent again over the picture it shows, without clearing the
+  screen; only a terminal that took nothing for 3 s (`TD_LINK_LOST_MS`)
+  is set up again and cleared. On the ESP32-C6 a write waits up to
+  150 ms (was 20 ms), so a slow terminal paces the board instead of
+  losing frames.
 
 ## 0.2.0 (2026-10-31)
 
