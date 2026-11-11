@@ -7,6 +7,55 @@ that reaches users or changes an API (see [Maintaining these docs](maintaining.m
 Versions follow [Semantic Versioning](https://semver.org/): until 1.0.0 the
 API may still change between minor versions.
 
+## 0.4.0
+
+* **Fixes:** FTP answered "550 Invalid path" to everything since 0.3.0 (its
+  session lacked the account check); the sign-in screen now follows the
+  terminal's size (started small, or maximised later).
+* **Bluetooth Classic on the ESP32 WROVER** (Bluedroid in dual mode,
+  `bt_hid_bluedroid.c`, ESP-IDF's HID host): Classic keyboards and mice such
+  as Logitech's K380 pair there, with the code they ask for shown in the
+  app; LE devices too. The WROVER image now needs an ESP32 revision 3 chip
+  (every WROVER-E/IE): without the early chips' PSRAM workaround there is
+  room for it. `td_bt_device_t` has `classic`.
+
+* **Wi-Fi access point (STA+AP)** on every ESP32 board: the board's own
+  network (`TinyDesk-XXXX`, 192.168.4.1) for Telnet, SSH and SFTP where
+  there is no other one: off, always on, or on while there is no network.
+  Its name and password (random for each board at first) are set in the
+  Network app (**Access point...**) or with TinyDesk Shell's new `wifiap`
+  command. The SSH and FTP servers start with only the access point up.
+
+* **SD card as a drive:** a card mounts by itself when inserted and unmounts
+  when pulled out (`sd.automount`, now on wherever the SD pins are set; the
+  slot's card-detect switch with `sd.cd`). The desktop shows an **SD card**
+  icon (open, eject, drop files on it), Files opens it, and accounts with
+  the Shared right use it like `/shared`. The Store can install apps on it
+  (`/sd/TinyDesk/Apps`), `tdui.Image.load()` keeps decoded pictures there
+  (`/sd/TinyDesk/cache`) so apps start faster, and drives are a port
+  interface (`td_sysinfo()->drives`, `drive_eject`).
+* **Store:** **Uninstall** (was Remove), also without a catalog (offline):
+  the installed apps are listed from `~/Apps/.store`.
+* **Bluetooth keyboards and mice** on the boards with PSRAM (Bluetooth LE;
+  `bt.enable = 1`): the **Bluetooth** app pairs a keyboard, a mouse and a
+  combo device, which then reconnect by themselves; the `bt` command does
+  the same from the shell. The interface, `td_bt_ops_t` (`td_sysinfo()->bt`),
+  and the app come from aquasock's TinyTang port (#7), so any port can fill
+  it in. The ESP32 ports use NimBLE as a central only with a HID-over-GATT
+  client of their own (about 130 KB of flash; about 40 KB of internal RAM
+  while the radio runs). USB and Bluetooth devices share one decoder
+  (`hid_input.c`), so the wheel and the Mouse and Keyboard settings work
+  for both.
+
+* **Sharp pictures without Sixel (PuTTY, the Windows console):** a `tdui`
+  picture made smaller into a canvas's pixels keeps flat colours exact (QR
+  codes, logos and text no longer get grey edges), and with half blocks it
+  is made for two pixels to a cell instead of losing every other column; it
+  is drawn again when the picture detail changes.
+* **Web terminal:** pictures stay sharp with display scaling (125 %, page
+  zoom) and when the font size changes; resizing the window in a fixed-size
+  mode asks the desktop to send its pictures again for the new cell size.
+
 ## 0.3.1
 
 * **`ssl` in the PC shell program:** 0.3.0's `tdsh_host` and

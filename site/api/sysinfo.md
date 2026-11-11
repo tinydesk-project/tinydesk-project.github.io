@@ -89,6 +89,11 @@ typedef struct {
 
     const td_mouse_ops_t *mouse;        /* NULL: no Mouse app */
     const td_keyboard_ops_t *keyboard;  /* NULL: no Keyboard app */
+
+    const td_bt_ops_t *bt;              /* NULL: no Bluetooth app or bt command */
+
+    int (*drives)(td_drive_t *out, int max);              /* NULL: no drives */
+    bool (*drive_eject)(const char *path, const char **why);
 } td_sysinfo_t;
 ```
 
@@ -122,7 +127,9 @@ typedef struct {
 | `desktop_files` | not set | not set |
 | `kiosk_app` | board key `kiosk.app`, unless `board_maintenance_start()` | environment variable `TINYDESK_KIOSK` |
 | `kiosk_splash`, `kiosk_hide_status` | board keys `kiosk.splash` and `kiosk.status = 0`, with `kiosk_app` | `TINYDESK_KIOSK_SPLASH`, `TINYDESK_KIOSK_HIDE_STATUS` set |
-| `mouse`, `keyboard` | the ESP32-S3 with `usb.host = 1` (`usb_hid.c`); not set elsewhere | not set |
+| `mouse`, `keyboard` | `hid_input.c`, while a USB host (`usb.host = 1`, ESP32-S3) or Bluetooth (`bt.enable = 1`) is on | not set |
+| `bt` | `bt_hid_start()` (`bt_hid.c`) with board key `bt.enable = 1`, on the boards with PSRAM (the C6 and the 4 MB ESP32 are built without Bluetooth) | not set |
+| `drives`, `drive_eject` | the SD card while it is mounted (`main.c`, TinyDesk Shell's hot-plug) | not set |
 
 ### Identification
 
@@ -417,6 +424,9 @@ typedef struct {
     bool (*telnet_enabled)(void);
     void (*telnet_enable)(bool on);
     const char *(*telnet_peer)(void);
+
+    bool (*ap_get)(td_wifi_ap_conf_t *out);
+    bool (*ap_set)(const td_wifi_ap_conf_t *conf);
 } td_net_ops_t;
 ```
 
@@ -435,6 +445,8 @@ Network control for the Network app and the taskbar indicator. Every call return
 | `telnet_enabled` | no | Whether remote desktop over Telnet is on. |
 | `telnet_enable` | no | Turn remote desktop over Telnet on or off. |
 | `telnet_peer` | no | Address of the connected Telnet client, or `NULL`. |
+| `ap_get` | no | The board's own access point (STA+AP): `mode` (`TD_AP_OFF`, `TD_AP_ON`, `TD_AP_AUTO`: on while there is no network), `ssid` and `password` (empty for a user who may not change it). |
+| `ap_set` | no | Save and apply those; `false`, with a message in `status()`, for a bad name (1 to 32 characters) or password (8 to 63), or when the user lacks the Network right. Both are needed for the Network app's **Access point...** button. `status()` reports it in `ap_up`, `ap_ssid`, `ap_ip` and `ap_clients`. The ESP32 ports use TinyDesk Shell's `wifiap` settings. |
 
 Which display a Telnet client gets is a [Displays](#displays) setting.
 
@@ -636,10 +648,81 @@ the screen black instead of showing the status line. The app starts after
 Sign in, for an account with `TD_RIGHT_APPS`, and not for a non-root
 account when the path is under `/root`.
 
+### Bluetooth
+
+A port that reads Bluetooth keyboards and mice sets `bt`. The table's shape
+comes from aquasock's TinyTang port ([issue
+#7](https://github.com/tinydesk-project/tinydesk/issues/7)); the Bluetooth
+app (`apps/bluetooth.c`, also his) and the `bt` command use nothing else,
+so every port that fills it in gets both. Like `td_net_ops_t`, every call
+returns at once, slow work runs in the background, and its outcome shows up
+in `status()`. The app is only registered when `bt` is set, so set it before
+`td_apps_register_all()`.
+
+Paired devices live in three slots: `TD_BT_SLOT_KEYBOARD`,
+`TD_BT_SLOT_MOUSE` and `TD_BT_SLOT_COMBO` (a keyboard and pointer in one).
+Addresses are six bytes, least significant first.
+
+```c
+typedef struct {
+    void (*status)(td_bt_status_t *out);
+    bool (*scan)(void);
+    int (*scan_results)(td_bt_device_t *out, int max);
+    bool (*pair)(int slot, const td_bt_device_t *dev);
+    bool (*disconnect)(int slot);
+    int (*paired)(td_bt_paired_t *out, int max);
+    bool (*forget)(int slot);
+    bool (*set_reconnect)(int slot, bool on);
+} td_bt_ops_t;
+```
+
+| Member | What it must do |
+|---|---|
+| `status` | Fill `*out` without blocking or starting anything (the app calls it four times a second): the radio (`TD_BT_RADIO_OFF`, `STARTING`, `UP`, `FAILED` with `enable_error`), `busy`, `job_failed` and `message` for the last operation, `scan_ms_left`, and each slot's `td_bt_slot_t`: what is connected now (`state` in words, `active`, `ready`, `addr`, `name`, `reports`) and what is paired (`paired`, `paired_addr`, `paired_name`, `reconnects`, `last`). `stack_heap` (0: not known) and `pairings` (`NULL`: not said) are optional; `wifi_exclusive` says the board cannot run Wi-Fi at the same time. |
+| `scan` | Listen for a while and collect devices; `false`, with the reason in `status().message`, when refused (busy, or too little memory to start the radio). |
+| `scan_results` | Up to `max` devices of the last scan, strongest first, or -1 while it runs. `kind`: `TD_BT_KIND_KEYBOARD` or `MOUSE` from the advertised appearance, `HID` for the HID service, `OTHER` for a device that only gave a name. |
+| `pair` | Connect the device and keep it in `slot`, replacing that slot's pairing. |
+| `disconnect` | Let go of a slot's device and stop reconnecting it; the pairing stays. |
+| `paired` | The stored pairings, one `td_bt_paired_t` per slot that has one; -1 when not known yet. |
+| `forget` | Delete a slot's pairing. |
+| `set_reconnect` | Whether a slot's device reconnects by itself (`true` also starts looking for it). |
+
+The keys and clicks of a connected device reach TinyDesk like a USB
+keyboard's and mouse's (below): the table only manages pairing.
+
+Implementation: `ports/esp_idf/app/bt_hid.c` (`bt_hid_start()`), NimBLE as
+a central only with a small HID-over-GATT client of its own, on every ESP32
+board with board key `bt.enable = 1` (see [Board
+configuration](../guide/board-config.md#bluetooth-keyboard-and-mouse)).
+Bluetooth LE only: Bluetooth Classic devices (such as Logitech's K380) are
+not found.
+
+### Drives
+
+```c
+typedef struct {
+    char label[24];        /* "SD card" */
+    char path[48];         /* its real path in fs ("/fs/sd") */
+    bool removable;
+    uint64_t total, free;  /* bytes; 0: not known */
+} td_drive_t;
+```
+
+A port with drives besides its own file system, such as an SD card, sets
+`drives`: it fills up to `max` of them, while they are there, and returns
+how many. The desktop asks every few seconds and shows an icon for each
+drive the user may open (`td_session_path_allowed()`); Files opens them,
+also outside the user's home, and leaves a drive that went away
+(`td_files_drive_gone()`). `drive_eject` (optional) lets a removable drive
+go so it can be taken out; it returns `false` with `*why` when it cannot.
+The Store installs apps on the first removable drive the user may write
+to (`<drive>/TinyDesk/Apps/<user>`).
+
 ### Mouse and keyboard
 
 A port whose board reads a mouse or keyboard itself (not through the
-terminal), such as the ESP32-S3 with a USB keyboard and mouse, sets `mouse`
+terminal), such as the ESP32-S3 with a USB keyboard and mouse, or any ESP32
+board with Bluetooth ones, sets `mouse`
 and `keyboard`. The Mouse and Keyboard apps are only registered when they
 are set, so they must be in place before `td_apps_register_all()`.
 
@@ -678,7 +761,8 @@ typedef struct {
 | `layout_name` | The name of layout `i` (`"US (English)"`, `"German"`...), `NULL` for `i` past the last. |
 
 The keys and mouse themselves reach TinyDesk as the bytes a terminal
-would send (mixed into the port's `link_read()`), so the rest of TinyDesk
+would send (the ESP32 ports mix them in ahead of the link's own bytes,
+`hal_mux.c` and `hid_input.c`), so the rest of TinyDesk
 does not know where they came from. The one difference is the Windows key,
 which arrives as `TD_MOD_SUPER` (see [input.md](input.md)). A port that
 draws no pointer of its own calls `td_wm_set_pointer(true)` while a mouse

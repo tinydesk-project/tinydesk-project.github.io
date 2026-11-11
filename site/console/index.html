@@ -41,6 +41,10 @@
     #note[hidden] { display: none; }
     #wrap { flex: 1; min-height: 0; padding: 10px; display: flex; }
     #term { flex: 1; min-width: 0; min-height: 0; overflow: auto; }   /* a grid that still does not fit scrolls here */
+    /* TinyDesk's pictures (QR codes, logos, buttons) are drawn for the cell
+     * size: keep their pixels sharp when the browser scales the layer
+     * (display scaling such as 125 %, page zoom). */
+    .xterm-image-layer { image-rendering: pixelated; image-rendering: crisp-edges; }
     .xterm { height: 100%; }
     .xterm .xterm-viewport { background: transparent !important; }
     .xterm .xterm-screen { margin: 0 auto; }            /* centre a fixed-size grid */
@@ -174,14 +178,30 @@
       }
       term.resize(want[0], want[1]);
     }
+    /* Pictures are drawn for the cell size in pixels. When that changes
+     * (another font size, or the window resized in a fixed-size mode, where
+     * the grid stays the same), ask the desktop to set up again: it asks
+     * the new cell size and sends its pictures sharp for it. */
+    var lastFont = 0, redrawSoon = 0;
+    function cellSizeChanged() {
+      var fs = term.options.fontSize;
+      if (fs === lastFont) return;
+      var first = !lastFont;
+      lastFont = fs;
+      if (first || !preset().desktop || !(writer || socket)) return;
+      clearTimeout(redrawSoon);
+      redrawSoon = setTimeout(function () { send(REDRAW); }, 300);
+    }
+    term.onResize(cellSizeChanged);
     var pending = 0;
-    window.addEventListener('resize', function () { clearTimeout(pending); pending = setTimeout(layout, 80); });
+    window.addEventListener('resize', function () { clearTimeout(pending); pending = setTimeout(function () { layout(); cellSizeChanged(); }, 80); });
     /* Bigger text: the desktop gets fewer, larger cells (it follows the
      * terminal's size), so everything on it grows and stays sharp. */
     try { var savedFont = localStorage.getItem('tdFontSize'); if (savedFont) $('font').value = savedFont; } catch (e) {}
     $('font').addEventListener('change', function () {
       try { localStorage.setItem('tdFontSize', $('font').value); } catch (e) {}
       layout();
+      cellSizeChanged();
     });
 
     /* ------------------------------------------------------------ I/O */
@@ -195,6 +215,11 @@
       var b = new Uint8Array(d.length);
       for (var i = 0; i < d.length; i++) b[i] = d.charCodeAt(i) & 255;
       send(b);
+    });
+    /* Right-click belongs to TinyDesk (its own menus): the browser's menu
+     * would open over it. Shift+right-click still gives the browser's. */
+    $('term').addEventListener('contextmenu', function (e) {
+      if (!e.shiftKey) e.preventDefault();
     });
 
     function connected(label) {
@@ -278,6 +303,13 @@
       $('baud').value = p.baud;
       $('size').value = p.size;
       layout();
+      /* The CrowPanel's desktop is its LCD; UART0 (this connection) is its
+       * keyboard and a copy of the screen only while console.uart = 0. */
+      if ($('board').value === 'desktop/crowpanel7')
+        note('Nothing shows and keys do nothing? The panel\'s <code>board.conf</code> may give UART0 to an app ' +
+             '(<code>console.uart = -1</code>, for a Modbus line). Set it to <code>0</code>, or start the panel ' +
+             'with BOOT held while you press RESET (a maintenance start) to get the keyboard back once.');
+      else if (/console\.uart/.test($('note').textContent)) note('');
       try { history.replaceState(null, '', location.search + '#' + $('board').value); } catch (e) {}
     }
     $('board').addEventListener('change', applyPreset);
@@ -308,7 +340,16 @@
 
     function start() {
       term.open($('term'));
-      /* Sixel pictures (TinyDesk's buttons and panels at full resolution). */
+      /* Sixel pictures (TinyDesk's buttons and panels at full resolution).
+       * The add-on resizes a picture when the cell size changes (font size,
+       * fit) before TinyDesk sends it again for the new size: without
+       * smoothing, so it does not go blurry in between. */
+      var getContext = HTMLCanvasElement.prototype.getContext;
+      HTMLCanvasElement.prototype.getContext = function (type, options) {
+        var ctx = getContext.call(this, type, options);
+        if (ctx && type === '2d') ctx.imageSmoothingEnabled = false;
+        return ctx;
+      };
       try { term.loadAddon(new ImageAddon.ImageAddon({ sixelScrolling: true, pixelLimit: 4194304 })); } catch (e) {}
       /* The DOM renderer works everywhere. ?renderer=webgl draws box drawing
        * and shade characters itself (faster on big screens, needs WebGL). */

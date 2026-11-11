@@ -799,6 +799,16 @@ that can show pictures:
 | Windows Terminal 1.22+, xterm `-ti vt340`, WezTerm, foot | yes (Sixel) |
 | PuTTY, the Windows console | no: the canvas's pixels show the same, made smaller |
 
+Made smaller, a picture keeps its edges: where a block of it is one or two
+flat colours (a QR code, a logo, text, a UI piece) the block takes the
+colour most of it has, so black and white stay black and white; photos and
+gradients are averaged. With half blocks (Settings, the default) a cell
+shows two pixels, one above the other, so the picture is made for that, and
+drawn again when Fine pictures (quadrants, four to a cell) is turned on or
+off. A QR code stays readable when the picture has at least one cell per
+module across and half a cell per module down in half blocks (a 21-module
+code: 21 x 11 cells or more), or 11 x 11 cells with quadrants.
+
 TinyDesk asks the terminal at every setup whether it has Sixel and how
 big its cells are in pixels, and draws the pictures to that size; a
 picture is sent once, and again only when it changes or something was

@@ -158,7 +158,9 @@ shares the W6100's bus (the `eth.*` keys), otherwise also `sd.miso`,
 | --- | --- | --- |
 | `sd.cs` | -1 | Chip select; the card needs it. |
 | `sd.miso`, `sd.mosi`, `sd.sclk`, `sd.spi_host` | the `eth.*` values | Only needed when the card is not on the Ethernet chip's bus. |
-| `sd.automount` | 0 | 1: mount the card at `/sd` at boot. |
+| `sd.automount` | 1 when the pins are set, else 0 | 1: hot-plug: the card mounts at boot and whenever one is inserted, and unmounts when it is pulled out. 0: only `sd mount`. |
+| `sd.cd` | -1 | The slot's card-detect switch (a GPIO), if the board wires it: then a card is noticed at once, without checking the card every few seconds. |
+| `sd.cd_level` | 0 | The level `sd.cd` reads with a card in (most slots pull it to 0). |
 
 ### Updates
 
@@ -215,7 +217,9 @@ on the ESP32-S3, which has the same layout).
 Read by `ports/esp_idf/app/usb_hid.c` at start-up. Only the ESP32-S3
 port has these keys; see [Using the
 desktop](using.md#usb-keyboard-and-mouse-esp32-s3) for what to plug in.
-The Mouse and Keyboard apps change all but `usb.host`.
+The Mouse and Keyboard apps change all but `usb.host`. The `usb.mouse_*`
+and `usb.kbd_*` keys apply to [Bluetooth](#bluetooth-keyboard-and-mouse)
+keyboards and mice too.
 
 | Key | Default | Meaning |
 | --- | --- | --- |
@@ -231,6 +235,23 @@ The Mouse and Keyboard apps change all but `usb.host`.
 # board set usb.host 1
 # reboot
 ```
+
+### Bluetooth keyboard and mouse
+
+Read at start-up on the boards with PSRAM: by `ports/esp_idf/app/bt_hid.c` (NimBLE, LE) on the ESP32-S3, the CrowPanel and the Nano ESP32, and by `bt_hid_bluedroid.c` (Bluedroid, Classic and LE) on the ESP32 WROVER. The ESP32-C6 and the 4 MB ESP32 are built without Bluetooth: built in, it takes 35 to 64 KB of their internal RAM even while off, which they need (they have no PSRAM).
+See [Using the desktop](using.md#bluetooth-keyboard-and-mouse) for pairing.
+
+| Key | Default | Meaning |
+| --- | --- | --- |
+| `bt.enable` | 0 | 1: Bluetooth LE keyboards and mice (the Bluetooth app, the `bt` command). The radio starts on the first scan, or at start when a paired device reconnects; it then takes about 40 KB of internal RAM (the rest in PSRAM where the board has it). 0: off, and on the classic ESP32 the Bluetooth controller's reserved memory goes back to the heap. |
+
+```text
+# board set bt.enable 1
+# reboot
+```
+
+The pointer and keyboard settings are the `usb.mouse_*` and `usb.kbd_*`
+keys above. Pairings are kept in NVS, so reflashing keeps them.
 
 ### CrowPanel 7.0
 

@@ -14,6 +14,7 @@ Examples use `$` as the prompt of any user and `#` for root. Accounts other than
 |---|---|---|---|
 | `mqtt` | `ports/common/td_proto_cmds.c` | all | any user |
 | `modbus` | `ports/common/td_proto_cmds.c` | all (RTU where the board configuration has RS-485 lines) | any user |
+| `bt` | `ports/common/td_proto_cmds.c` | ports with Bluetooth (`td_sysinfo()->bt`; the ESP32 boards with `bt.enable = 1`) | root |
 | `py` | TinyDesk Shell (`python/td_py.c`); TinyDesk's modules in `ports/common/python` | all | accounts with the Apps / Terminal right |
 | `upip` | TinyDesk Shell (`python/modules/upip.py`, run in `py`) | all | as `py` |
 | `venv`, `activate`, `deactivate`, `venvs` | TinyDesk Shell (`src/core/tdsh_venv.c`) | all | any user |
@@ -25,6 +26,7 @@ Examples use `$` as the prompt of any user and `#` for root. Accounts other than
 | `lan` | TinyDesk Shell | ESP32-C6, ESP32 (only with `eth.chip = w6100`) | the Network right |
 | `networks` | TinyDesk Shell | ESP32-C6, ESP32 | any user |
 | `wifiadd`, `wifiremove`, `wificonnect` | TinyDesk Shell | ESP32-C6, ESP32 | the Network right, with per-user networks |
+| `wifiap` | TinyDesk Shell | ESP32-C6, ESP32, ESP32-S3 | the Network right |
 | `network` | TinyDesk Shell | ESP32-C6, ESP32 | the Network right |
 | `useradd`, `userdel`, `userrole`, `userrights`, `bootuser` | TinyDesk Shell | ESP32-C6, ESP32 | see [Accounts](#accounts) |
 | `peek`, `poke` | TinyDesk Shell (regions in `tdsh_platform_espidf.c`) | ESP32-C6, ESP32, ESP32-S3 | root |
@@ -393,6 +395,31 @@ Errors: `modbus: bad port`, `modbus: bind: ...` (port in use), `modbus: count mu
 
 ---
 
+## bt
+
+Bluetooth keyboards and mice, through the same `td_bt_ops_t` as the
+Bluetooth app ([Using the desktop](../guide/using.md#bluetooth-keyboard-and-mouse)).
+A slot is `keyboard`, `mouse` or `combo`. Waiting commands stop on Ctrl+C;
+the work goes on in the background.
+
+| Command | Does |
+|---|---|
+| `bt`, `bt status` | the radio, and each slot: what is connected, what is paired |
+| `bt scan` | listen for devices in pairing mode and list them, numbered |
+| `bt pair <slot> <number>` | pair device `<number>` of the last scan into a slot |
+| `bt off <slot>`, `bt on <slot>` | stop or start using a paired device (the pairing stays) |
+| `bt forget <slot>` | delete a slot's pairing |
+
+```
+# bt scan
+Listening for devices in pairing mode...
+ 1  mouse    Logitech Pebble           -32 dBm  E5:78:4D:54:C5:B6
+1 found. Pair one: bt pair <keyboard|mouse|combo> <number>
+# bt pair mouse 1
+Pairing Logitech Pebble as the mouse...
+Logitech Pebble is ready
+```
+
 ## py
 
 MicroPython: runs a Python script (source, a precompiled `.mpy` file or a
@@ -654,12 +681,10 @@ usage: sd [status] | sd mount | sd umount | sd format --yes
 ```
 
 ```
-# sd mount
-SD card SB16G mounted at /sd.
 # sd
 SD card:   mounted at /sd
 Pins:      SPI2 MISO 18 MOSI 23 SCLK 19 CS 22, 10000 kHz
-At boot:   not mounted (board set sd.automount 1)
+Hot-plug:  on, the card is checked every few seconds
 Card:      SB16G, SDHC/SDXC
 Size:      14 GB
 Free:      14 GB
@@ -670,12 +695,20 @@ While it is mounted the card is `/sd` everywhere: in the shell (`ls /sd`,
 **Files** app as the folder `sd` at the top. Long file names work. The `sd`
 folder itself cannot be deleted or renamed in Files.
 
+- **Hot-plug** (`sd.automount`, on wherever the SD pins are set): a card
+  mounts by itself at boot and when it is inserted, and unmounts when it is
+  pulled out; with the slot's card-detect switch (`sd.cd`) at once, else
+  within a few seconds. The desktop shows an **SD card** icon meanwhile.
 - `sd mount` never formats; a card that has no FAT file system says so.
-- `sd umount` before removing the card (close files on it first).
+- `sd umount` before removing the card (close files on it first); it also
+  stops the automatic mount until the card is taken out (with `sd.cd`) or
+  `sd mount`.
 - `sd format --yes` erases the whole card and makes a new FAT file system,
   then mounts it.
-- `board set sd.automount 1` mounts the card at every boot (a missing card
-  is logged, not an error).
+- Every card gets the folder `/sd/TinyDesk`: apps the Store installs there
+  and TinyDesk's caches. The rest of the card is yours.
+- Accounts other than root use the card like `/shared`: with the Shared
+  right, anywhere on it (FAT has no owners).
 
 The mounted card uses a few KB of internal RAM (FAT buffers for up to five
 open files).
@@ -857,6 +890,47 @@ usage: wifiremove <ssid ...>
 ```
 
 Removes networks you manage. A shared network, for a user other than root: `Network 'HomeNet' is shared; only root can remove it.` Unknown: `Network 'X' not found in database.`
+
+### wifiap
+
+```
+usage:
+  wifiap [status]          the access point's state, name and password
+  wifiap on|off|auto       always, never, or when there is no network
+  wifiap name <ssid>       its network name (1 to 32 characters)
+  wifiap password <pw>     its WPA2 password (8 to 63 characters)
+```
+
+The board's own Wi-Fi network (STA+AP: it keeps joining other networks at
+the same time), so a phone or laptop can reach it with Telnet, SSH or SFTP
+where there is no other network. Clients get an address `192.168.4.x`; the
+board is `192.168.4.1`.
+
+* `off` (the default): never.
+* `on`: always.
+* `auto`: up after 20 s without a network (Wi-Fi or Ethernet), down a minute
+  after one is back and nobody is connected to it.
+
+A board gets the name `TinyDesk-XXXX` (from its MAC address) and a random
+password of its own the first time; `wifiap` shows both. The settings are
+kept in NVS and apply within a second. The access point shares the
+station's channel, so it moves when the board joins a network on another
+channel (connected clients reconnect). In `network mode lan` Wi-Fi is off,
+and so is the access point. The SSH and FTP servers start with only the
+access point up; network time, `ping` to the internet and network mounts
+still need a real network.
+
+```
+# wifiap auto
+Access point auto: TinyDesk-55A4 (it applies within a second)
+# wifiap
+Access point: up (auto)
+  name:      TinyDesk-55A4
+  password:  k7m2qwerta
+  address:   192.168.4.1, channel 1, 0 clients
+```
+
+The Network app does the same (**Access point...**).
 
 ### wificonnect
 

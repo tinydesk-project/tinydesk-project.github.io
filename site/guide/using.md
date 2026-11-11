@@ -172,6 +172,52 @@ settings right (root has it; see [Accounts](first-login.md#accounts)):
   in those that use it), the repeat delay and rate, and a text box to try
   them in. Caps Lock and Num Lock work as on a PC.
 
+## SD card
+
+A board with a card slot (the [SD card keys](board-config.md#sd-card-spi)
+set) mounts a card by itself when it is inserted: an **SD card** icon
+appears on the desktop. Double-click it to open the card in Files; drag a
+file onto it to move it there (files move between the board and the card
+by copying; folders not yet); right-click it and choose **Eject** before
+pulling the card out (that needs the System settings right). Pulling it out
+without ejecting is noticed within a few seconds, and Files leaves it.
+
+* **Room for apps:** with a card in, the Store installs apps on it
+  (**Install on the SD card**, ticked) in `/sd/TinyDesk/Apps/<user>`, with
+  their unpacked pictures and fonts. Their Start menu entries need the card.
+* **Faster apps:** pictures a `tdui` app loads at a size are kept decoded in
+  `/sd/TinyDesk/cache`, so the next start reads them back instead of
+  decoding them again (about three times as fast for a small picture).
+* Accounts other than root need the Shared right to use the card.
+
+## Bluetooth keyboard and mouse
+
+The boards with PSRAM (ESP32 WROVER, ESP32-S3, CrowPanel, Nano ESP32) can
+read Bluetooth LE keyboards and mice: turn it on with
+`bt.enable = 1` in the [board
+configuration](board-config.md#bluetooth-keyboard-and-mouse) and restart.
+The **Bluetooth** app (Start menu, or Settings → Bluetooth...) then has
+three slots, a keyboard, a mouse and a combo (keyboard and pointer in one):
+
+* **Pair...** listens for devices in pairing mode for about eight seconds
+  and lists them, its own kind first; choose one and press **Pair**. A
+  keyboard that asks for a code gets a six-digit number on the window's
+  bottom line: type it on the keyboard and press Enter.
+* A paired device **reconnects by itself** when it wakes up (also after a
+  restart). **Off** stops using it and keeps the pairing, **On** brings it
+  back, **Forget** deletes the pairing.
+* Keys and the pointer work as with a [USB keyboard and
+  mouse](#usb-keyboard-and-mouse-esp32-s3), and the Mouse and Keyboard apps
+  set them up the same way.
+* **Classic and LE:** the ESP32 WROVER also pairs Bluetooth Classic
+  keyboards and mice (Logitech's K380, for one); the other boards are LE
+  only, so a Classic-only device is not found there. Logitech's K380s and
+  Pebble mice (M350) are LE. Tested: the Pebble M350 on the ESP32-S3, the
+  K380 on the ESP32 WROVER-IE.
+
+The `bt` command does the same from the shell (`bt scan`, `bt pair mouse
+1`, `bt`): see [Commands](../shell/commands.md#bt).
+
 ## Kiosk mode
 
 A board can run one [Python `tdui` app](../shell/python.md#windows-tdui)
