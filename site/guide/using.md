@@ -218,6 +218,23 @@ three slots, a keyboard, a mouse and a combo (keyboard and pointer in one):
 The `bt` command does the same from the shell (`bt scan`, `bt pair mouse
 1`, `bt`): see [Commands](../shell/commands.md#bt).
 
+## Tested keyboards and mice
+
+Keyboards and mice the board reads itself, as tested. Over the serial or
+USB-serial link (PuTTY, the web terminal) any keyboard and mouse of the PC
+work, through the terminal.
+
+| Device | Connection | Board | Result |
+|---|---|---|---|
+| Dell wireless keyboard and mouse set (one receiver) | USB host (`usb.host = 1`) | ESP32-S3 | works: keys, pointer, wheel |
+| Logitech Pebble M350 | Bluetooth LE | ESP32-S3 | works: pointer, buttons, wheel; reconnects by itself |
+| Logitech K380 | Bluetooth Classic | ESP32 WROVER-IE | works: pairs with a code typed on it |
+| Logitech K380 | Bluetooth LE only | ESP32-S3 | not found: the K380 speaks Classic only |
+
+Tried another one? Tell us how it went in an
+[issue](https://github.com/tinydesk-project/tinydesk/issues), so it can be
+added here.
+
 ## Kiosk mode
 
 A board can run one [Python `tdui` app](../shell/python.md#windows-tdui)
