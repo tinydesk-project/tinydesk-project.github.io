@@ -115,6 +115,7 @@ struct td_widget {
     td_widget_t *target;     /* scrollbar: the list it controls */
     uint32_t last_click_ms;  /* list double-click detection */
     void *user;
+    char *full;              /* label: all of a text longer than text[] */
 };
 ```
 
@@ -143,6 +144,7 @@ Read the fields freely; change them through the functions.
 | `target` | Scrollbar: the list it controls. |
 | `last_click_ms` | List: time of the last click, for double-clicks. |
 | `user` | Pointer passed to the callbacks. |
+| `full` | Label: the whole text when it is longer than `text` holds, from the heap (freed with the widget), else `NULL`. `td_widget_text()` returns it. |
 
 ## Creating widgets
 
@@ -152,7 +154,7 @@ Read the fields freely; change them through the functions.
 td_widget_t *td_label(td_window_t *win, int x, int y, int width, const char *text);
 ```
 
-Static or dynamic text, one row high. `width <= 0` means "to the right edge" (minus that many cells). The text is copied and cut to `TD_TEXT_MAX - 1` bytes; it is also cut at the widget's width when drawn. The label fills its whole width with its background, so it erases what `on_draw` drew below it. Labels ignore the mouse. Returns the widget or `NULL`.
+Static or dynamic text, one row high. `width <= 0` means "to the right edge" (minus that many cells). The text is copied whole: up to `TD_TEXT_MAX - 1` bytes in `text`, a longer one in `full` on the heap. When it is wider than the label (trailing spaces do not count), as much as fits is drawn and the last cell shows a highlighted "…"; a click on the label then shows the whole text in a `td_msgbox()` titled like the window. The label fills its whole width with its background, so it erases what `on_draw` drew below it. Labels otherwise ignore the mouse. Returns the widget or `NULL`.
 
 ### td_button
 
@@ -302,8 +304,8 @@ td_rect_t td_widget_rect(const td_widget_t *w);
 
 | Function | Description |
 |---|---|
-| `td_widget_set_text()` | Copies `text` (`NULL` is empty) into the widget, cut to `TD_TEXT_MAX - 1` bytes. For a button the width follows the new caption; for a text box the cursor moves to the end. Always redraws. |
-| `td_widget_printf()` | Formats into a `TD_TEXT_MAX` buffer and sets the text only if it differs from the current text, so calling it on every tick costs no redraw when nothing changed. |
+| `td_widget_set_text()` | Copies `text` (`NULL` is empty) into the widget, cut to `TD_TEXT_MAX - 1` bytes; a label keeps all of it (see `full`). For a button the width follows the new caption; for a text box the cursor moves to the end. Always redraws. |
+| `td_widget_printf()` | Formats into a `TD_TEXT_MAX` buffer (for a label, a longer text goes to the heap and is kept whole) and sets the text only if it differs from the current text, so calling it on every tick costs no redraw when nothing changed. |
 | `td_widget_set_align()` | Left, centre or right alignment of a label's text within its width. Does not request a redraw by itself; set it before the text, or call `td_win_invalidate()`. |
 | `td_widget_set_color()` | Custom foreground and background: a palette index (0 to 255) or `TD_COLOR_DEFAULT` for the theme colour. Buttons still use the focus colours while focused or hovered. For a list, `fg` / `bg` colour the whole list; per-item colours come from `get_item`. |
 | `td_widget_set_visible()` | Shows or hides a widget. A hidden widget is not drawn and gets no events; if it had the focus, the focus moves to the next focusable widget. |
@@ -335,7 +337,7 @@ Shows a message with one or more buttons.
 | Parameter | Meaning |
 |---|---|
 | `title` | Title bar text. |
-| `text` | Message. `'\n'` separates lines; at most 8 lines are shown, each cut to `TD_TEXT_MAX - 1` bytes, centred. |
+| `text` | Message of any length (copied). `'\n'` starts a new line; lines word-wrap at 72 columns or the screen's width less 8, whichever is smaller, and are centred. The box grows up to the screen's height less 8; text beyond that ends in "…". |
 | `buttons` | `'|'` separated captions, for example `"OK"` or `"Save|Discard|Cancel"`. At most 4. `NULL` or `""` means `"OK"`. |
 | `fn` | `fn(button, user)` with the index of the chosen button (0 is the first), or -1 when the dialog is closed any other way: Esc, `[x]`, Ctrl+Q, or being closed by `td_win_close()` / `td_wm_close_all()` (for example on a user switch). May be `NULL`. |
 | `user` | Passed to `fn`. |
@@ -366,7 +368,7 @@ td_window_t *td_inputbox(const char *title, const char *prompt, const char *init
                          void (*fn)(const char *text, void *user), void *user);
 ```
 
-A one-line text prompt with OK and Cancel. `initial` (may be `NULL`) is the starting text, with the cursor at its end. `fn(text, user)` runs when OK is clicked or Enter is pressed, not on Cancel, Esc or `[x]`. The `text` pointer is a copy on the stack, valid only during the call; copy it if you need it later. Up to `TD_TEXT_MAX - 1` characters can be typed (47 on the ESP32 builds). Returns the dialog, or `NULL` when two input boxes are already open or the window pool is full.
+A one-line text prompt with OK and Cancel. The prompt word-wraps (and `'\n'` breaks it) over up to 4 lines in a 52-column box; a longer one's last line ends in a "…" to click. `initial` (may be `NULL`) is the starting text, with the cursor at its end. `fn(text, user)` runs when OK is clicked or Enter is pressed, not on Cancel, Esc or `[x]`. The `text` pointer is a copy on the stack, valid only during the call; copy it if you need it later. Up to `TD_TEXT_MAX - 1` characters can be typed (47 on the ESP32 builds). Returns the dialog, or `NULL` when two input boxes are already open or the window pool is full.
 
 ```c
 static void on_name(const char *text, void *user)

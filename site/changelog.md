@@ -7,6 +7,47 @@ that reaches users or changes an API (see [Maintaining these docs](maintaining.m
 Versions follow [Semantic Versioning](https://semver.org/): until 1.0.0 the
 API may still change between minor versions.
 
+## Unreleased
+
+* **Fix:** the Store on the ESP32-C6 said "The catalog could not be read":
+  it asked for 32 KB in one block to read the catalog; it now takes the
+  file's size.
+* **Store:** an app's details show who made it, its licence and where its
+  source is (the catalog's new `author`, `license` and `repo` keys; older
+  firmware ignores them).
+* **Fix: the board restarted when installing an app from the Store** on the
+  ESP32-C6 and ESP32-S3 (issue #19). The desktop's task ran out of stack on
+  the install's deepest path; it now has 8 KB on the C6 (was 5 KB) and 12 KB
+  on the Xtensa ESP32 boards (was 8 KB).
+* **Fix: "Install on the SD card"** failed with "Cannot write the file": the
+  download opened the card's desktop path without mapping it to where the
+  card is mounted (`td_fs_stdio_map()`, now public, does it).
+* **RAM on boards without PSRAM** (ESP32-C6, 4 MB ESP32): Python apps opened
+  only with Wi-Fi off, if at all. Python's heap now starts at 24 KB and
+  grows in areas as a script needs them (MicroPython's split heap), never
+  past a floor kept for the system: 20 KB with the network up (48 KB before,
+  so Wi-Fi can start) plus 12 KB for the desktop's link and windows
+  (`td_py_set_reserve()` in TinyDesk Shell). Empty areas go back. A script
+  that wants more gets `MemoryError` instead of starving Wi-Fi.
+  `py -m KB` still sets the starting size. On the C6 the Wi-Fi driver's
+  code now runs from flash (its IRAM comes out of the same RAM as the heap)
+  and it keeps at most 10 receive buffers (was 16).
+* **No more cut-off text.** Message boxes word-wrap to the screen (lines
+  were cut at 63 bytes and after 8 lines); input-box prompts wrap over up
+  to 4 lines in a wider box. A label keeps all of its text (it held 63
+  bytes, 47 on the boards), and one too narrow for it ends in a highlighted
+  **…**: click it to read the whole text. List items, window titles,
+  taskbar buttons, Start menu entries, desktop icon names and the status
+  lines of MQTT, Modbus, Task Manager, Update, Bluetooth, the sign-in
+  screen, Image Viewer and Pixels end in **…** where they are cut, and the
+  taskbar shows **»** when it has more windows than buttons. New:
+  `td_wrap_line()`, `td_textfit()`; `td_widget_text()` returns a label's
+  full text, and `td_widget_printf()` no longer cuts a label's text at
+  `TD_TEXT_MAX` (the Store's "No catalog" note was cut on the boards).
+  Offline, the Store no longer calls installed apps "Needs a newer
+  TinyDesk" or "0 KB". The Store's list and MQTT Dashboard (1.0.1) no longer shorten
+  titles, values, topics and payloads themselves.
+
 ## 0.4.0
 
 * **Fixes:** FTP answered "550 Invalid path" to everything since 0.3.0 (its

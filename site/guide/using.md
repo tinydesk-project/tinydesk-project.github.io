@@ -358,12 +358,12 @@ Both folders are made at sign-in, beside `~/Desktop`.
 
 **Start → Store** lists the apps of the
 [tinydesk-apps](https://github.com/tinydesk-project/tinydesk-apps)
-catalog: App Builder apps with their sources. Choose one to see what it is
-and whether this board can run it; **Install** downloads it into `~/Apps`,
+catalog: apps with their sources. Choose one to see what it is, who made
+it, its licence, where its source is and whether this board can run it; **Install** downloads it into `~/Apps`,
 checks it (its size and SHA-256 must match the catalog; a damaged download
 is thrown away) and adds it to your Start menu. An installed app shows
 *(installed)*, or *(update)* when the catalog has a newer version:
-**Update** replaces it. **Remove** deletes it, the folder it unpacked
+**Update** replaces it. **Uninstall** deletes it, the folder it unpacked
 into and its Start menu entry. Apps a board cannot run (they need a newer
 TinyDesk, a board with PSRAM, or native code for another CPU) are listed
 in grey with the reason, and cannot be installed. Installing and removing

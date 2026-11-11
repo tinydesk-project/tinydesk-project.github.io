@@ -184,7 +184,36 @@ Draws the NUL-terminated UTF-8 string `str` on row `y`, starting at column `x`, 
 | `max_cols` | (`td_textn` only) Maximum columns to write; `<= 0` writes nothing. |
 | `fg`, `bg`, `attr` | Colours and attributes for every cell written. |
 
-Returns the number of columns the text occupies (up to `max_cols`), counting cells that were clipped away, so the return value can be used for layout. Control characters, including `\n` and `\t`, are drawn as a single space: the functions never wrap. There is no ellipsis or padding; clear the rest of a field with `td_fill()` if needed. For the display width of a string, use `td_utf8_len()`; for a column of a fixed width, `td_utf8_pad()`.
+Returns the number of columns the text occupies (up to `max_cols`), counting cells that were clipped away, so the return value can be used for layout. Control characters, including `\n` and `\t`, are drawn as a single space: the functions never wrap. There is no ellipsis or padding (see `td_textfit()`); clear the rest of a field with `td_fill()` if needed. For the display width of a string, use `td_utf8_len()`; for a column of a fixed width, `td_utf8_pad()`.
+
+### td_textfit
+
+```c
+int td_textfit(int x, int y, const char *str, int max_cols,
+               uint8_t fg, uint8_t bg, uint8_t attr);
+```
+
+Like `td_textn()`, but when `str` is wider than `max_cols` (trailing spaces do not count) it draws `max_cols - 1` columns and then "…", so a cut is visible. Use it for status and note lines whose text may be long, such as an error message.
+
+### td_wrap_line
+
+```c
+int td_wrap_line(const char *s, int cols, const char **next);
+```
+
+Word wrap, one line at a time: returns the byte length of the first line of `s` that fits in `cols` code points and sets `*next` to where the next line starts (after a `'\n'` or the space it broke at; at the NUL when nothing is left). It breaks after a word when it can and inside a word only when the word alone is wider than `cols`. `td_msgbox()` and `td_inputbox()` wrap with it.
+
+```c
+char line[256];
+for (const char *p = text; *p && y < h; y++)
+{
+    const char *next;
+    int n = td_wrap_line(p, w - 2, &next);   /* bytes of this line */
+    snprintf(line, sizeof(line), "%.*s", n, p);
+    td_text(1, y, line, fg, bg, 0);
+    p = next;
+}
+```
 
 ### td_box
 

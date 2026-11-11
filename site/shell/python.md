@@ -27,7 +27,7 @@ Usage: `py [-m KB] [FILE [ARG...] | -c CODE [ARG...]]`
 | `py FILE [ARG...]` | Runs the script: Python source, a `.mpy` file (see [Precompiled .mpy files](#precompiled-mpy-files)) or a `.tdapp` [app package](#app-packages-tdapp). `sys.argv` is `[FILE, ARG...]`; the script's directory comes first in `sys.path`, so it can import modules next to it. |
 | `py -c CODE [ARG...]` | Runs `CODE`; `sys.argv` is `['-c', ARG...]`. |
 | `py` | The interactive prompt, with history, auto-indent and paste mode (Ctrl+E, then Ctrl+D to run). Ctrl+D or `exit()` leaves it. `help()` lists what is available. Up and Down (or Ctrl+P and Ctrl+N) recall the last 8 lines, also from earlier prompts: they are kept in `~/.py_history`, as the shell keeps its own in `~/.tdsh_history`. |
-| `-m KB` | Heap size in KB (16 to 65536) instead of the default (see [Memory](#memory)). |
+| `-m KB` | Heap size at start in KB (16 to 65536) instead of the default; it still grows as the script needs (see [Memory](#memory)). |
 
 Exit status: 0 when the script ends normally, 1 after an uncaught
 exception (the traceback is printed), 130 after Ctrl+C, and *n* after
@@ -665,7 +665,8 @@ on C6/4 MB ESP32, 32000 cells and 2097152 pixel bytes with PSRAM. These
 are C drawing budgets, separate from the Python heap. An instrument-panel example
 chooses a single 80×24 page and omits its large skin at small budgets;
 the host checks do not establish whether the full application fits the
-default 64 KB Python heap on boards without PSRAM.
+Python heap on boards without PSRAM (it grows down to the system's floor;
+see [Memory](#memory)).
 
 A canvas also has pixels: **2 x 2 to a cell** (`cv.pwidth` x `cv.pheight`
 in all), in a layer under its cells. Pictures, shapes and panels are
@@ -957,24 +958,27 @@ The interpreter's heap is allocated when `py` starts and freed when it
 ends; nothing stays allocated between scripts. MicroPython itself keeps
 under 1 KB of RAM.
 
-| Device | Default heap | From |
-|---|---|---|
-| ESP32 with PSRAM, ESP32-S3 | 512 KB | PSRAM |
-| ESP32-C6 | 64 KB | internal RAM |
-| ESP32 4 MB (no PSRAM) | 64 KB, usually less (see below) | internal RAM |
-| Windows, Linux | 1 MB | the PC's memory |
+| Device | Heap at start | Grows | From |
+|---|---|---|---|
+| ESP32 with PSRAM, ESP32-S3 | 512 KB | yes, while PSRAM lasts | PSRAM |
+| ESP32-C6, ESP32 4 MB (no PSRAM) | 24 KB | yes, down to the floor (see below) | internal RAM |
+| Windows, Linux | 1 MB | no | the PC's memory |
 
-From internal RAM `py` leaves room for the system, and takes less than
-the default when that is all there is: 48 KB while Wi-Fi and Ethernet are
-off (so the network can still start while a script runs, from the Network
-app or from the script with `tdsh.shell("wificonnect")`), 20 KB once one
-is up. With less than 16 KB to give it does not start, and prints how much
-RAM was free. On the 4 MB ESP32 the desktop leaves about 70 KB free, so a
-script gets about 21 KB before Wi-Fi and about 16 KB with Wi-Fi connected:
-enough for small scripts and plain sockets, not for TLS (`https://`,
-`wss://`). The ESP32-C6 keeps its full 64 KB either way. `heap` in the shell shows the free RAM;
-`gc.mem_free()` shows what is left inside a script, and
-`micropython.mem_info()` shows more.
+The heap grows while a script runs: when a collection does not free
+enough, another area is taken from the system's heap, and areas that
+empty go back. From internal RAM it never takes the **floor** the system
+needs: 48 KB while Wi-Fi and Ethernet are off (so the network can still
+start while a script runs, from the Network app or from the script with
+`tdsh.shell("wificonnect")`), 20 KB once one is up, plus what the
+application asks for (`td_py_set_reserve()`; the desktop asks for 12 KB
+for its link and a script's windows). A script that wants more gets
+`MemoryError`, and Wi-Fi and the desktop go on working. With less than
+16 KB above the floor `py` does not start, and prints how much RAM was
+free. `-m KB` sets the size at start. TLS (`https://`, `wss://`) needs tens
+of KB beside the heap: on these boards it may not fit with the desktop.
+`heap` in the shell shows the free RAM; `gc.mem_free()` shows what is left
+inside a script (in the areas taken so far), and `micropython.mem_info()`
+shows more.
 
 A script's frames use the shell task's stack; deep recursion ends with
 `RuntimeError: maximum recursion depth exceeded`, not a crash.

@@ -141,7 +141,7 @@ The ESP32-C6 has no PSRAM. Its internal RAM is shared with Wi-Fi, TinyDesk Shell
 1. **Allocate state while the window is open.** Put everything the window needs in one structure, `malloc` it in `launch` and `free` it in `on_close`. A closed app should cost only a few static pointers. Files, the Editor, MQTT and the Task Manager all do this.
 2. **Keep the widget count small.** Widgets come from one pool shared by every open window. Draw text that never changes (captions, column headings, hints) in `on_draw` with `td_text()` instead of creating label widgets, and use widgets only for what the user interacts with or what changes. A message box also takes widgets from the pool (one per line and button).
 3. **Handle `NULL`.** When the pool is full, widget constructors return `NULL`. All setters accept `NULL`, so the window still works, just with parts missing; do not dereference widget pointers yourself without a check.
-4. **Keep stack use low in callbacks.** Callbacks run on the UI task (5 KB stack on the C6). Put large buffers in the allocated state, not in local arrays.
+4. **Keep stack use low in callbacks.** Callbacks run on the UI task (8 KB stack on the C6, 12 KB on the other ESP32 boards; the Store's install used to overflow the old 5 KB and 8 KB). Put large buffers in the allocated state, not in local arrays.
 5. **Never block.** `on_draw`, `on_tick` and widget callbacks run on the UI loop. Slow work belongs in another task or in a non-blocking API polled from `on_tick` (as the Network, MQTT and Software Update apps do).
 6. **Use a sensible tick.** A tick timer uses one of 16 shared timers (`TD_MAX_TIMERS`). Tick only as fast as the display needs to change; 100 to 1000 ms is typical.
 
