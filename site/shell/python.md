@@ -972,8 +972,11 @@ start while a script runs, from the Network app or from the script with
 `tdsh.shell("wificonnect")`), 20 KB once one is up, plus what the
 application asks for (`td_py_set_reserve()`; the desktop asks for 12 KB
 for its link and a script's windows). A script that wants more gets
-`MemoryError`, and Wi-Fi and the desktop go on working. With less than
-16 KB above the floor `py` does not start, and prints how much RAM was
+`MemoryError`, and Wi-Fi and the desktop go on working. When keeping
+room to start the network is all that stops a script (a 4 MB ESP32 on the
+desktop), `py` keeps only the 20 KB of a running network instead and says
+`py: low RAM: Wi-Fi and Ethernet cannot be started while this script runs`.
+With less than 16 KB above the floor `py` does not start, and prints how much RAM was
 free. `-m KB` sets the size at start. TLS (`https://`, `wss://`) needs tens
 of KB beside the heap: on these boards it may not fit with the desktop.
 `heap` in the shell shows the free RAM; `gc.mem_free()` shows what is left

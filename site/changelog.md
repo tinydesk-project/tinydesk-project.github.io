@@ -7,6 +7,14 @@ that reaches users or changes an API (see [Maintaining these docs](maintaining.m
 Versions follow [Semantic Versioning](https://semver.org/): until 1.0.0 the
 API may still change between minor versions.
 
+## 0.5.1
+
+* **Fix:** on the 4 MB ESP32, `py` did not start on the desktop with the
+  network off ("not enough RAM: 59 KB free"): the room kept to start Wi-Fi
+  and the desktop's share left less than Python's 16 KB. It now runs with
+  the reserve of a running network and says Wi-Fi and Ethernet cannot be
+  started while the script runs (TinyDesk Shell).
+
 ## 0.5.0
 
 * **Fix:** the Store on the ESP32-C6 said "The catalog could not be read":
