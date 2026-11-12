@@ -7,7 +7,7 @@ that reaches users or changes an API (see [Maintaining these docs](maintaining.m
 Versions follow [Semantic Versioning](https://semver.org/): until 1.0.0 the
 API may still change between minor versions.
 
-## Unreleased
+## 0.5.0
 
 * **Fix:** the Store on the ESP32-C6 said "The catalog could not be read":
   it asked for 32 KB in one block to read the catalog; it now takes the

@@ -417,9 +417,9 @@ Notes:
 ## Version
 
 ```c
-#define TD_VERSION "0.4.0"
+#define TD_VERSION "0.5.0"
 #define TD_VERSION_MAJOR 0
-#define TD_VERSION_MINOR 4
+#define TD_VERSION_MINOR 5
 #define TD_VERSION_PATCH 0
 #define TD_REPO_URL "https://github.com/tinydesk-project/tinydesk"
 #define TD_SHELL_REPO_URL "https://github.com/tinydesk-project/tinydesk-shell"
